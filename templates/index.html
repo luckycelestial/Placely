@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Placely</title>
-    <link rel="icon" type="image/png" href="image_a8e1fff6-c31e-4be0-9ce7-2bcc16ae7329.png">
-    <link rel="stylesheet" href="css/main.css">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='image_a8e1fff6-c31e-4be0-9ce7-2bcc16ae7329.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <nav id="navbar" style="display:none;">
         <div class="logo">
-            <img src="image_a8e1fff6-c31e-4be0-9ce7-2bcc16ae7329.png" alt="Placely logo">
+            <img src="{{ url_for('static', filename='image_a8e1fff6-c31e-4be0-9ce7-2bcc16ae7329.png') }}" alt="Placely logo">
             <span>Placely</span>
         </div>
         <ul>
@@ -29,7 +29,7 @@
         <section id="login-section" class="active">
             <div class="login-box">
                 <div class="login-logo">
-                    <img src="image_a8e1fff6-c31e-4be0-9ce7-2bcc16ae7329.png" alt="Placely logo">
+                    <img src="{{ url_for('static', filename='image_a8e1fff6-c31e-4be0-9ce7-2bcc16ae7329.png') }}" alt="Placely logo">
                     <h1>Placely</h1>
                 </div>
                 <p>College Placement Cell</p>
@@ -83,6 +83,6 @@
             <div id="leaderboard-content"></div>
         </section>
     </div>
-    <script src="js/main.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
