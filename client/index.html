@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Placely</title>
+    <link rel="icon" type="image/png" href="image_a8e1fff6-c31e-4be0-9ce7-2bcc16ae7329.png">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav id="navbar" style="display:none;">
+        <div class="logo">
+            <img src="image_a8e1fff6-c31e-4be0-9ce7-2bcc16ae7329.png" alt="Placely logo">
+            <span>Placely</span>
+        </div>
+        <ul>
+            <li><a href="#" onclick="showSection('home-section'); return false;">Home</a></li>
+            <li><a href="#" onclick="showSection('dashboard-section'); return false;">Analytics</a></li>
+            <li><a href="#" onclick="showSection('reports-section'); return false;">Reports</a></li>
+            <li><a href="#" onclick="showSection('profile-section'); return false;">Profile</a></li>
+            <li><a href="#" onclick="showSection('notifications-section'); return false;">Notifications</a></li>
+            <li><a href="#" onclick="showSection('leaderboard-section'); return false;">Leaderboard</a></li>
+            <li><a href="#" id="darkmode-toggle">🌙</a></li>
+            <li><a href="#" id="logout-btn">Logout</a></li>
+        </ul>
+    </nav>
+    <div class="container">
+        <section id="login-section" class="active">
+            <div class="login-box">
+                <div class="login-logo">
+                    <img src="image_a8e1fff6-c31e-4be0-9ce7-2bcc16ae7329.png" alt="Placely logo">
+                    <h1>Placely</h1>
+                </div>
+                <p>College Placement Cell</p>
+                <form id="login-form">
+                    <div class="login-tabs">
+                        <button type="button" class="tab-btn active" onclick="switchLoginTab('student')">Student Login</button>
+                        <button type="button" class="tab-btn" onclick="switchLoginTab('staff')">Staff Login</button>
+                    </div>
+                    <div id="student-login" class="login-tab active">
+                        <input type="email" id="student-email" placeholder="College Email (e.g., name@college.edu)" required><br>
+                        <input type="password" id="student-password" placeholder="Password" required><br>
+                        <button class="btn" type="submit">Login as Student</button>
+                        <p class="note">Note: Email based login integration coming soon. Use your email for now.</p>
+                    </div>
+                    <div id="staff-login" class="login-tab">
+                        <input type="email" id="staff-email" placeholder="Staff Email" required><br>
+                        <input type="password" id="staff-password" placeholder="Password (use: staff123)" required><br>
+                        <button class="btn" type="submit">Login as Staff</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        
+        <section id="home-section">
+            <h2 id="home-title">Home</h2>
+            <div id="home-banner-container" style="margin-bottom: 2rem;"></div>
+            <div id="home-content"></div>
+        </section>
+        
+        <section id="dashboard-section">
+            <h2 id="dashboard-title"></h2>
+            <div id="charts-container" style="display: flex; flex-wrap: wrap; gap: 2rem; margin-bottom: 2rem;"></div>
+            <div id="sort-buttons"></div>
+            <div id="dashboard-content"></div>
+        </section>
+        <section id="reports-section">
+            <h2>Reports & Analytics</h2>
+            <canvas id="reports-chart" style="max-width:600px;"></canvas>
+        </section>
+        <section id="profile-section">
+            <h2>Profile</h2>
+            <div id="profile-content"></div>
+        </section>
+        <section id="notifications-section">
+            <h2>Notifications & Announcements</h2>
+            <div id="companies-container" style="margin-bottom: 2rem;"></div>
+            <div id="notifications-content"></div>
+        </section>
+        <section id="leaderboard-section">
+            <h2>Leaderboard</h2>
+            <div id="leaderboard-content"></div>
+        </section>
+    </div>
+    <script src="js/main.js"></script>
+</body>
+</html>
