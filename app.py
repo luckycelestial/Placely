@@ -101,18 +101,24 @@ def logout():
 @app.route('/auth/google')
 def google_login():
     """Initiate Google OAuth flow"""
-    flow = Flow.from_client_config(
-        client_secrets,
-        scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 
-                'https://www.googleapis.com/auth/userinfo.profile'],
-        redirect_uri=url_for('callback', _external=True)
-    )
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true'
-    )
-    session['state'] = state
-    return jsonify({'auth_url': authorization_url})
+    if not GOOGLE_OAUTH_ENABLED:
+        return jsonify({'success': False, 'message': 'Google OAuth not configured'}), 400
+    
+    try:
+        flow = Flow.from_client_config(
+            client_secrets,
+            scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 
+                    'https://www.googleapis.com/auth/userinfo.profile'],
+            redirect_uri=url_for('callback', _external=True)
+        )
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true'
+        )
+        session['state'] = state
+        return jsonify({'auth_url': authorization_url})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'OAuth error: {str(e)}'}), 400
 
 @app.route('/callback')
 def callback():
