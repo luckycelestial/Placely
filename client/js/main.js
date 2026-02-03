@@ -55,6 +55,54 @@ let currentLoginTab = 'student';
 
 const sectionIds = ['login-section', 'home-section', 'dashboard-section', 'reports-section', 'profile-section', 'notifications-section', 'leaderboard-section'];
 
+// Google Login Function
+async function loginWithGoogle() {
+  try {
+    const response = await fetch('/auth/google');
+    const data = await response.json();
+    if (data.auth_url) {
+      window.location.href = data.auth_url;
+    }
+  } catch (error) {
+    console.error('Google login error:', error);
+    alert('Failed to initiate Google login. Please try again.');
+  }
+}
+
+// Check for existing session on page load
+async function checkSession() {
+  try {
+    const response = await fetch('/api/check-session');
+    const data = await response.json();
+    if (data.logged_in) {
+      currentUser = data.user;
+      isStaff = data.is_staff;
+      initializeApp();
+      showSection('home-section');
+      renderHome();
+    }
+  } catch (error) {
+    console.error('Session check error:', error);
+  }
+}
+
+// Check URL parameters for login status
+function checkLoginStatus() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const loginStatus = urlParams.get('login');
+  const msg = urlParams.get('msg');
+  
+  if (loginStatus === 'success') {
+    checkSession(); // Reload user session after successful Google login
+    // Clean URL
+    window.history.replaceState({}, document.title, '/');
+  } else if (loginStatus === 'error') {
+    alert(msg || 'Login failed. Please try again.');
+    // Clean URL
+    window.history.replaceState({}, document.title, '/');
+  }
+}
+
 function showSection(sectionId) {
   sectionIds.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('active'); });
   const el = document.getElementById(sectionId);
@@ -132,14 +180,9 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('darkmode-toggle').addEventListener('click', function(e) { e.preventDefault(); toggleDarkMode(); });
   if (localStorage.getItem('theme') === 'light') { document.body.classList.add('light-mode'); document.getElementById('darkmode-toggle').textContent = '☀️'; }
   
-  // TEMP: Skip login and go directly to home
-  isStaff = true; // Set as staff to see all analytics
-  currentUser = null;
-  document.getElementById('login-section').style.display = 'none';
-  document.getElementById('navbar').style.display = 'flex';
-  renderSortButtons();
-  showSection('home-section');
-  renderHome();
+  // Check for login callback or existing session
+  checkLoginStatus();
+  checkSession();
 });
 
 // Dark/Light Mode Toggle

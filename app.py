@@ -1,9 +1,35 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from datetime import datetime
 import json
+import os
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from google_auth_oauthlib.flow import Flow
+import config
 
 app = Flask(__name__, static_folder='client', template_folder='templates')
-app.secret_key = 'placely-secret-key-2026'
+app.secret_key = os.environ.get('SECRET_KEY', 'placely-secret-key-2026')
+
+# Disable HTTPS requirement for local development only
+if os.environ.get('RAILWAY_ENVIRONMENT') != 'production':
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
+# Google OAuth Setup
+GOOGLE_CLIENT_ID = config.GOOGLE_CLIENT_ID
+
+# Determine base URL for OAuth redirect
+BASE_URL = os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'localhost:5000')
+REDIRECT_URI = f"https://{BASE_URL}/callback" if 'RAILWAY_PUBLIC_DOMAIN' in os.environ else "http://localhost:5000/callback"
+
+client_secrets = {
+    "web": {
+        "client_id": config.GOOGLE_CLIENT_ID,
+        "client_secret": config.GOOGLE_CLIENT_SECRET,
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "redirect_uris": [REDIRECT_URI]
+    }
+}
 
 # Data
 students = [
@@ -72,6 +98,84 @@ def logout():
     session.clear()
     return jsonify({'success': True})
 
+@app.route('/auth/google')
+def google_login():
+    """Initiate Google OAuth flow"""
+    flow = Flow.from_client_config(
+        client_secrets,
+        scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 
+                'https://www.googleapis.com/auth/userinfo.profile'],
+        redirect_uri=url_for('callback', _external=True)
+    )
+    authorization_url, state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true'
+    )
+    session['state'] = state
+    return jsonify({'auth_url': authorization_url})
+
+@app.route('/callback')
+def callback():
+    """Handle Google OAuth callback"""
+    try:
+        state = session.get('state')
+        flow = Flow.from_client_config(
+            client_secrets,
+            scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email',
+                    'https://www.googleapis.com/auth/userinfo.profile'],
+            state=state,
+            redirect_uri=url_for('callback', _external=True)
+        )
+        
+        # Fetch token using the authorization response
+        flow.fetch_token(authorization_response=request.url)
+        
+        # Get user info from Google
+        credentials = flow.credentials
+        id_info = id_token.verify_oauth2_token(
+            credentials.id_token,
+            requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+        
+        email = id_info.get('email')
+        name = id_info.get('name')
+        picture = id_info.get('picture')
+        
+        # Check if student exists with this email
+        student = next((s for s in students if s['email'].lower() == email.lower()), None)
+        
+        if student:
+            # Update student with Google profile info
+            student['google_name'] = name
+            student['google_picture'] = picture
+            session['user'] = student
+            session['is_staff'] = False
+            session['google_authenticated'] = True
+            return redirect('/?login=success')
+        else:
+            # Check if it's a college email domain
+            if email.endswith('@college.edu'):
+                return redirect('/?login=error&msg=Student not registered. Please contact admin.')
+            else:
+                return redirect('/?login=error&msg=Please use your college email.')
+                
+    except Exception as e:
+        print(f"OAuth error: {str(e)}")
+        return redirect('/?login=error&msg=Authentication failed. Please try again.')
+
+@app.route('/api/check-session')
+def check_session():
+    """Check if user is logged in"""
+    if 'user' in session:
+        return jsonify({
+            'logged_in': True,
+            'user': session['user'],
+            'is_staff': session.get('is_staff', False),
+            'google_auth': session.get('google_authenticated', False)
+        })
+    return jsonify({'logged_in': False})
+
 @app.route('/api/students')
 def get_students():
     return jsonify(students)
@@ -105,4 +209,7 @@ def get_year_analytics(year):
     return jsonify({'year': year, 'data': counts})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Use Railway's PORT environment variable, default to 5000 for local dev
+    port = int(os.environ.get('PORT', 5000))
+    # Bind to 0.0.0.0 to allow external connections (required for Railway)
+    app.run(host='0.0.0.0', port=port, debug=False)
