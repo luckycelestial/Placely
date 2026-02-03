@@ -2,10 +2,16 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 from datetime import datetime
 import json
 import os
-from google.oauth2 import id_token
-from google.auth.transport import requests
-from google_auth_oauthlib.flow import Flow
 import config
+
+# Try to import Google OAuth libraries, but don't fail if they're missing
+try:
+    from google.oauth2 import id_token
+    from google.auth.transport import requests as google_requests
+    from google_auth_oauthlib.flow import Flow
+    GOOGLE_OAUTH_AVAILABLE = True
+except ImportError:
+    GOOGLE_OAUTH_AVAILABLE = False
 
 app = Flask(__name__, static_folder='client', template_folder='templates')
 app.secret_key = os.environ.get('SECRET_KEY', 'placely-secret-key-2026')
@@ -15,21 +21,33 @@ if os.environ.get('RAILWAY_ENVIRONMENT') != 'production':
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 # Google OAuth Setup
-GOOGLE_CLIENT_ID = config.GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_ID = getattr(config, 'GOOGLE_CLIENT_ID', 'YOUR_GOOGLE_CLIENT_ID_HERE')
+GOOGLE_CLIENT_SECRET = getattr(config, 'GOOGLE_CLIENT_SECRET', 'YOUR_GOOGLE_CLIENT_SECRET_HERE')
+
+# Check if Google OAuth is properly configured
+GOOGLE_OAUTH_ENABLED = (
+    GOOGLE_OAUTH_AVAILABLE and
+    GOOGLE_CLIENT_ID != 'YOUR_GOOGLE_CLIENT_ID_HERE' and 
+    GOOGLE_CLIENT_SECRET != 'YOUR_GOOGLE_CLIENT_SECRET_HERE'
+)
 
 # Determine base URL for OAuth redirect
 BASE_URL = os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'localhost:5000')
 REDIRECT_URI = f"https://{BASE_URL}/callback" if 'RAILWAY_PUBLIC_DOMAIN' in os.environ else "http://localhost:5000/callback"
 
-client_secrets = {
-    "web": {
-        "client_id": config.GOOGLE_CLIENT_ID,
-        "client_secret": config.GOOGLE_CLIENT_SECRET,
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "redirect_uris": [REDIRECT_URI]
+# Only create client_secrets if OAuth is available
+if GOOGLE_OAUTH_ENABLED:
+    client_secrets = {
+        "web": {
+            "client_id": GOOGLE_CLIENT_ID,
+            "client_secret": GOOGLE_CLIENT_SECRET,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": [REDIRECT_URI]
+        }
     }
-}
+else:
+    client_secrets = {}
 
 # Data
 students = [
@@ -123,6 +141,9 @@ def google_login():
 @app.route('/callback')
 def callback():
     """Handle Google OAuth callback"""
+    if not GOOGLE_OAUTH_ENABLED:
+        return redirect('/?login=error&msg=Google OAuth not configured')
+    
     try:
         state = session.get('state')
         flow = Flow.from_client_config(
@@ -140,7 +161,7 @@ def callback():
         credentials = flow.credentials
         id_info = id_token.verify_oauth2_token(
             credentials.id_token,
-            requests.Request(),
+            google_requests.Request(),
             GOOGLE_CLIENT_ID
         )
         
