@@ -136,7 +136,7 @@ export default function ReportsPage() {
                     <span className="text-xs font-black group-hover:text-white transition-colors">{item.count}</span>
                   </div>
                 </div>
-                <div className="w-10 text-right text-[10px] font-black text-muted shrink-0">
+                <div className="w-12 text-right text-[10px] font-black text-muted shrink-0">
                   {item.percentage}
                 </div>
               </div>
@@ -174,7 +174,7 @@ export default function ReportsPage() {
                             style={{ width: `${item.placed}%` }}
                           />
                         </div>
-                        <span className="text-xs font-black">{item.placed}%</span>
+                        <span className="text-xs font-black shrink-0">{item.placed}%</span>
                       </div>
                     </td>
                     <td className="py-4">

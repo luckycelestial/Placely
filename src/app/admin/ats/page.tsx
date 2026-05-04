@@ -38,7 +38,7 @@ export default function ATSTrackerPage() {
     async function loadInitialData() {
       try {
         const [appsData, drivesData] = await Promise.all([
-          db.getApplications({ driveId: activeDrive }),
+          db.getApplications({ driveId: activeDrive === "All Drives" ? undefined : activeDrive }),
           db.getDrives()
         ]);
         setApplications(appsData.map((app: any) => {
