@@ -11,10 +11,14 @@ import {
   LuClock,
   LuCircleCheck,
   LuChevronRight,
-  LuPlus
+  LuPlus,
+  LuX,
+  LuLoader
 } from "react-icons/lu";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { db } from "@/services/database";
+import { cn } from "@/lib/utils";
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState({
@@ -26,6 +30,9 @@ export default function AdminDashboardPage() {
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isNewDriveModalOpen, setIsNewDriveModalOpen] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -58,13 +65,25 @@ export default function AdminDashboardPage() {
         </div>
         
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 bg-primary text-background px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
+          <button 
+            onClick={() => setIsNewDriveModalOpen(true)}
+            className="flex items-center gap-2 bg-primary text-background px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
+          >
             <LuPlus size={16} />
             New Drive
           </button>
-          <button className="flex items-center gap-2 bg-surface border border-border-subtle text-foreground px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 hidden sm:flex">
-            <LuFileText size={16} />
-            Generate Report
+          <button 
+            onClick={() => {
+              setIsGeneratingReport(true);
+              setTimeout(() => {
+                router.push('/admin/reports');
+              }, 1500);
+            }}
+            disabled={isGeneratingReport}
+            className="flex items-center gap-2 bg-surface border border-border-subtle text-foreground px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 hidden sm:flex disabled:opacity-50"
+          >
+            {isGeneratingReport ? <LuLoader size={16} className="animate-spin" /> : <LuFileText size={16} />}
+            {isGeneratingReport ? "Generating..." : "Generate Report"}
           </button>
         </div>
       </div>
@@ -220,6 +239,176 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
+      </div>
+
+      {/* New Drive Modal */}
+      {isNewDriveModalOpen && (
+        <NewDriveModal 
+          onClose={() => setIsNewDriveModalOpen(false)} 
+          onSuccess={() => {
+            setIsNewDriveModalOpen(false);
+            // Refresh stats
+            db.getDashboardStats().then(setStats);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function NewDriveModal({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [formData, setFormData] = useState({
+    companyId: "",
+    roleTitle: "",
+    driveType: "On-Campus",
+    package: "",
+    location: "Remote",
+    deadline: "",
+    eligibility: ""
+  });
+
+  useEffect(() => {
+    db.getCompanies().then(setCompanies);
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await db.createDrive(formData);
+      onSuccess();
+    } catch (error) {
+      console.error("Failed to create drive:", error);
+      alert("Failed to create drive. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-surface border border-border-subtle rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="p-6 border-b border-border-subtle flex justify-between items-center bg-background/50">
+          <div>
+            <h2 className="text-xl font-black tracking-tight">Create New Drive</h2>
+            <p className="text-xs text-muted font-medium">Set up a new recruitment cycle.</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
+            <LuX size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Company</label>
+              <select 
+                required
+                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                value={formData.companyId}
+                onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
+              >
+                <option value="">Select Company</option>
+                {companies.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Role Title</label>
+              <input 
+                required
+                type="text" 
+                placeholder="e.g. Software Engineer"
+                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                value={formData.roleTitle}
+                onChange={(e) => setFormData({ ...formData, roleTitle: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Drive Type</label>
+              <select 
+                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                value={formData.driveType}
+                onChange={(e) => setFormData({ ...formData, driveType: e.target.value })}
+              >
+                <option>On-Campus</option>
+                <option>Off-Campus</option>
+                <option>Pool Drive</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Package (CTC)</label>
+              <input 
+                required
+                type="text" 
+                placeholder="e.g. 12 LPA"
+                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                value={formData.package}
+                onChange={(e) => setFormData({ ...formData, package: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Location</label>
+              <input 
+                required
+                type="text" 
+                placeholder="e.g. Bangalore / Remote"
+                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Deadline</label>
+              <input 
+                required
+                type="date" 
+                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                value={formData.deadline}
+                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-muted">Eligibility Rules</label>
+            <textarea 
+              required
+              rows={3}
+              placeholder="e.g. CSE/IT, 7.5+ CGPA, No active backlogs"
+              className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
+              value={formData.eligibility}
+              onChange={(e) => setFormData({ ...formData, eligibility: e.target.value })}
+            />
+          </div>
+
+          <div className="pt-4 flex gap-3">
+            <button 
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl bg-surface border border-border-subtle text-sm font-bold hover:bg-black/5 transition-all"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              disabled={loading}
+              className="flex-[2] py-3 rounded-2xl bg-primary text-white text-sm font-bold shadow-tactile hover:bg-primary-dark transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loading ? <LuLoader size={18} className="animate-spin" /> : <LuPlus size={18} />}
+              Create Drive
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

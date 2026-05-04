@@ -238,6 +238,35 @@ export async function getDrives() {
   return data;
 }
 
+export async function getCompanies() {
+  const { data, error } = await supabase
+    .from('companies')
+    .select('id, name')
+    .order('name');
+  if (error) throw error;
+  return data;
+}
+
+export async function createDrive(driveData: any) {
+  const { data, error } = await supabase
+    .from('job_drives')
+    .insert([{
+      company_id: driveData.companyId,
+      role_title: driveData.roleTitle,
+      drive_type: driveData.driveType,
+      package_ctc: driveData.package,
+      location: driveData.location,
+      application_end: driveData.deadline,
+      eligibility_rules: driveData.eligibility,
+      status: 'published'
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function getApplications(options: { driveId?: string } = {}) {
   let query = supabase
     .from('applications')
@@ -469,6 +498,8 @@ export const db = {
   getApplicationStats,
   getRecentActivity,
   getDrives,
+  getCompanies,
+  createDrive,
   getApplications,
   getReportStats,
   getStudentDashboardStats,
