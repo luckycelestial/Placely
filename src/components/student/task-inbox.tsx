@@ -1,5 +1,7 @@
 import { LuClipboardList, LuCircleCheck, LuClock, LuArrowRight } from "react-icons/lu";
 import Link from "next/link";
+import { useState, useEffect } from "react";
+import { db } from "@/services/database";
 
 interface Task {
   id: string;
@@ -11,37 +13,53 @@ interface Task {
   link: string;
 }
 
-const TASKS: Task[] = [
-  {
-    id: "1",
-    title: "Upload 6th Sem Marksheet",
-    description: "Required for Google SDE application verification.",
-    dueDate: "Today",
-    priority: "high",
-    status: "pending",
-    link: "/profile",
-  },
-  {
-    id: "2",
-    title: "Complete Aptitude Mock Test",
-    description: "Preparation for upcoming Microsoft drive.",
-    dueDate: "Tomorrow",
-    priority: "medium",
-    status: "pending",
-    link: "/drives",
-  },
-  {
-    id: "3",
-    title: "Update Project Links",
-    description: "Add GitHub URLs to your profile projects.",
-    dueDate: "May 4",
-    priority: "low",
-    status: "pending",
-    link: "/profile",
-  },
-];
-
 export function TaskInbox() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadTasks() {
+      try {
+        // Using Tanmay Sen's ID for demo
+        const data = await db.getTasks("5b07cc4f-361e-4493-a412-78b6aecd0110");
+        const formatted = (data || []).map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          dueDate: t.due_date ? db.formatRelativeTime(t.due_date) : 'No Date',
+          priority: t.priority,
+          status: t.status,
+          link: t.link || '#'
+        }));
+        setTasks(formatted);
+      } catch (error) {
+        console.error("Failed to load tasks:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadTasks();
+  }, []);
+
+  const handleToggle = async (taskId: string, currentStatus: string) => {
+    try {
+      const updatedTask = await db.toggleTaskStatus(taskId, currentStatus);
+      setTasks(tasks.map(t => t.id === taskId ? { 
+        ...t, 
+        status: updatedTask.status 
+      } : t));
+    } catch (error) {
+      console.error("Failed to toggle task:", error);
+    }
+  };
+
+  if (loading) return (
+    <div className="app-card p-12 text-center">
+      <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+      <p className="text-xs font-bold text-muted mt-4 uppercase tracking-widest">Loading Missions...</p>
+    </div>
+  );
+
   return (
     <div className="app-card overflow-hidden">
       <div className="flex items-center justify-between p-6 border-b border-border-subtle bg-background/30">
@@ -56,20 +74,23 @@ export function TaskInbox() {
         </div>
         <div className="h-8 px-3 rounded-full bg-secondary/20 flex items-center gap-2">
           <div className="h-1.5 w-1.5 rounded-full bg-secondary-dark animate-pulse" />
-          <span className="text-[10px] font-black uppercase tracking-tight text-foreground">{TASKS.length} Active</span>
+          <span className="text-[10px] font-black uppercase tracking-tight text-foreground">{tasks.filter(t => t.status === 'pending').length} Active</span>
         </div>
       </div>
 
       <div className="divide-y border-border-subtle">
-        {TASKS.map((task) => (
+        {tasks.map((task) => (
           <div key={task.id} className="p-6 hover:bg-background/50 transition-all group flex items-start gap-6">
-            <div className={`mt-1 h-6 w-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-              task.status === "completed" 
-                ? "bg-primary border-primary text-white" 
-                : "border-border-subtle group-hover:border-primary"
-            }`}>
+            <button 
+              onClick={() => handleToggle(task.id, task.status)}
+              className={`mt-1 h-6 w-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                task.status === "completed" 
+                  ? "bg-primary border-primary text-white" 
+                  : "border-border-subtle group-hover:border-primary"
+              }`}
+            >
               {task.status === "completed" && <LuCircleCheck size={14} />}
-            </div>
+            </button>
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-4">
@@ -77,7 +98,7 @@ export function TaskInbox() {
                   {task.title}
                 </h4>
                 <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${
-                  task.dueDate === "Today" ? "text-primary" : "text-muted"
+                  task.dueDate.includes('now') || task.dueDate.includes('hours') ? "text-primary" : "text-muted"
                 }`}>
                   <LuClock size={12} />
                   {task.dueDate}
@@ -100,6 +121,9 @@ export function TaskInbox() {
             </div>
           </div>
         ))}
+        {tasks.length === 0 && (
+          <div className="p-12 text-center text-muted italic text-sm">All clear! No pending missions.</div>
+        )}
       </div>
       
       <div className="p-4 bg-background/50 border-t border-border-subtle text-center">
@@ -110,3 +134,4 @@ export function TaskInbox() {
     </div>
   );
 }
+

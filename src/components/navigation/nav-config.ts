@@ -7,7 +7,9 @@ import {
   LuFolderOpen,
   LuBell,
   LuAward,
-  LuActivity
+  LuActivity,
+  LuLayers,
+  LuMegaphone
 } from "react-icons/lu";
 
 export const STUDENT_NAV_ITEMS = [
@@ -50,5 +52,53 @@ export const STUDENT_NAV_ITEMS = [
     title: "Documents Center",
     href: "/documents",
     icon: LuFolderOpen,
+  },
+];
+
+export const ADMIN_NAV_ITEMS = [
+  {
+    title: "Dashboard",
+    href: "/admin/dashboard",
+    icon: LuLayoutDashboard,
+  },
+  {
+    title: "Students",
+    href: "/admin/students",
+    icon: LuUser,
+  },
+  {
+    title: "Companies & Drives",
+    href: "/admin/drives",
+    icon: LuBriefcase,
+  },
+  {
+    title: "Applications",
+    href: "/admin/applications",
+    icon: LuFileText,
+  },
+  {
+    title: "ATS Tracker",
+    href: "/admin/ats",
+    icon: LuLayers,
+  },
+  {
+    title: "Offers & Joinees",
+    href: "/admin/offers",
+    icon: LuAward,
+  },
+  {
+    title: "Reports & Analytics",
+    href: "/admin/reports",
+    icon: LuActivity,
+  },
+  {
+    title: "Notices & Events",
+    href: "/admin/notices",
+    icon: LuMegaphone,
+  },
+  {
+    title: "Settings",
+    href: "/admin/settings",
+    icon: LuSettings,
   },
 ];

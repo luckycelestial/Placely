@@ -13,9 +13,9 @@ export function Sidebar() {
       <div className="absolute top-0 left-0 h-full w-[80px] hover:w-[260px] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] border-r border-border-subtle bg-surface flex flex-col py-8 overflow-hidden shadow-sm hover:shadow-2xl group">
         
         {/* Header / Logo */}
-        <div className="mb-6 px-4 flex items-center min-w-[260px]">
+        <div className="mb-6 px-3 flex items-center min-w-[260px]">
           <Link href="/dashboard" className="flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden">
               <img src="/placely.png" alt="Placely" className="h-full w-full object-contain" />
             </div>
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">

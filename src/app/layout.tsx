@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Bricolage_Grotesque } from "next/font/google";
+import { Inter, Bricolage_Grotesque, Signika, Arya, Rubik } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -8,6 +8,10 @@ const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
   display: 'swap',
 });
+
+const signika = Signika({ subsets: ["latin"], variable: "--font-signika" });
+const arya = Arya({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-arya" });
+const rubik = Rubik({ subsets: ["latin"], variable: "--font-rubik" });
 
 export const metadata: Metadata = {
   title: "Placely | Student Portal",
@@ -20,10 +24,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${bricolage.variable}`}>
+    <html lang="en" className={`${inter.variable} ${bricolage.variable} ${signika.variable} ${arya.variable} ${rubik.variable}`}>
       <head>
-        {/* We keep the font loading via Next.js Font for optimization, 
-            but if Bricolage needs special weights, we can specify them here */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('placely-theme');
+                  if (theme === 'modern') {
+                    document.documentElement.classList.add('theme-modern');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
       </head>
       <body className="font-sans antialiased bg-[#fcfcfc] text-[#1f1f1f]">
         {children}

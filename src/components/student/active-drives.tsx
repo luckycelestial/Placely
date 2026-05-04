@@ -1,7 +1,9 @@
 import { LuBuilding2, LuMapPin, LuCalendar, LuArrowRight } from "react-icons/lu";
 import { SiGoogle, SiAtlassian } from "react-icons/si";
-import { FaMicrosoft } from "react-icons/fa";
+import { FaMicrosoft, FaBuilding } from "react-icons/fa";
 import Link from "next/link";
+import { useState, useEffect } from "react";
+import { db } from "@/services/database";
 
 interface Drive {
   id: string;
@@ -14,40 +16,55 @@ interface Drive {
   color: string;
 }
 
-const MOCK_DRIVES: Drive[] = [
-  {
-    id: "1",
-    companyName: "Google",
-    role: "Software Engineer",
-    location: "Bangalore",
-    package: "24-30 LPA",
-    deadline: "2 days left",
-    icon: SiGoogle,
-    color: "#4285F4",
-  },
-  {
-    id: "2",
-    companyName: "Microsoft",
-    role: "Cloud Associate",
-    location: "Hyderabad",
-    package: "18-22 LPA",
-    deadline: "5 days left",
-    icon: FaMicrosoft,
-    color: "#00A4EF",
-  },
-  {
-    id: "3",
-    companyName: "Atlassian",
-    role: "Product Intern",
-    location: "Remote",
-    package: "80k / month",
-    deadline: "Tomorrow",
-    icon: SiAtlassian,
-    color: "#0052CC",
-  },
-];
+const ICON_MAP: Record<string, any> = {
+  'Google': SiGoogle,
+  'Microsoft': FaMicrosoft,
+  'Atlassian': SiAtlassian,
+  'default': FaBuilding
+};
+
+const COLOR_MAP: Record<string, string> = {
+  'Google': '#4285F4',
+  'Microsoft': '#00A4EF',
+  'Atlassian': '#0052CC',
+  'default': '#6366f1'
+};
 
 export function ActiveDrives() {
+  const [drives, setDrives] = useState<Drive[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadDrives() {
+      try {
+        const data = await db.getDrives();
+        const formatted = (data || []).map((d: any) => ({
+          id: d.id,
+          companyName: d.companies?.name || 'Unknown',
+          role: d.role_title,
+          location: d.location || 'Remote',
+          package: d.package_ctc || 'N/A',
+          deadline: d.application_end ? db.formatRelativeTime(d.application_end) : 'Ongoing',
+          icon: ICON_MAP[d.companies?.name] || ICON_MAP.default,
+          color: COLOR_MAP[d.companies?.name] || COLOR_MAP.default
+        }));
+        setDrives(formatted.slice(0, 3));
+      } catch (error) {
+        console.error("Failed to load drives:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDrives();
+  }, []);
+
+  if (loading) return (
+    <div className="app-card p-12 text-center">
+      <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+      <p className="text-xs font-bold text-muted mt-4 uppercase tracking-widest">Loading Opportunities...</p>
+    </div>
+  );
+
   return (
     <div className="app-card overflow-hidden">
       <div className="flex items-center justify-between p-6 border-b border-border-subtle bg-background/30">
@@ -61,7 +78,7 @@ export function ActiveDrives() {
       </div>
 
       <div className="divide-y border-border-subtle">
-        {MOCK_DRIVES.map((drive) => {
+        {drives.map((drive) => {
           const BrandIcon = drive.icon;
           return (
             <div key={drive.id} className="p-6 transition-all hover:bg-background/50 group relative">
@@ -100,7 +117,7 @@ export function ActiveDrives() {
               </div>
               
               <div className="mt-6 flex justify-end">
-                <Link href="/applications" className="btn-primary py-2.5 px-6 text-sm group/btn">
+                <Link href="/drives" className="btn-primary py-2.5 px-6 text-sm group/btn">
                   Apply Now
                   <LuArrowRight size={18} className="transition-transform group-hover/btn:translate-x-1" />
                 </Link>
@@ -108,7 +125,11 @@ export function ActiveDrives() {
             </div>
           );
         })}
+        {drives.length === 0 && (
+          <div className="p-12 text-center text-muted italic text-sm">No active drives at the moment.</div>
+        )}
       </div>
     </div>
   );
 }
+
