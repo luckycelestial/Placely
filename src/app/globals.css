@@ -89,3 +89,36 @@
 ::-webkit-scrollbar-thumb {
   @apply rounded-full bg-border-subtle hover:bg-muted/50 transition-colors;
 }
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    padding: 0 !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .app-card {
+    box-shadow: none !important;
+    border: 1px solid #e6e6e6 !important;
+    break-inside: avoid;
+  }
+
+  main {
+    margin: 0 !important;
+    padding: 20px !important;
+    width: 100% !important;
+  }
+
+  .sidebar-container,
+  .top-nav {
+    display: none !important;
+  }
+}

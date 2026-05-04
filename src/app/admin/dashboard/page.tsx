@@ -75,9 +75,11 @@ export default function AdminDashboardPage() {
           <button 
             onClick={() => {
               setIsGeneratingReport(true);
+              // Simulate report generation process
               setTimeout(() => {
-                router.push('/admin/reports');
-              }, 1500);
+                setIsGeneratingReport(false);
+                router.push('/admin/reports?generated=true');
+              }, 2000);
             }}
             disabled={isGeneratingReport}
             className="flex items-center gap-2 bg-surface border border-border-subtle text-foreground px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 hidden sm:flex disabled:opacity-50"

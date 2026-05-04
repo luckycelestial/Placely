@@ -1,84 +1,111 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
 import { 
   LuTrendingUp, 
   LuDownload, 
   LuFilter, 
   LuCalendar, 
-  LuChartPie, 
-  LuChartColumn, 
-  LuUsers, 
+  LuTarget, 
   LuAward, 
   LuActivity, 
-  LuChevronDown, 
-  LuArrowUpRight, 
-  LuArrowDownRight,
-  LuLayers,
-  LuTarget
-} from "react-icons/lu";
-import { cn } from "@/lib/utils";
-import { db } from "@/services/database";
-
-const DEPARTMENT_PERFORMANCE = [
-  { dept: "Comp. Science", placed: 92, avgPackage: "18.5 LPA", offers: 450 },
-  { dept: "Electronics", placed: 78, avgPackage: "12.2 LPA", offers: 320 },
-  { dept: "Information Tech.", placed: 88, avgPackage: "15.8 LPA", offers: 280 },
-  { dept: "Mechanical", placed: 64, avgPackage: "8.5 LPA", offers: 150 },
-  { dept: "Electrical", placed: 72, avgPackage: "9.2 LPA", offers: 180 }
-];
-
-const FUNNEL_DATA = [
-  { stage: "Registered", count: 2400, percentage: "100%" },
-  { stage: "Profile Verified", count: 2150, percentage: "89%" },
-  { stage: "Appeared for Tests", count: 1850, percentage: "77%" },
-  { stage: "Shortlisted", count: 840, percentage: "35%" },
-  { stage: "Interviews", count: 420, percentage: "17%" },
-  { stage: "Selected", count: 310, percentage: "13%" }
-];
+  LuLoader,
+  LuChartPie,
+  LuChartBar,
+  LuArrowUpRight,
+  LuArrowDownRight
+} from 'react-icons/lu';
+import { db } from '@/services/database';
+import { cn } from '@/lib/utils';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell, Legend
+} from 'recharts';
 
 export default function ReportsPage() {
   const [batch, setBatch] = useState("2024 Batch");
+  const [stats, setStats] = useState<any>(null);
+  const [trendData, setTrendData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    placementRate: "0%",
-    avgCTC: "0 LPA",
-    totalOffers: 0,
-    atRisk: 0
-  });
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
-    async function loadStats() {
+    async function loadData() {
       try {
-        const data = await db.getReportStats();
-        setStats(data);
+        const [reportStats, trends] = await Promise.all([
+          db.getReportStats(),
+          db.getTrendData()
+        ]);
+        setStats(reportStats);
+        setTrendData(trends);
       } catch (error) {
-        console.error("Failed to load report stats:", error);
+        console.error('Error loading reports:', error);
       } finally {
         setLoading(false);
       }
     }
-    loadStats();
+    loadData();
   }, []);
 
-  const KPI_STATS = [
-    { label: "Overall Placement", value: stats.placementRate, trend: "+5.4%", trendUp: true, icon: LuTarget, color: "text-primary" },
-    { label: "Average CTC", value: stats.avgCTC, trend: "+1.2 LPA", trendUp: true, icon: LuTrendingUp, color: "text-emerald-600" },
-    { label: "Total Offers", value: stats.totalOffers.toLocaleString(), trend: "+12%", trendUp: true, icon: LuAward, color: "text-blue-600" },
-    { label: "Students at Risk", value: stats.atRisk.toString(), trend: "-8", trendUp: true, icon: LuActivity, color: "text-red-600" }
+  const handleDownloadPDF = () => {
+    setIsExporting(true);
+    // Add a slight delay to allow UI to settle before printing
+    setTimeout(() => {
+      window.print();
+      setIsExporting(false);
+    }, 1000);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <LuLoader className="animate-spin text-primary" size={40} />
+      </div>
+    );
+  }
+
+  const chartColors = {
+    primary: '#ff383c',
+    secondary: '#ffd400',
+    accent: '#4ade80',
+    muted: '#8e8e93',
+    placements: '#ff383c',
+    offers: '#ffd400',
+    drives: '#1f1f1f'
+  };
+
+  const departmentData = [
+    { name: 'CSE', placements: 85, offers: 124, avg: 12.5 },
+    { name: 'ECE', placements: 72, offers: 98, avg: 9.2 },
+    { name: 'MECH', placements: 45, offers: 56, avg: 6.8 },
+    { name: 'IT', placements: 92, offers: 110, avg: 11.4 },
+    { name: 'CIVIL', placements: 38, offers: 42, avg: 5.5 }
+  ];
+
+  const packageDistribution = [
+    { range: '3-6 LPA', count: 45 },
+    { range: '6-10 LPA', count: 82 },
+    { range: '10-15 LPA', count: 34 },
+    { range: '15-25 LPA', count: 12 },
+    { range: '25+ LPA', count: 5 }
+  ];
+
+  const distributionData = [
+    { name: 'Placed', value: parseInt(stats.placementRate) },
+    { name: 'Remaining', value: 100 - parseInt(stats.placementRate) }
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header Area */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between no-print">
         <div>
-          <h1 className="text-2xl font-black tracking-tight">Reports & Analytics</h1>
-          <p className="text-muted text-sm font-medium">Strategic insights and placement performance trends.</p>
+          <h1 className="text-4xl font-black tracking-tight mb-2">Reports & Analytics</h1>
+          <p className="text-muted font-medium">Strategic insights and placement performance trends for the 2024-25 batch.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <select 
-            className="rounded-xl border border-border-subtle bg-white px-4 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer pr-10"
+            className="rounded-xl border border-border-subtle bg-white px-4 py-2.5 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer pr-10"
             value={batch}
             onChange={(e) => setBatch(e.target.value)}
           >
@@ -86,146 +113,284 @@ export default function ReportsPage() {
             <option>2023 Batch</option>
             <option>2022 Batch</option>
           </select>
-          <button className="flex items-center gap-2 rounded-xl bg-white border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors">
-            <LuDownload size={16} />
-            Download PDF
+          <button 
+            onClick={handleDownloadPDF}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-tactile hover:scale-[1.02] transition-all disabled:opacity-70"
+          >
+            {isExporting ? <LuLoader className="animate-spin" size={18} /> : <LuDownload size={18} />}
+            <span>{isExporting ? 'Preparing...' : 'Download PDF'}</span>
           </button>
         </div>
       </div>
 
-      {/* KPI Summary */}
+      {/* Print-only Header */}
+      <div className="hidden print-only mb-8 border-b-2 border-primary pb-6">
+        <h1 className="text-3xl font-black uppercase tracking-tighter">Placely Placement Report</h1>
+        <p className="text-muted font-bold">Academic Year 2024-25 • Generated on {new Date().toLocaleDateString()}</p>
+      </div>
+
+      {/* KPI Overviews */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {KPI_STATS.map((stat) => (
-          <div key={stat.label} className="bg-white p-6 rounded-3xl border border-border-subtle shadow-soft hover:shadow-md transition-all">
-            <div className="flex items-start justify-between mb-4">
-              <div className="h-10 w-10 rounded-2xl bg-background flex items-center justify-center text-primary">
-                <stat.icon size={20} />
+        {[
+          { label: 'Overall Placement', value: stats.placementRate, trend: '+4.2%', icon: LuTarget, color: 'text-primary bg-primary/10' },
+          { label: 'Average Package', value: stats.avgCTC, trend: '+1.2L', icon: LuTrendingUp, color: 'text-emerald-600 bg-emerald-50' },
+          { label: 'Total Offers', value: stats.totalOffers, trend: '+12', icon: LuAward, color: 'text-blue-600 bg-blue-50' },
+          { label: 'Upcoming Drives', value: '18', trend: 'Next 30d', icon: LuCalendar, color: 'text-orange-600 bg-orange-50' },
+        ].map((kpi, i) => (
+          <div key={i} className="app-card p-6 flex flex-col gap-4">
+            <div className="flex items-start justify-between">
+              <div className={`p-3 rounded-2xl ${kpi.color}`}>
+                <kpi.icon size={24} />
               </div>
-              <div className={cn(
-                "flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter",
-                stat.trendUp ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"
-              )}>
-                {stat.trendUp ? <LuArrowUpRight size={10} /> : <LuArrowDownRight size={10} />}
-                {stat.trend}
+              <div className="flex items-center gap-1 text-[10px] font-black px-3 py-1 bg-green-500/10 text-green-600 rounded-full uppercase tracking-tight whitespace-nowrap">
+                <LuArrowUpRight size={10} className="shrink-0" />
+                {kpi.trend}
               </div>
             </div>
-            <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">{stat.label}</p>
-            <p className={cn("text-2xl font-black", stat.color)}>{stat.value}</p>
+            <div>
+              <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">{kpi.label}</p>
+              <h3 className="text-3xl font-black tracking-tight">{kpi.value}</h3>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Analytics Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Placement Funnel */}
-        <div className="lg:col-span-1 bg-white p-6 rounded-3xl border border-border-subtle shadow-soft flex flex-col h-full">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-sm font-black uppercase tracking-widest text-foreground/80">Placement Funnel</h3>
-            <LuLayers className="text-muted" size={16} />
-          </div>
-          <div className="space-y-3 flex-1 flex flex-col justify-between py-2">
-            {FUNNEL_DATA.map((item, idx) => (
-              <div key={item.stage} className="flex items-center gap-2">
-                <div className="flex-1">
-                  <div 
-                    className="h-10 bg-primary/5 border border-primary/10 rounded-xl flex items-center justify-between px-4 group hover:bg-primary hover:border-primary transition-all cursor-default"
-                    style={{ width: `${100 - (idx * 5)}%` }}
-                  >
-                    <span className="text-[10px] font-black uppercase tracking-widest group-hover:text-white transition-colors">{item.stage}</span>
-                    <span className="text-xs font-black group-hover:text-white transition-colors">{item.count}</span>
-                  </div>
-                </div>
-                <div className="w-12 text-right text-[10px] font-black text-muted shrink-0">
-                  {item.percentage}
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Trend Visualization */}
+        <div className="lg:col-span-2 app-card p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-xl font-black tracking-tight mb-1">Monthly Placement Trend</h3>
+              <p className="text-sm text-muted font-medium">Growth in offers and actual placements over time.</p>
+            </div>
+            <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
+                <span>Placements</span>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-secondary"></div>
+                <span>Offers</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorPlacements" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={chartColors.primary} stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor={chartColors.primary} stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorOffers" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={chartColors.secondary} stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor={chartColors.secondary} stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="month" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 11, fontWeight: 800, fill: '#8e8e93' }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 11, fontWeight: 800, fill: '#8e8e93' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '20px', 
+                    border: '1px solid #e6e6e6', 
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)',
+                    padding: '16px'
+                  }}
+                  itemStyle={{ fontSize: '11px', fontWeight: 800 }}
+                  labelStyle={{ fontSize: '12px', fontWeight: 900, marginBottom: '8px', color: '#1f1f1f' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="placements" 
+                  stroke={chartColors.primary} 
+                  strokeWidth={4}
+                  fillOpacity={1} 
+                  fill="url(#colorPlacements)" 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="offers" 
+                  stroke={chartColors.secondary} 
+                  strokeWidth={4}
+                  fillOpacity={1} 
+                  fill="url(#colorOffers)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Dept Wise Performance */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-border-subtle shadow-soft h-full">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-sm font-black uppercase tracking-widest text-foreground/80">Dept-wise Performance</h3>
-            <LuChartColumn className="text-muted" size={16} />
+        {/* Package Distribution */}
+        <div className="app-card p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-xl font-black tracking-tight mb-1">Package Distribution</h3>
+              <p className="text-sm text-muted font-medium">Offers by CTC bracket.</p>
+            </div>
+            <LuAward className="text-muted" size={20} />
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-border-subtle">
-                  <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-muted">Department</th>
-                  <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-muted">Placed %</th>
-                  <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-muted">Avg Package</th>
-                  <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-muted">Offers</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-subtle">
-                {DEPARTMENT_PERFORMANCE.map((item) => (
-                  <tr key={item.dept} className="group hover:bg-background/50 transition-colors">
-                    <td className="py-4">
-                      <p className="text-sm font-bold text-foreground/80">{item.dept}</p>
-                    </td>
-                    <td className="py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-24 h-1.5 bg-background rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-primary rounded-full" 
-                            style={{ width: `${item.placed}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-black shrink-0">{item.placed}%</span>
-                      </div>
-                    </td>
-                    <td className="py-4">
-                      <p className="text-sm font-black text-emerald-600">{item.avgPackage}</p>
-                    </td>
-                    <td className="py-4">
-                      <p className="text-sm font-bold text-muted">{item.offers}</p>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={packageDistribution}>
+                <XAxis 
+                  dataKey="range" 
+                  axisLine={false} 
+                  tickLine={false}
+                  tick={{ fontSize: 10, fontBold: 900, fill: '#8e8e93' }}
+                />
+                <YAxis hide />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                  itemStyle={{ fontSize: '11px', fontWeight: 800 }}
+                />
+                <Bar 
+                  dataKey="count" 
+                  fill={chartColors.secondary} 
+                  radius={[10, 10, 0, 0]} 
+                  barSize={30}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="p-3 bg-background rounded-xl border border-border-subtle">
+              <p className="text-[9px] font-black text-muted uppercase tracking-widest">Modal Bracket</p>
+              <p className="text-sm font-black">6-10 LPA</p>
+            </div>
+            <div className="p-3 bg-background rounded-xl border border-border-subtle">
+              <p className="text-[9px] font-black text-muted uppercase tracking-widest">Dream Offers</p>
+              <p className="text-sm font-black text-primary">17 Students</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Company Yield & Trends */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-border-subtle shadow-soft">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-sm font-black uppercase tracking-widest text-foreground/80">Top Hiring Partners</h3>
-            <LuChartPie className="text-muted" size={16} />
+        {/* Dept Wise Performance */}
+        <div className="app-card p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-xl font-black tracking-tight mb-1">Dept. Success</h3>
+              <p className="text-sm text-muted font-medium">Placement % by branch.</p>
+            </div>
+            <LuActivity className="text-muted" size={20} />
           </div>
-          <div className="space-y-4">
-            {[
-              { company: "Google", count: 12, color: "bg-blue-500" },
-              { company: "Microsoft", count: 8, color: "bg-emerald-500" },
-              { company: "Amazon", count: 15, color: "bg-orange-500" },
-              { company: "Zomato", count: 22, color: "bg-red-500" },
-              { company: "TCS", count: 45, color: "bg-purple-500" }
-            ].map((item) => (
-              <div key={item.company} className="flex items-center gap-4">
-                <div className={cn("w-2 h-2 rounded-full", item.color)} />
-                <span className="text-sm font-bold flex-1">{item.company}</span>
-                <span className="text-sm font-black">{item.count} Offers</span>
-                <div className="w-32 h-1 bg-background rounded-full overflow-hidden">
-                   <div className={cn("h-full", item.color)} style={{ width: `${(item.count/50)*100}%` }} />
-                </div>
+          
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart layout="vertical" data={departmentData} margin={{ left: -10, right: 20 }}>
+                <XAxis type="number" hide />
+                <YAxis 
+                  dataKey="name" 
+                  type="category" 
+                  axisLine={false} 
+                  tickLine={false}
+                  tick={{ fontSize: 11, fontWeight: 900, fill: '#1f1f1f' }}
+                />
+                <Tooltip 
+                  cursor={{ fill: 'transparent' }}
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                  itemStyle={{ fontSize: '11px', fontWeight: 800 }}
+                />
+                <Bar 
+                  dataKey="placements" 
+                  fill={chartColors.primary} 
+                  radius={[0, 10, 10, 0]} 
+                  barSize={20}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="mt-6 space-y-3">
+            <div className="flex items-center justify-between p-4 bg-background rounded-2xl border border-border-subtle group hover:border-primary/20 transition-all">
+              <div className="flex items-center gap-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
+                <span className="text-[10px] font-black uppercase tracking-widest">Highest</span>
               </div>
-            ))}
+              <span className="text-xs font-black">Information Technology (92%)</span>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-background rounded-2xl border border-border-subtle group hover:border-primary/20 transition-all">
+              <div className="flex items-center gap-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_8px_rgba(255,56,60,0.4)]"></div>
+                <span className="text-[10px] font-black uppercase tracking-widest">Most Volume</span>
+              </div>
+              <span className="text-xs font-black">Computer Science (124)</span>
+            </div>
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-3xl border border-dashed border-border-subtle flex flex-col items-center justify-center text-center">
-          <div className="h-16 w-16 rounded-full bg-background flex items-center justify-center text-muted mb-4">
-            <LuTrendingUp size={32} />
+        <div className="app-card p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-xl font-black tracking-tight mb-1">Placement Distribution</h3>
+              <p className="text-sm text-muted font-medium">Batch success vs. pending.</p>
+            </div>
+            <LuChartPie className="text-muted" size={20} />
           </div>
-          <h3 className="text-lg font-black tracking-tight mb-2">Detailed Trends Coming Soon</h3>
-          <p className="text-sm font-medium text-muted max-w-xs mx-auto">We are building advanced year-over-year comparison charts for strategic planning.</p>
-          <button className="mt-6 px-6 py-2.5 bg-background border border-border-subtle rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black/5 transition-all">
-            Enable Beta Access
+          <div className="flex flex-col md:flex-row items-center justify-center gap-8 h-[250px]">
+            <div className="w-full h-full max-w-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={distributionData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={95}
+                    paddingAngle={8}
+                    dataKey="value"
+                  >
+                    <Cell fill={chartColors.primary} stroke="none" />
+                    <Cell fill="#f3f4f6" stroke="none" />
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-4">
+              {distributionData.map((d, i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <div className="w-4 h-4 rounded-md" style={{ backgroundColor: i === 0 ? chartColors.primary : '#f3f4f6' }} />
+                  <div>
+                    <p className="text-[10px] font-black text-muted uppercase tracking-widest">{d.name}</p>
+                    <p className="text-lg font-black">{d.value}%</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+        <div className="bg-white p-8 rounded-3xl border-2 border-dashed border-border-subtle flex flex-col items-center justify-center text-center group hover:border-primary/20 transition-all duration-500">
+          <div className="h-20 w-20 rounded-full bg-background flex items-center justify-center text-muted mb-6 group-hover:scale-110 transition-transform duration-500">
+            <LuTrendingUp size={40} className="group-hover:text-primary transition-colors" />
+          </div>
+          <h3 className="text-2xl font-black tracking-tight mb-3">Predictive Insights</h3>
+          <p className="text-sm font-medium text-muted max-w-sm mx-auto leading-relaxed">
+            We are leveraging neural models to predict company hiring patterns for the upcoming season. 
+            <span className="block mt-2 font-black text-primary uppercase text-[10px] tracking-widest">Early Access Available Soon</span>
+          </p>
+          <button className="mt-8 px-8 py-3 bg-background border border-border-subtle rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all no-print">
+            Request Early Access
           </button>
         </div>
       </div>
