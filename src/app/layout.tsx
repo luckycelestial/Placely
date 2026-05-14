@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Bricolage_Grotesque, Signika, Arya, Rubik } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -18,6 +19,8 @@ export const metadata: Metadata = {
   description: "Manage your placement journey with ease.",
 };
 
+import { Toaster } from "sonner";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,23 +29,22 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${bricolage.variable} ${signika.variable} ${arya.variable} ${rubik.variable}`}>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var theme = localStorage.getItem('placely-theme');
-                  if (theme === 'modern') {
-                    document.documentElement.classList.add('theme-modern');
-                  }
-                } catch (e) {}
-              })();
-            `,
-          }}
-        />
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`
+            (function() {
+              try {
+                var theme = localStorage.getItem('placely-theme');
+                if (theme === 'modern') {
+                  document.documentElement.classList.add('theme-modern');
+                }
+              } catch (e) {}
+            })();
+          `}
+        </Script>
       </head>
-      <body className="font-sans antialiased bg-[#fcfcfc] text-[#1f1f1f]">
+      <body className="font-sans antialiased">
         {children}
+        <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   );

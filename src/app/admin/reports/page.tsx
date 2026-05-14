@@ -4,28 +4,39 @@ import { useState, useEffect } from 'react';
 import { 
   LuTrendingUp, 
   LuDownload, 
-  LuFilter, 
-  LuCalendar, 
   LuTarget, 
   LuAward, 
   LuActivity, 
   LuLoader,
   LuChartPie,
-  LuChartBar,
   LuArrowUpRight,
-  LuArrowDownRight
+  LuLayers,
+  LuBuilding2
 } from 'react-icons/lu';
 import { db } from '@/services/database';
 import { cn } from '@/lib/utils';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell, Legend
+  BarChart, Bar, PieChart, Pie, Cell
 } from 'recharts';
+
+interface ReportStats {
+  placementRate: string;
+  avgCTC: string;
+  totalOffers: string | number;
+  atRisk?: string | number;
+}
+
+interface TrendPoint {
+  month: string;
+  placements: number;
+  offers: number;
+}
 
 export default function ReportsPage() {
   const [batch, setBatch] = useState("2024 Batch");
-  const [stats, setStats] = useState<any>(null);
-  const [trendData, setTrendData] = useState<any[]>([]);
+  const [stats, setStats] = useState<ReportStats | null>(null);
+  const [trendData, setTrendData] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -75,11 +86,16 @@ export default function ReportsPage() {
   };
 
   const departmentData = [
+    { name: 'AI&DS', placements: 65, offers: 90, avg: 14.5 },
+    { name: 'AI&ML', placements: 60, offers: 85, avg: 14.0 },
     { name: 'CSE', placements: 85, offers: 124, avg: 12.5 },
+    { name: 'CYS', placements: 55, offers: 75, avg: 11.8 },
+    { name: 'CSBS', placements: 50, offers: 70, avg: 11.0 },
+    { name: 'CCE', placements: 48, offers: 65, avg: 10.5 },
     { name: 'ECE', placements: 72, offers: 98, avg: 9.2 },
+    { name: 'EEE', placements: 60, offers: 80, avg: 8.5 },
     { name: 'MECH', placements: 45, offers: 56, avg: 6.8 },
-    { name: 'IT', placements: 92, offers: 110, avg: 11.4 },
-    { name: 'CIVIL', placements: 38, offers: 42, avg: 5.5 }
+    { name: 'IT', placements: 80, offers: 110, avg: 12.0 }
   ];
 
   const packageDistribution = [
@@ -91,8 +107,24 @@ export default function ReportsPage() {
   ];
 
   const distributionData = [
-    { name: 'Placed', value: parseInt(stats.placementRate) },
-    { name: 'Remaining', value: 100 - parseInt(stats.placementRate) }
+    { name: 'Placed', value: parseInt(stats?.placementRate || '0') },
+    { name: 'Remaining', value: 100 - parseInt(stats?.placementRate || '0') }
+  ];
+
+  const funnelData = [
+    { stage: 'Eligible', count: 542, percentage: '100%', color: 'bg-primary/5' },
+    { stage: 'Applied', count: 486, percentage: '89.6%', color: 'bg-primary/10' },
+    { stage: 'Shortlisted', count: 312, percentage: '64.2%', color: 'bg-primary/20' },
+    { stage: 'Interviewed', count: 156, percentage: '50%', color: 'bg-primary/30' },
+    { stage: 'Offered', count: 124, percentage: '79.4%', color: 'bg-primary/40' }
+  ];
+
+  const topCompanies = [
+    { name: "Google", count: 12, color: "bg-blue-500", avgPackage: "24.5 LPA" },
+    { name: "Microsoft", count: 8, color: "bg-emerald-500", avgPackage: "18.2 LPA" },
+    { name: "Amazon", count: 15, color: "bg-orange-500", avgPackage: "32.0 LPA" },
+    { name: "Zomato", count: 22, color: "bg-red-500", avgPackage: "14.5 LPA" },
+    { name: "TCS", count: 45, color: "bg-purple-500", avgPackage: "7.2 LPA" }
   ];
 
   return (
@@ -133,10 +165,10 @@ export default function ReportsPage() {
       {/* KPI Overviews */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Overall Placement', value: stats.placementRate, trend: '+4.2%', icon: LuTarget, color: 'text-primary bg-primary/10' },
-          { label: 'Average Package', value: stats.avgCTC, trend: '+1.2L', icon: LuTrendingUp, color: 'text-emerald-600 bg-emerald-50' },
-          { label: 'Total Offers', value: stats.totalOffers, trend: '+12', icon: LuAward, color: 'text-blue-600 bg-blue-50' },
-          { label: 'Upcoming Drives', value: '18', trend: 'Next 30d', icon: LuCalendar, color: 'text-orange-600 bg-orange-50' },
+          { label: 'Overall Placement', value: stats?.placementRate || '0%', trend: '+4.2%', icon: LuTarget, color: 'text-primary bg-primary/10' },
+          { label: 'Average Package', value: stats?.avgCTC || '0 LPA', trend: '+1.2L', icon: LuTrendingUp, color: 'text-emerald-600 bg-emerald-50' },
+          { label: 'Total Offers', value: stats?.totalOffers || '0', trend: '+12', icon: LuAward, color: 'text-blue-600 bg-blue-50' },
+          { label: 'At-Risk Students', value: stats?.atRisk || '0', trend: '-2', icon: LuActivity, color: 'text-orange-600 bg-orange-50' },
         ].map((kpi, i) => (
           <div key={i} className="app-card p-6 flex flex-col gap-4">
             <div className="flex items-start justify-between">
@@ -250,7 +282,7 @@ export default function ReportsPage() {
                   dataKey="range" 
                   axisLine={false} 
                   tickLine={false}
-                  tick={{ fontSize: 10, fontBold: 900, fill: '#8e8e93' }}
+                  tick={{ fontSize: 10, fontWeight: 900, fill: '#8e8e93' }}
                 />
                 <YAxis hide />
                 <Tooltip 
@@ -279,10 +311,9 @@ export default function ReportsPage() {
             </div>
           </div>
         </div>
-      </div>
 
         {/* Dept Wise Performance */}
-        <div className="app-card p-8">
+        <div className="app-card p-8 lg:col-span-2">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-xl font-black tracking-tight mb-1">Dept. Success</h3>
@@ -323,18 +354,19 @@ export default function ReportsPage() {
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
                 <span className="text-[10px] font-black uppercase tracking-widest">Highest</span>
               </div>
-              <span className="text-xs font-black">Information Technology (92%)</span>
+              <span className="text-xs font-black">AI&DS (92%)</span>
             </div>
             <div className="flex items-center justify-between p-4 bg-background rounded-2xl border border-border-subtle group hover:border-primary/20 transition-all">
               <div className="flex items-center gap-3">
                 <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_8px_rgba(255,56,60,0.4)]"></div>
                 <span className="text-[10px] font-black uppercase tracking-widest">Most Volume</span>
               </div>
-              <span className="text-xs font-black">Computer Science (124)</span>
+              <span className="text-xs font-black">CSE (124)</span>
             </div>
           </div>
         </div>
 
+        {/* Placement Distribution */}
         <div className="app-card p-8">
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -343,16 +375,16 @@ export default function ReportsPage() {
             </div>
             <LuChartPie className="text-muted" size={20} />
           </div>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-8 h-[250px]">
-            <div className="w-full h-full max-w-[250px]">
+          <div className="flex flex-col items-center justify-center gap-6">
+            <div className="w-full h-[180px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={distributionData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={70}
-                    outerRadius={95}
+                    innerRadius={60}
+                    outerRadius={85}
                     paddingAngle={8}
                     dataKey="value"
                   >
@@ -365,13 +397,13 @@ export default function ReportsPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 w-full">
               {distributionData.map((d, i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <div className="w-4 h-4 rounded-md" style={{ backgroundColor: i === 0 ? chartColors.primary : '#f3f4f6' }} />
+                <div key={i} className="flex items-center gap-3 p-3 bg-background rounded-2xl border border-border-subtle">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: i === 0 ? chartColors.primary : '#f3f4f6' }} />
                   <div>
-                    <p className="text-[10px] font-black text-muted uppercase tracking-widest">{d.name}</p>
-                    <p className="text-lg font-black">{d.value}%</p>
+                    <p className="text-[9px] font-black text-muted uppercase tracking-widest">{d.name}</p>
+                    <p className="text-sm font-black">{d.value}%</p>
                   </div>
                 </div>
               ))}
@@ -380,20 +412,89 @@ export default function ReportsPage() {
         </div>
       </div>
 
-        <div className="bg-white p-8 rounded-3xl border-2 border-dashed border-border-subtle flex flex-col items-center justify-center text-center group hover:border-primary/20 transition-all duration-500">
-          <div className="h-20 w-20 rounded-full bg-background flex items-center justify-center text-muted mb-6 group-hover:scale-110 transition-transform duration-500">
-            <LuTrendingUp size={40} className="group-hover:text-primary transition-colors" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Placement Funnel */}
+        <div className="app-card p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-xl font-black tracking-tight mb-1">Placement Funnel</h3>
+              <p className="text-sm text-muted font-medium">Conversion from eligibility to final offer.</p>
+            </div>
+            <LuLayers className="text-muted" size={20} />
           </div>
-          <h3 className="text-2xl font-black tracking-tight mb-3">Predictive Insights</h3>
-          <p className="text-sm font-medium text-muted max-w-sm mx-auto leading-relaxed">
-            We are leveraging neural models to predict company hiring patterns for the upcoming season. 
-            <span className="block mt-2 font-black text-primary uppercase text-[10px] tracking-widest">Early Access Available Soon</span>
-          </p>
-          <button className="mt-8 px-8 py-3 bg-background border border-border-subtle rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all no-print">
-            Request Early Access
-          </button>
+          <div className="space-y-4">
+            {funnelData.map((item, idx) => (
+              <div key={item.stage} className="flex items-center gap-4">
+                <div className="flex-1">
+                  <div 
+                    className={cn(
+                      "h-12 border border-border-subtle rounded-2xl flex items-center justify-between px-6 group hover:border-primary/30 transition-all cursor-default",
+                      item.color
+                    )}
+                    style={{ width: `${100 - (idx * 5)}%` }}
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-widest text-foreground/70">{item.stage}</span>
+                    <span className="text-sm font-black">{item.count}</span>
+                  </div>
+                </div>
+                <div className="w-12 text-right text-[10px] font-black text-muted shrink-0 uppercase tracking-tighter">
+                  {item.percentage}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* Top Hiring Partners */}
+        <div className="app-card p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-xl font-black tracking-tight mb-1">Top Hiring Partners</h3>
+              <p className="text-sm text-muted font-medium">Companies with highest recruitment volume.</p>
+            </div>
+            <LuBuilding2 className="text-muted" size={20} />
+          </div>
+          <div className="space-y-4">
+            {topCompanies.map((item) => (
+              <div key={item.name} className="flex items-center gap-4 group">
+                <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center font-black text-white text-xs shadow-sm", item.color)}>
+                  {item.name[0]}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-black tracking-tight">{item.name}</span>
+                    <span className="text-xs font-black text-primary uppercase tracking-widest">{item.count} Offers</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden border border-border-subtle/30">
+                      <div 
+                        className={cn("h-full transition-all duration-1000", item.color)} 
+                        style={{ width: `${(item.count/50)*100}%` }} 
+                      />
+                    </div>
+                    <span className="text-[10px] font-black text-muted w-16 text-right uppercase tracking-tighter">{item.avgPackage}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-8 rounded-3xl border-2 border-dashed border-border-subtle flex flex-col items-center justify-center text-center group hover:border-primary/20 transition-all duration-500">
+        <div className="h-20 w-20 rounded-full bg-background flex items-center justify-center text-muted mb-6 group-hover:scale-110 transition-transform duration-500">
+          <LuTrendingUp size={40} className="group-hover:text-primary transition-colors" />
+        </div>
+        <h3 className="text-2xl font-black tracking-tight mb-3">Predictive Insights</h3>
+        <p className="text-sm font-medium text-muted max-w-sm mx-auto leading-relaxed">
+          We are leveraging neural models to predict company hiring patterns for the upcoming season. 
+          <span className="block mt-2 font-black text-primary uppercase text-[10px] tracking-widest">Early Access Available Soon</span>
+        </p>
+        <button className="mt-8 px-8 py-3 bg-background border border-border-subtle rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all no-print">
+          Request Early Access
+        </button>
       </div>
     </div>
   );
 }
+

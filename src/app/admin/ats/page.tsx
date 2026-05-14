@@ -2,17 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { 
-  LuSearch, 
-  LuFilter, 
   LuGripVertical, 
   LuMessageSquare, 
-  LuCircleCheck, 
-  LuCircleX, 
   LuClock, 
   LuArrowRight,
   LuHistory,
-  LuLayers,
-  LuChevronRight,
   LuBuilding2
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
@@ -27,11 +21,22 @@ const STAGES = [
   { id: "selection", name: "Selection", color: "bg-emerald-500" }
 ];
 
+interface Application {
+  id: string;
+  name: string;
+  regNo: string;
+  company: string;
+  role: string;
+  stage: string;
+  updated: string;
+  avatar: string;
+}
+
 export default function ATSTrackerPage() {
   const [activeDrive, setActiveDrive] = useState("All Drives");
-  const [search, setSearch] = useState("");
-  const [applications, setApplications] = useState<any[]>([]);
-  const [drives, setDrives] = useState<any[]>([]);
+  const [search] = useState("");
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [drives, setDrives] = useState<{ id: string; companies: { name: string }; role_title: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,7 +46,7 @@ export default function ATSTrackerPage() {
           db.getApplications({ driveId: activeDrive === "All Drives" ? undefined : activeDrive }),
           db.getDrives()
         ]);
-        setApplications(appsData.map((app: any) => {
+        setApplications(appsData.map((app: { id: string; updated_at: string; current_stage: string; students: unknown; job_drives: unknown }) => {
           const student = Array.isArray(app.students) ? app.students[0] : app.students;
           const user = Array.isArray(student?.users) ? student.users[0] : student?.users;
           const drive = Array.isArray(app.job_drives) ? app.job_drives[0] : app.job_drives;
@@ -55,7 +60,7 @@ export default function ATSTrackerPage() {
             role: drive?.role_title || "N/A",
             stage: app.current_stage || "applied",
             updated: db.formatRelativeTime(app.updated_at),
-            avatar: (user?.name || "U").split(' ').map((n: any) => n[0]).join('').toUpperCase().substring(0, 2)
+            avatar: (user?.name || "U").split(' ').map((n: { [key: number]: string }) => n[0]).join('').toUpperCase().substring(0, 2)
           };
         }));
         setDrives(drivesData);
@@ -84,7 +89,7 @@ export default function ATSTrackerPage() {
         </div>
         <div className="flex items-center gap-2">
           <select 
-            className="rounded-xl border border-border-subtle bg-white px-4 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer pr-10"
+            className="rounded-xl border border-border-subtle bg-surface px-4 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer pr-10"
             value={activeDrive}
             onChange={(e) => setActiveDrive(e.target.value)}
           >
@@ -93,7 +98,7 @@ export default function ATSTrackerPage() {
               <option key={drive.id} value={drive.id}>{drive.companies?.name} - {drive.role_title}</option>
             ))}
           </select>
-          <button className="flex items-center gap-2 rounded-xl bg-white border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors">
+          <button className="flex items-center gap-2 rounded-xl bg-surface border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors">
             <LuHistory size={16} />
             History
           </button>
@@ -128,7 +133,7 @@ export default function ATSTrackerPage() {
                     stageApps.map((candidate) => (
                       <div 
                         key={candidate.id} 
-                        className="bg-white p-4 rounded-2xl border border-border-subtle shadow-sm hover:shadow-md hover:border-primary/20 transition-all cursor-grab active:cursor-grabbing group"
+                        className="bg-surface p-4 rounded-2xl border border-border-subtle shadow-sm hover:shadow-md hover:border-primary/20 transition-all cursor-grab active:cursor-grabbing group"
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3">

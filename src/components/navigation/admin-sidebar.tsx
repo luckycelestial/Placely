@@ -9,7 +9,7 @@ export function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden h-screen w-[80px] flex-col md:flex sticky top-0 z-50 shrink-0">
+    <aside className="hidden h-screen w-[80px] flex-col md:flex sticky top-0 z-50 shrink-0 relative">
       <div className="absolute top-0 left-0 h-full w-[80px] hover:w-[260px] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] border-r border-border-subtle bg-surface flex flex-col py-8 overflow-hidden shadow-sm hover:shadow-2xl group">
         
         {/* Header / Logo */}

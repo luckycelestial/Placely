@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { 
-  LuFolderOpen, 
   LuFileText, 
   LuLink, 
-  LuUpload, 
   LuCircleCheck, 
   LuCircleAlert,
   LuClock,
@@ -99,7 +97,7 @@ export default function DocumentsCenterPage() {
   const progress = Math.round((completionStats.completedRequired / completionStats.required) * 100);
 
   return (
-    <div className="space-y-12 py-10 px-4 max-w-[1400px] mx-auto min-h-screen">
+    <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto min-h-screen">
       {/* Header */}
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
@@ -141,7 +139,7 @@ export default function DocumentsCenterPage() {
           {["All", "Required", "Optional"].map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab as any)}
+              onClick={() => setActiveTab(tab as "All" | "Required" | "Optional")}
               className={`px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                 activeTab === tab 
                   ? "bg-foreground text-white shadow-tactile scale-105" 
@@ -235,7 +233,7 @@ export default function DocumentsCenterPage() {
                </p>
              </div>
            </div>
-           <button className="btn-secondary bg-white border-none shadow-xl px-8 h-14 text-[10px] uppercase tracking-widest">
+           <button className="btn-secondary bg-surface border-none shadow-xl px-8 h-14 text-[10px] uppercase tracking-widest">
              Review Verification Rules
            </button>
         </div>

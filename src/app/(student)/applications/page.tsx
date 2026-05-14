@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   LuFileText, 
   LuClock, 
@@ -9,82 +9,16 @@ import {
   LuArrowRight,
   LuSearch,
   LuCircleAlert,
-  LuFilter
+  LuBuilding2
 } from "react-icons/lu";
-import { 
-  SiMeta, 
-  SiNetflix 
-} from "react-icons/si";
-import { FaAmazon } from "react-icons/fa";
 
 import Link from "next/link";
+import { db } from "@/services/database";
+import { cn } from "@/lib/utils";
 
-interface Application {
-  id: string;
-  companyName: string;
-  role: string;
-  appliedDate: string;
-  status: "Applied" | "In Review" | "Shortlisted" | "Rejected" | "Offered";
-  icon: any;
-  color: string;
-  nextStep?: string;
-  deadline?: string;
-}
 
-const APPLICATIONS: Application[] = [
-  {
-    id: "1",
-    companyName: "Amazon",
-    role: "SDE-1",
-    appliedDate: "2 days ago",
-    status: "In Review",
-    icon: FaAmazon,
-    color: "#FF9900",
-    nextStep: "Technical Interview",
-    deadline: "May 5, 10:00 AM",
-  },
-  {
-    id: "2",
-    companyName: "Meta",
-    role: "Product Designer",
-    appliedDate: "5 days ago",
-    status: "Shortlisted",
-    icon: SiMeta,
-    color: "#0668E1",
-    nextStep: "Portfolio Review",
-    deadline: "Tomorrow",
-  },
-  {
-    id: "3",
-    companyName: "Netflix",
-    role: "UI Engineer",
-    appliedDate: "1 week ago",
-    status: "Applied",
-    icon: SiNetflix,
-    color: "#E50914",
-  },
-  {
-    id: "4",
-    companyName: "Google",
-    role: "Frontend Intern",
-    appliedDate: "2 weeks ago",
-    status: "Rejected",
-    icon: LuFileText,
-    color: "#4285F4",
-  },
-  {
-    id: "5",
-    companyName: "Microsoft",
-    role: "Cloud Associate",
-    appliedDate: "3 weeks ago",
-    status: "Offered",
-    icon: LuFileText,
-    color: "#00A4EF",
-    nextStep: "Offer Letter",
-  },
-];
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { color: string; icon: any }> = {
   "Applied": { color: "bg-blue-100 text-blue-600", icon: LuClock },
   "In Review": { color: "bg-yellow-100 text-yellow-600", icon: LuClock },
   "Shortlisted": { color: "bg-purple-100 text-purple-600", icon: LuCircleCheck },
@@ -95,8 +29,41 @@ const STATUS_CONFIG = {
 export default function ApplicationsPage() {
   const [activeTab, setActiveTab] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [applications, setApplications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredApps = APPLICATIONS.filter(app => {
+  useEffect(() => {
+    loadApplications();
+  }, []);
+
+  const loadApplications = async () => {
+    setLoading(true);
+    try {
+      // Mock student ID for now
+      const STUDENT_ID = "550e8400-e29b-41d4-a716-446655440000";
+      const data = await db.getStudentApplications(STUDENT_ID);
+      
+      const formatted = data.map((app: any) => ({
+        id: app.id,
+        companyName: app.job_drives?.companies?.name || "Unknown",
+        companyLogo: app.job_drives?.companies?.logo_url,
+        companyTheme: app.job_drives?.companies?.theme_color,
+        role: app.job_drives?.role_title || "Unknown",
+        appliedDate: new Date(app.applied_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        status: app.status || "Applied",
+        nextStep: app.current_stage !== 'applied' ? app.current_stage : undefined,
+        deadline: app.job_drives?.application_end
+      }));
+
+      setApplications(formatted);
+    } catch (err) {
+      console.error("Failed to load applications", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredApps = applications.filter(app => {
     const matchesSearch = app.companyName.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          app.role.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTab = activeTab === "All" || app.status === activeTab;
@@ -104,7 +71,7 @@ export default function ApplicationsPage() {
   });
 
   return (
-    <div className="space-y-12 py-10 px-4 max-w-[1400px] mx-auto">
+    <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto">
       {/* Header Section */}
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
@@ -121,7 +88,7 @@ export default function ApplicationsPage() {
 
       {/* Deadline Reminders */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {APPLICATIONS.filter(app => app.deadline).slice(0, 3).map((app, i) => (
+        {applications.filter(app => app.deadline).slice(0, 3).map((app, i) => (
           <Link href="/progress" key={i} className="app-card p-6 bg-primary/5 border-primary/20 flex items-start gap-4 hover:border-primary transition-all group">
             <div className="h-10 w-10 rounded-xl bg-primary text-white flex items-center justify-center flex-shrink-0 shadow-tactile group-hover:scale-110 transition-transform">
               <LuCircleAlert size={20} />
@@ -178,10 +145,13 @@ export default function ApplicationsPage() {
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
                   <div className="flex items-center gap-8 flex-1 min-w-0">
                     <div 
-                      className="h-20 w-20 rounded-3xl bg-surface border border-border-subtle flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:border-primary/20 transition-all shadow-sm"
-                      style={{ color: app.color }}
+                      className="h-20 w-20 rounded-3xl bg-surface border border-border-subtle flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:border-primary/20 transition-all shadow-sm p-4 overflow-hidden"
                     >
-                      <Icon size={32} />
+                      {app.companyLogo?.startsWith('http') ? (
+                        <img src={app.companyLogo} alt="" className="h-full w-full object-contain" />
+                      ) : (
+                        <LuBuilding2 size={32} style={{ color: app.companyTheme || 'var(--primary)' }} />
+                      )}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-3 mb-2">

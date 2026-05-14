@@ -9,11 +9,10 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden h-screen w-[80px] flex-col md:flex sticky top-0 z-50 shrink-0">
-      <div className="absolute top-0 left-0 h-full w-[80px] hover:w-[260px] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] border-r border-border-subtle bg-surface flex flex-col py-8 overflow-hidden shadow-sm hover:shadow-2xl group">
-        
+    <aside className="hidden h-screen w-[80px] flex-col md:flex sticky top-0 z-50 shrink-0 relative">
+      <div className="absolute top-0 left-0 h-full w-[80px] hover:w-[260px] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] border-r border-border-subtle bg-surface flex flex-col pt-8 pb-12 overflow-y-auto overflow-x-hidden shadow-sm hover:shadow-2xl group scrollbar-none overscroll-contain">
         {/* Header / Logo */}
-        <div className="mb-6 px-3 flex items-center min-w-[260px]">
+        <div className="mb-4 px-3 flex items-center min-w-[260px]">
           <Link href="/dashboard" className="flex items-center gap-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden">
               <img src="/placely.png" alt="Placely" className="h-full w-full object-contain" />
@@ -26,8 +25,8 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1.5 px-4 min-w-[260px]">
-          <div className="mb-6 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <nav className="flex-1 space-y-1 px-4 min-w-[260px]">
+          <div className="mb-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <p className="section-label">Main Console</p>
           </div>
           {STUDENT_NAV_ITEMS.map((item) => {
@@ -39,7 +38,7 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center rounded-xl p-2.5 text-sm font-semibold transition-all hover:bg-primary/5 hover:text-primary relative overflow-hidden",
+                  "flex items-center rounded-xl p-2 text-sm font-semibold transition-all hover:bg-primary/5 hover:text-primary relative overflow-hidden",
                   isActive ? "bg-primary/10 text-primary" : "text-foreground"
                 )}
               >
@@ -64,8 +63,8 @@ export function Sidebar() {
         </nav>
 
         {/* Support Section */}
-        <div className="mt-auto mx-4 rounded-2xl bg-background p-5 border border-border-subtle relative overflow-hidden min-w-[228px] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="relative z-10 flex flex-col items-center justify-center min-h-[100px] gap-1.5 text-center">
+        <div className="mt-10 mx-4 mb-10 rounded-2xl bg-background p-5 border border-border-subtle relative min-w-[228px] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="relative z-10 flex flex-col items-center justify-center gap-2 text-center">
             <p className="font-display text-sm font-bold text-foreground">Need help?</p>
             <p className="text-[11px] text-muted leading-relaxed mb-2">Check our guides or contact support.</p>
             <button className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline w-full">

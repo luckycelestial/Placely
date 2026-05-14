@@ -1,24 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { 
   LuSearch, 
-  LuFilter, 
-  LuChevronRight, 
   LuDownload, 
-  LuCircleCheck,
-  LuCircleX,
-  LuClock,
   LuEye,
   LuArrowUpRight,
   LuEllipsisVertical,
-  LuListFilter,
+  LuChevronRight,
   LuUser,
   LuBuilding2,
-  LuBriefcase
+  LuBriefcase,
+  LuPlus,
+  LuLayoutGrid,
+  LuEllipsis,
+  LuCalendar
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
+import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { LuArrowLeft } from "react-icons/lu";
 
 
 const STATUS_TABS = ["All", "Applied", "Shortlisted", "Interviewing", "Offered", "Rejected"];
@@ -32,10 +34,15 @@ const statusMap: Record<string, string> = {
 };
 
 
-export default function ApplicationsPage() {
+function ApplicationsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const driveId = searchParams.get("driveId");
+  
   const [activeTab, setActiveTab] = useState("All");
   const [search, setSearch] = useState("");
-  const [applications, setApplications] = useState<any[]>([]);
+  const [applications, setApplications] = useState<{ id: string; studentName: string; regNo: string; company: string; role: string; appliedDate: string; status: string; stage: string; avatar: string }[]>([]);
+  const [driveDetails, setDriveDetails] = useState<any>(null);
   const [stats, setStats] = useState({ pending: 0, shortlisted: 0, interviews: 0, offers: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -43,28 +50,31 @@ export default function ApplicationsPage() {
     async function loadData() {
       try {
         setLoading(true);
-        console.log("Fetching applications and stats...");
+        
+        // Fetch drive details if driveId is present
+        if (driveId && driveId !== "All") {
+          const drives = await db.getDrives({ search: driveId });
+          if (drives && drives.length > 0) {
+            setDriveDetails(drives[0]);
+          }
+        }
+
         const [appsData, statsData] = await Promise.all([
-          db.getApplications(),
-          db.getApplicationStats()
+          db.getApplications({ driveId: driveId || undefined }),
+          db.getApplicationStats(driveId || undefined)
         ]);
         
-        console.log("Raw Applications Data:", appsData);
-        console.log("Raw Stats Data:", statsData);
-
         if (!appsData || appsData.length === 0) {
-          console.warn("No applications found in database.");
           setApplications([]);
           setStats(statsData);
           return;
         }
 
         const mappedApps = appsData.map((app: any) => {
-          // Robust mapping for joined data which can be arrays or objects
-          const student = Array.isArray(app.students) ? app.students[0] : app.students;
-          const user = Array.isArray(student?.users) ? student.users[0] : student?.users;
-          const drive = Array.isArray(app.job_drives) ? app.job_drives[0] : app.job_drives;
-          const company = Array.isArray(drive?.companies) ? drive.companies[0] : drive?.companies;
+          const student = app.students;
+          const user = student?.users;
+          const drive = app.job_drives;
+          const company = drive?.companies;
 
           return {
             id: app.id,
@@ -79,7 +89,6 @@ export default function ApplicationsPage() {
           };
         });
 
-        console.log("Mapped Applications:", mappedApps);
         setApplications(mappedApps);
         setStats(statsData);
       } catch (error) {
@@ -89,7 +98,7 @@ export default function ApplicationsPage() {
       }
     }
     loadData();
-  }, []);
+  }, [driveId]);
 
   const filteredApps = applications.filter(app => {
     const matchesTab = activeTab === "All" || app.status === activeTab;
@@ -104,12 +113,26 @@ export default function ApplicationsPage() {
     <div className="space-y-6">
       {/* Header Area */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight">Applications Manager</h1>
-          <p className="text-muted text-sm font-medium">Review, track, and manage student applications across all drives.</p>
+        <div className="flex items-center gap-4">
+          {driveId && (
+            <Link 
+              href="/admin/drives"
+              className="h-10 w-10 flex items-center justify-center rounded-xl border border-border-subtle bg-surface shadow-sm hover:bg-background transition-colors"
+            >
+              <LuArrowLeft size={20} />
+            </Link>
+          )}
+          <div>
+            <h1 className="text-2xl font-black tracking-tight">
+              {driveDetails ? `${driveDetails.companies?.name} - ${driveDetails.role_title}` : "Applications Manager"}
+            </h1>
+            <p className="text-muted text-sm font-medium">
+              {driveDetails ? `Reviewing ${applications.length} applications for this drive.` : "Review, track, and manage student applications across all drives."}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 rounded-xl bg-white border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors">
+          <button className="flex items-center gap-2 rounded-xl bg-surface border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors">
             <LuDownload size={16} />
             Download Report
           </button>
@@ -127,7 +150,7 @@ export default function ApplicationsPage() {
           { label: "Interviews", value: stats.interviews, color: "text-emerald-600", bg: "bg-emerald-500/10" },
           { label: "Final Offers", value: stats.offers, color: "text-primary", bg: "bg-primary/10" }
         ].map((stat) => (
-          <div key={stat.label} className={cn("p-4 rounded-3xl border border-border-subtle shadow-soft bg-white group hover:scale-[1.02] transition-all cursor-default")}>
+          <div key={stat.label} className={cn("p-4 rounded-3xl border border-border-subtle shadow-soft bg-surface group hover:scale-[1.02] transition-all cursor-default")}>
             <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">{stat.label}</p>
             <p className={cn("text-2xl font-black", stat.color)}>{stat.value}</p>
           </div>
@@ -145,7 +168,7 @@ export default function ApplicationsPage() {
                 className={cn(
                   "px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap",
                   activeTab === tab 
-                    ? "bg-white text-primary shadow-sm" 
+                    ? "bg-surface text-primary shadow-sm" 
                     : "text-muted hover:text-foreground"
                 )}
               >
@@ -158,7 +181,7 @@ export default function ApplicationsPage() {
             <input 
               type="text" 
               placeholder="Search student or company..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-border-subtle bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
+              className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-border-subtle bg-surface text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -167,7 +190,7 @@ export default function ApplicationsPage() {
       </div>
 
       {/* Applications Table */}
-      <div className="bg-white rounded-3xl border border-border-subtle shadow-soft overflow-hidden">
+      <div className="bg-surface rounded-3xl border border-border-subtle shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -265,7 +288,7 @@ export default function ApplicationsPage() {
         <div className="px-6 py-4 border-t border-border-subtle bg-background/30 flex items-center justify-between">
           <p className="text-xs font-bold text-muted">Page 1 of 42</p>
           <div className="flex items-center gap-1">
-            <button className="h-8 w-8 flex items-center justify-center rounded-lg border border-border-subtle bg-white text-muted cursor-not-allowed">
+            <button className="h-8 w-8 flex items-center justify-center rounded-lg border border-border-subtle bg-surface text-muted cursor-not-allowed">
               <LuChevronRight size={16} className="rotate-180" />
             </button>
             <button className="h-8 w-8 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-black shadow-sm">1</button>
@@ -277,5 +300,20 @@ export default function ApplicationsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ApplicationsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+          <p className="text-sm font-bold text-muted">Loading applications manager...</p>
+        </div>
+      </div>
+    }>
+      <ApplicationsContent />
+    </Suspense>
   );
 }

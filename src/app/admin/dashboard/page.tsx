@@ -3,415 +3,471 @@
 import { useState, useEffect } from "react";
 import { 
   LuUsers, 
-  LuBriefcase, 
-  LuFileText, 
-  LuAward,
-  LuTrendingUp,
-  LuTriangleAlert,
-  LuClock,
+  LuBuilding2, 
+  LuCalendar, 
+  LuTrendingUp, 
+  LuPlus, 
+  LuSearch, 
+  LuFilter,
+  LuDownload,
+  LuLayoutGrid,
+  LuList,
+  LuArrowUpRight,
   LuCircleCheck,
-  LuChevronRight,
-  LuPlus,
-  LuX,
-  LuLoader
+  LuClock,
+  LuChevronDown,
+  LuLoader,
+  LuFileText,
+  LuTriangleAlert
 } from "react-icons/lu";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { db } from "@/services/database";
 import { cn } from "@/lib/utils";
+import DriveDialog from "../drives/drive-dialog";
+import { toast } from "sonner";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+interface DashboardStats {
+  totalStudents: number;
+  activeDrives: number;
+  placedStudents: number;
+  averagePackage: number;
+  placedPercentage: number;
+  totalCompanies: number;
+  totalOffers: number;
+}
+
+interface Activity {
+  id: string;
+  type: 'drive_created' | 'application_received' | 'placement_confirmed' | 'company_added';
+  title: string;
+  description: string;
+  timestamp: Date;
+  status?: 'success' | 'warning' | 'info' | 'error';
+}
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState({
+  const router = useRouter();
+  const [stats, setStats] = useState<DashboardStats>({
     totalStudents: 0,
+    activeDrives: 0,
+    placedStudents: 0,
+    averagePackage: 0,
+    placedPercentage: 0,
     totalCompanies: 0,
-    totalDrives: 0,
     totalOffers: 0
   });
+
+  const [recentDrives, setRecentDrives] = useState<any[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isDriveDialogOpen, setIsDriveDialogOpen] = useState(false);
+  const [yearFilter, setYearFilter] = useState("2025");
   const [loading, setLoading] = useState(true);
-  const [isNewDriveModalOpen, setIsNewDriveModalOpen] = useState(false);
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const router = useRouter();
 
   useEffect(() => {
-    async function loadDashboardData() {
-      try {
-        const [statsData, approvalsData, activityData] = await Promise.all([
-          db.getDashboardStats(),
-          db.getPendingApprovals(),
-          db.getRecentActivity()
-        ]);
-        setStats(statsData);
-        setPendingApprovals(approvalsData);
-        setRecentActivity(activityData);
-      } catch (error) {
-        console.error("Failed to fetch dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadDashboardData();
-  }, []);
+  }, [yearFilter]);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      const [allDrives, dashboardStats, approvals, activityData] = await Promise.all([
+        db.getDrives(),
+        db.getDashboardStats(),
+        db.getPendingApprovals(),
+        db.getRecentActivity()
+      ]);
+
+      setRecentDrives(allDrives.slice(0, 4));
+      setPendingApprovals(approvals.slice(0, 5));
+      
+      // Merge real stats with some mock calculation if needed
+      setStats({
+        totalStudents: dashboardStats.totalStudents,
+        totalCompanies: dashboardStats.totalCompanies,
+        activeDrives: dashboardStats.totalDrives,
+        totalOffers: dashboardStats.totalOffers,
+        placedStudents: 450, // Mock for now until DB has real placement data
+        averagePackage: 8.5,
+        placedPercentage: Math.round((450 / dashboardStats.totalStudents) * 100) || 0
+      });
+
+      // Map activity data to our Activity interface
+      setActivities(activityData.map((a: any, i: number) => ({
+        id: a.id || i.toString(),
+        type: 'drive_created', // Default type
+        title: a.title,
+        description: a.time,
+        timestamp: new Date(),
+        status: 'info'
+      })));
+
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error);
+      toast.error("Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      toast.loading("Generating report...");
+      const blob = await db.generateSystemReport();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `system_report_${new Date().toISOString().split('T')[0]}.pdf`;
+      a.click();
+      toast.dismiss();
+      toast.success("Report downloaded!");
+    } catch (error) {
+      console.error("Error generating report:", error);
+      toast.error("Failed to generate report");
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      
-      {/* Welcome & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold font-display tracking-tight text-foreground">Welcome back, Admin</h2>
-          <p className="text-muted text-sm mt-1">Here's what's happening in the placement cell today.</p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsNewDriveModalOpen(true)}
-            className="flex items-center gap-2 bg-primary text-background px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
-          >
-            <LuPlus size={16} />
-            New Drive
-          </button>
-          <button 
-            onClick={() => {
-              setIsGeneratingReport(true);
-              // Simulate report generation process
-              setTimeout(() => {
-                setIsGeneratingReport(false);
-                router.push('/admin/reports?generated=true');
-              }, 2000);
-            }}
-            disabled={isGeneratingReport}
-            className="flex items-center gap-2 bg-surface border border-border-subtle text-foreground px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 hidden sm:flex disabled:opacity-50"
-          >
-            {isGeneratingReport ? <LuLoader size={16} className="animate-spin" /> : <LuFileText size={16} />}
-            {isGeneratingReport ? "Generating..." : "Generate Report"}
-          </button>
-        </div>
+    <div className="space-y-8">
+
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <StatCard 
+          title="Students" 
+          value={stats.totalStudents.toLocaleString()} 
+          icon={LuUsers} 
+          trend="+12%" 
+          color="blue"
+        />
+        <StatCard 
+          title="Active Drives" 
+          value={stats.activeDrives.toString()} 
+          icon={LuBuilding2} 
+          trend="+5" 
+          color="primary"
+        />
+        <StatCard 
+          title="Placed Ratio" 
+          value={`${stats.placedPercentage}%`} 
+          icon={LuCircleCheck} 
+          trend="+8%" 
+          color="green"
+        />
+        <StatCard 
+          title="Avg Package" 
+          value={`${stats.averagePackage} LPA`} 
+          icon={LuTrendingUp} 
+          trend="+1.2" 
+          color="orange"
+        />
+        <StatCard 
+          title="Total Offers" 
+          value={stats.totalOffers.toString()} 
+          icon={LuFileText} 
+          trend="+24" 
+          color="primary"
+          className="hidden lg:flex"
+        />
       </div>
 
-      {/* Urgent Alerts / Inbox */}
+      {/* Urgent Alerts */}
       {pendingApprovals.length > 0 && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-4">
+        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
           <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5">
             <LuTriangleAlert size={20} className="text-red-600" />
           </div>
           <div className="flex-1">
             <h3 className="text-red-800 font-bold text-sm">Action Required: {pendingApprovals.length} Pending Verifications</h3>
             <p className="text-red-700/80 text-xs mt-1 leading-relaxed">
-              There are student profiles and offer letters awaiting verification.
+              Students are waiting for profile or offer letter verifications.
             </p>
           </div>
-          <Link href="/admin/offers" className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shrink-0 whitespace-nowrap">
+          <Link href="/admin/offers" className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shrink-0 whitespace-nowrap shadow-lg shadow-red-500/20">
             Review Now
           </Link>
         </div>
       )}
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-surface border border-border-subtle rounded-2xl p-5 hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-              <LuUsers size={20} className="text-blue-600" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Content: Recent Drives */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-1 bg-primary rounded-full"></div>
+              <h2 className="text-xl font-black tracking-tight text-foreground uppercase">Recent Drives</h2>
             </div>
-            <div className="flex items-center gap-1 text-emerald-500 text-xs font-bold bg-emerald-500/10 px-2 py-1 rounded-md">
-              <LuTrendingUp size={12} />
-              +5%
+            
+            {/* Premium Filters */}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    const el = document.getElementById('batch-dropdown');
+                    if (el) el.classList.toggle('hidden');
+                  }}
+                  className="flex items-center gap-3 bg-surface border border-border-subtle rounded-2xl px-4 py-2.5 shadow-sm hover:border-primary transition-all group"
+                >
+                  <LuCalendar size={14} className="text-primary" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-foreground">
+                    Batch {yearFilter}
+                  </span>
+                  <LuChevronDown size={14} className="text-muted group-hover:text-primary transition-colors" />
+                </button>
+                
+                <div 
+                  id="batch-dropdown"
+                  className="absolute right-0 mt-2 w-48 bg-surface border border-border-subtle rounded-2xl shadow-2xl hidden z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+                >
+                  {["2025", "2024", "2023"].map((year) => (
+                    <button
+                      key={year}
+                      onClick={() => {
+                        setYearFilter(year);
+                        document.getElementById('batch-dropdown')?.classList.add('hidden');
+                      }}
+                      className={cn(
+                        "w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-colors hover:bg-primary/5",
+                        yearFilter === year ? "text-primary bg-primary/5" : "text-muted"
+                      )}
+                    >
+                      Batch {year}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center bg-surface border border-border-subtle rounded-xl p-1 shadow-sm">
+                <button 
+                  onClick={() => setViewMode('grid')}
+                  className={cn(
+                    "p-1.5 rounded-lg transition-all",
+                    viewMode === 'grid' ? "bg-primary text-background shadow-md shadow-primary/20" : "text-muted hover:text-foreground"
+                  )}
+                >
+                  <LuLayoutGrid size={16} />
+                </button>
+                <button 
+                  onClick={() => setViewMode('list')}
+                  className={cn(
+                    "p-1.5 rounded-lg transition-all",
+                    viewMode === 'list' ? "bg-primary text-background shadow-md shadow-primary/20" : "text-muted hover:text-foreground"
+                  )}
+                >
+                  <LuList size={16} />
+                </button>
+              </div>
             </div>
           </div>
-          <p className="text-muted text-xs font-bold uppercase tracking-wider mb-1">Total Students</p>
-          <h3 className="text-3xl font-display font-black text-foreground">{loading ? "..." : stats.totalStudents}</h3>
-          <div className="mt-4 pt-4 border-t border-border-subtle flex items-center justify-between text-xs">
-            <span className="text-muted font-medium">Eligible View</span>
-            <Link href="/admin/students" className="text-primary font-bold hover:underline">View All</Link>
-          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-48 bg-surface/50 animate-pulse border border-border-subtle rounded-3xl"></div>
+              ))}
+            </div>
+          ) : (
+            <div className={cn(
+              "grid gap-4",
+              viewMode === 'grid' ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"
+            )}>
+              {recentDrives.map((drive) => (
+                <DriveCard key={drive.id} drive={drive} viewMode={viewMode} />
+              ))}
+              {recentDrives.length === 0 && (
+                <div className="col-span-full py-12 flex flex-col items-center justify-center bg-surface/50 border-2 border-dashed border-border-subtle rounded-3xl">
+                  <LuBuilding2 size={40} className="text-muted mb-4" />
+                  <p className="text-muted font-bold">No drives found for this batch</p>
+                  <button 
+                    onClick={() => setIsDriveDialogOpen(true)}
+                    className="mt-4 text-primary font-black text-sm uppercase hover:underline"
+                  >
+                    Create your first drive
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="bg-surface border border-border-subtle rounded-2xl p-5 hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="h-10 w-10 rounded-full bg-purple-500/10 flex items-center justify-center">
-              <LuBriefcase size={20} className="text-purple-600" />
+        {/* Sidebar: Recent Activity & Reminders */}
+        <div className="space-y-8">
+          {/* Recent Activity */}
+          <div className="bg-surface border border-border-subtle rounded-3xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-black tracking-tight text-foreground uppercase">Activity</h2>
+              <button className="text-[10px] font-black text-primary uppercase hover:underline tracking-widest">View All</button>
+            </div>
+            <div className="space-y-6">
+              {activities.length > 0 ? activities.map((activity) => (
+                <div key={activity.id} className="flex gap-4 group">
+                  <div className={cn(
+                    "mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all group-hover:scale-110",
+                    activity.status === 'success' ? "bg-green-500/10 text-green-500" :
+                    activity.status === 'info' ? "bg-blue-500/10 text-blue-500" :
+                    "bg-orange-500/10 text-orange-500"
+                  )}>
+                    {activity.type === 'drive_created' ? <LuPlus size={16} /> :
+                     activity.type === 'application_received' ? <LuUsers size={16} /> :
+                     <LuCircleCheck size={16} />}
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-bold text-foreground leading-none">{activity.title}</p>
+                    <p className="text-xs text-muted font-medium line-clamp-1">{activity.description}</p>
+                    <p className="text-[10px] text-muted/60 font-black uppercase tracking-tight">{activity.timestamp ? new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date(activity.timestamp)) : 'Recently'}</p>
+                  </div>
+                </div>
+              )) : (
+                <p className="text-xs text-muted font-bold text-center py-4 uppercase">No recent activities</p>
+              )}
             </div>
           </div>
-          <p className="text-muted text-xs font-bold uppercase tracking-wider mb-1">Active Drives</p>
-          <h3 className="text-3xl font-display font-black text-foreground">{loading ? "..." : stats.totalDrives}</h3>
-          <div className="mt-4 pt-4 border-t border-border-subtle flex items-center justify-between text-xs">
-            <span className="text-muted font-medium">Ongoing</span>
-            <Link href="/admin/drives" className="text-primary font-bold hover:underline">Manage</Link>
-          </div>
-        </div>
 
-        <div className="bg-surface border border-border-subtle rounded-2xl p-5 hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center">
-              <LuFileText size={20} className="text-amber-600" />
+          {/* Quick Tasks */}
+          <div className="bg-primary/5 border border-primary/10 rounded-3xl p-6 shadow-inner">
+            <h2 className="text-lg font-black tracking-tight text-primary uppercase mb-4">Pending Tasks</h2>
+            <div className="space-y-3">
+              <TaskItem title="Verify 2025 student data" count={12} />
+              <TaskItem title="Approve pending registrations" count={45} />
+              <TaskItem title="Update interview results" count={8} />
             </div>
-          </div>
-          <p className="text-muted text-xs font-bold uppercase tracking-wider mb-1">Total Companies</p>
-          <h3 className="text-3xl font-display font-black text-foreground">{loading ? "..." : stats.totalCompanies}</h3>
-          <div className="mt-4 pt-4 border-t border-border-subtle flex items-center justify-between text-xs">
-            <span className="text-muted font-medium">Registered</span>
-            <Link href="/admin/companies" className="text-primary font-bold hover:underline">View</Link>
-          </div>
-        </div>
-
-        <div className="bg-surface border border-border-subtle rounded-2xl p-5 hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-              <LuAward size={20} className="text-emerald-600" />
-            </div>
-          </div>
-          <p className="text-muted text-xs font-bold uppercase tracking-wider mb-1">Total Offers</p>
-          <h3 className="text-3xl font-display font-black text-foreground">{loading ? "..." : stats.totalOffers}</h3>
-          <div className="mt-4 pt-4 border-t border-border-subtle flex items-center justify-between text-xs">
-            <span className="text-muted font-medium">Accepted</span>
-            <Link href="/admin/offers" className="text-primary font-bold hover:underline">Verify</Link>
+            <Link 
+              href="/admin/workspace"
+              className="w-full mt-6 bg-primary text-background py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+            >
+              GOTO WORKSPACE
+              <LuArrowUpRight size={14} />
+            </Link>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Pending Approvals Queue */}
-        <div className="lg:col-span-2 bg-surface border border-border-subtle rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-display font-bold text-lg text-foreground flex items-center gap-2">
-              <LuClock className="text-amber-500" />
-              Pending Approvals
-            </h3>
-            <Link href="/admin/offers" className="text-xs font-bold text-primary hover:underline">View All</Link>
-          </div>
-
-          <div className="space-y-4">
-            {loading ? (
-              <div className="text-sm text-muted font-medium py-4">Loading approvals...</div>
-            ) : pendingApprovals.length === 0 ? (
-              <div className="text-sm text-muted font-medium py-4">All clear! No pending approvals.</div>
-            ) : (
-              pendingApprovals.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-black/5 transition-colors border border-transparent hover:border-border-subtle group">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <LuFileText size={18} className="text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-sm text-foreground">{item.type}</h4>
-                      <p className="text-xs text-muted font-medium mt-0.5">
-                        {item.target} • {item.company !== 'N/A' && <span className="text-primary">{item.company} • </span>}{item.time}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="h-8 w-8 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-colors">
-                      <LuCircleCheck size={16} />
-                    </button>
-                    <button className="h-8 w-8 rounded-full bg-surface border border-border-subtle flex items-center justify-center hover:bg-black/5 transition-colors">
-                      <LuChevronRight size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-surface border border-border-subtle rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-display font-bold text-lg text-foreground">Recent Activity</h3>
-          </div>
-
-          <div className="space-y-6 relative before:absolute before:inset-0 before:ml-4 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-border-subtle before:to-transparent">
-            {loading ? (
-              <div className="text-sm text-muted font-medium py-4">Loading activity...</div>
-            ) : recentActivity.length === 0 ? (
-              <div className="text-sm text-muted font-medium py-4">No recent activity.</div>
-            ) : (
-              recentActivity.map((activity) => (
-                <div key={activity.id} className="relative flex items-start gap-4">
-                  <div className="h-3 w-3 mt-1.5 rounded-full bg-primary border-2 border-surface shadow-sm z-10" />
-                  <div>
-                    <h4 className="text-sm font-bold text-foreground">{activity.title}</h4>
-                    <p className="text-xs text-muted mt-0.5 font-medium">{activity.time}</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-      </div>
-
-      {/* New Drive Modal */}
-      {isNewDriveModalOpen && (
-        <NewDriveModal 
-          onClose={() => setIsNewDriveModalOpen(false)} 
-          onSuccess={() => {
-            setIsNewDriveModalOpen(false);
-            // Refresh stats
-            db.getDashboardStats().then(setStats);
-          }}
-        />
-      )}
+      {/* Drive Dialog */}
+      <DriveDialog 
+        isOpen={isDriveDialogOpen} 
+        onClose={() => {
+          setIsDriveDialogOpen(false);
+          loadDashboardData();
+        }}
+        onSuccess={() => {
+          setIsDriveDialogOpen(false);
+          loadDashboardData();
+        }}
+      />
     </div>
   );
 }
 
-function NewDriveModal({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [formData, setFormData] = useState({
-    companyId: "",
-    roleTitle: "",
-    driveType: "On-Campus",
-    package: "",
-    location: "Remote",
-    deadline: "",
-    eligibility: ""
-  });
-
-  useEffect(() => {
-    db.getCompanies().then(setCompanies);
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await db.createDrive(formData);
-      onSuccess();
-    } catch (error) {
-      console.error("Failed to create drive:", error);
-      alert("Failed to create drive. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+function StatCard({ title, value, icon: Icon, trend, color, className }: any) {
+  const colorMap: any = {
+    primary: "text-primary bg-primary/10 border-primary/20",
+    blue: "text-blue-500 bg-blue-500/10 border-blue-500/20",
+    green: "text-green-500 bg-green-500/10 border-green-500/20",
+    orange: "text-orange-500 bg-orange-500/10 border-orange-500/20"
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-surface border border-border-subtle rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div className="p-6 border-b border-border-subtle flex justify-between items-center bg-background/50">
-          <div>
-            <h2 className="text-xl font-black tracking-tight">Create New Drive</h2>
-            <p className="text-xs text-muted font-medium">Set up a new recruitment cycle.</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
-            <LuX size={20} />
-          </button>
+    <div className={cn(
+      "bg-surface border border-border-subtle rounded-3xl p-5 md:p-6 hover:border-primary/30 transition-all group shadow-sm flex flex-col",
+      className
+    )}>
+      <div className="flex items-start justify-between">
+        <div className={cn("p-2.5 md:p-3 rounded-2xl border transition-all group-hover:scale-110", colorMap[color] || colorMap.primary)}>
+          <Icon size={20} className="md:size-6" />
         </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Company</label>
-              <select 
-                required
-                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                value={formData.companyId}
-                onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
-              >
-                <option value="">Select Company</option>
-                {companies.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Role Title</label>
-              <input 
-                required
-                type="text" 
-                placeholder="e.g. Software Engineer"
-                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                value={formData.roleTitle}
-                onChange={(e) => setFormData({ ...formData, roleTitle: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Drive Type</label>
-              <select 
-                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                value={formData.driveType}
-                onChange={(e) => setFormData({ ...formData, driveType: e.target.value })}
-              >
-                <option>On-Campus</option>
-                <option>Off-Campus</option>
-                <option>Pool Drive</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Package (CTC)</label>
-              <input 
-                required
-                type="text" 
-                placeholder="e.g. 12 LPA"
-                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                value={formData.package}
-                onChange={(e) => setFormData({ ...formData, package: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Location</label>
-              <input 
-                required
-                type="text" 
-                placeholder="e.g. Bangalore / Remote"
-                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Deadline</label>
-              <input 
-                required
-                type="date" 
-                className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                value={formData.deadline}
-                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-muted">Eligibility Rules</label>
-            <textarea 
-              required
-              rows={3}
-              placeholder="e.g. CSE/IT, 7.5+ CGPA, No active backlogs"
-              className="w-full bg-background border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
-              value={formData.eligibility}
-              onChange={(e) => setFormData({ ...formData, eligibility: e.target.value })}
-            />
-          </div>
-
-          <div className="pt-4 flex gap-3">
-            <button 
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 rounded-2xl bg-surface border border-border-subtle text-sm font-bold hover:bg-black/5 transition-all"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit"
-              disabled={loading}
-              className="flex-[2] py-3 rounded-2xl bg-primary text-white text-sm font-bold shadow-tactile hover:bg-primary-dark transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loading ? <LuLoader size={18} className="animate-spin" /> : <LuPlus size={18} />}
-              Create Drive
-            </button>
-          </div>
-        </form>
+        <div className={cn(
+          "px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tight",
+          trend.startsWith('+') ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+        )}>
+          {trend}
+        </div>
       </div>
+      <div className="mt-4">
+        <p className="text-muted text-[10px] md:text-xs font-black uppercase tracking-widest leading-none mb-1.5">{title}</p>
+        <h3 className="text-2xl md:text-3xl font-black tracking-tighter text-foreground">{value}</h3>
+      </div>
+    </div>
+  );
+}
+
+function DriveCard({ drive, viewMode }: { drive: any, viewMode: 'grid' | 'list' }) {
+  const companyName = drive.companies?.name || drive.companyName || 'Unknown Company';
+  const logoUrl = drive.companies?.logo_url || drive.logoUrl || `https://logo.clearbit.com/${(companyName || 'unknown').toLowerCase().replace(/\s+/g, '')}.com`;
+  const jobRole = drive.role_title || drive.roleTitle || 'Unknown Role';
+  const driveDate = drive.created_at || drive.createdAt || new Date().toISOString();
+  const status = drive.status || 'draft';
+  const applicationsCount = drive.applications?.length || 0;
+
+  return (
+    <div className={cn(
+      "bg-surface border border-border-subtle rounded-3xl p-5 hover:border-primary/50 transition-all group shadow-sm",
+      viewMode === 'list' && "flex items-center justify-between"
+    )}>
+      <div className={cn("flex gap-4", viewMode === 'list' && "items-center flex-1")}>
+        <div className="h-14 w-14 rounded-2xl bg-white border border-border-subtle flex items-center justify-center overflow-hidden p-2 shrink-0 group-hover:rotate-3 transition-transform shadow-sm">
+          <img 
+            src={logoUrl} 
+            alt={companyName}
+            className="h-full w-full object-contain"
+            onError={(e: any) => {
+              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName)}&background=random&color=fff&bold=true`;
+            }}
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-base font-black text-foreground truncate tracking-tight">{companyName}</h3>
+            <span className={cn(
+              "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest",
+              status === 'published' ? "bg-green-500/10 text-green-500" : "bg-muted/10 text-muted"
+            )}>
+              {status}
+            </span>
+          </div>
+          <p className="text-xs font-bold text-muted truncate uppercase tracking-tighter">{jobRole}</p>
+          
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-black text-muted/60 uppercase tracking-tight">
+              <LuCalendar size={12} className="text-primary" />
+              {new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(driveDate))}
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] font-black text-muted/60 uppercase tracking-tight">
+              <LuUsers size={12} className="text-primary" />
+              {applicationsCount} APPLIED
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className={cn(
+        "mt-4 pt-4 border-t border-border-subtle/50 flex items-center justify-between",
+        viewMode === 'list' && "mt-0 pt-0 border-t-0 ml-4 shrink-0"
+      )}>
+        <div className="flex -space-x-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-6 w-6 rounded-full border-2 border-surface bg-primary/10 flex items-center justify-center text-[8px] font-bold text-primary shadow-sm">
+              S{i}
+            </div>
+          ))}
+          <div className="h-6 w-6 rounded-full border-2 border-surface bg-muted/10 flex items-center justify-center text-[8px] font-bold text-muted shadow-sm">
+            +12
+          </div>
+        </div>
+        <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-background hover:scale-110 active:scale-95 transition-all shadow-sm">
+          <LuArrowUpRight size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TaskItem({ title, count }: { title: string, count: number }) {
+  return (
+    <div className="flex items-center justify-between p-3 rounded-2xl bg-white/50 border border-border-subtle/30 hover:border-primary/30 transition-all cursor-pointer group shadow-sm">
+      <span className="text-xs font-bold text-foreground/80 group-hover:text-primary transition-colors">{title}</span>
+      <span className="px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-[10px] font-black shadow-sm">{count}</span>
     </div>
   );
 }

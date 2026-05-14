@@ -4,7 +4,7 @@ import { LuTrendingUp, LuTrendingDown } from "react-icons/lu";
 interface StatCardProps {
   title: string;
   value: string | number;
-  icon: any; 
+  icon: import("react-icons").IconType; 
   trend?: {
     value: string;
     isUp: boolean;

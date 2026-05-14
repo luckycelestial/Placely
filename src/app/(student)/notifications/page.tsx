@@ -4,12 +4,9 @@ import { useState } from "react";
 import { 
   LuBell, 
   LuCircleCheck, 
-  LuClock, 
   LuArrowRight, 
   LuSearch, 
-  LuFilter,
   LuTrash2,
-  LuArchive,
   LuTriangleAlert,
   LuInfo,
   LuChevronRight
@@ -102,7 +99,7 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="space-y-10 py-10 px-4 max-w-[1400px] mx-auto min-h-screen">
+    <div className="space-y-10 py-10 px-4 max-w-7xl mx-auto min-h-screen">
       {/* Header */}
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
@@ -240,7 +237,7 @@ export default function NotificationsPage() {
               <LuBell size={40} />
             </div>
             <h3 className="font-display text-3xl font-black tracking-tight text-foreground">Inbox is Clear</h3>
-            <p className="text-muted mt-3 font-medium text-lg">You're all caught up! No pending tasks at the moment.</p>
+            <p className="text-muted mt-3 font-medium text-lg">You&apos;re all caught up! No pending tasks at the moment.</p>
           </div>
         )}
       </div>

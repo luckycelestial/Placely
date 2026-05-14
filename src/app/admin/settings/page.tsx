@@ -2,21 +2,14 @@
 
 import { useState } from "react";
 import { 
-  LuUser, 
   LuShield, 
   LuBell, 
   LuPalette, 
   LuLock, 
-  LuGlobe, 
-  LuBuilding, 
   LuSettings, 
   LuSave, 
-  LuMail, 
   LuBriefcase, 
-  LuFileText,
-  LuChevronRight,
-  LuCircleCheck,
-  LuTrash2
+  LuChevronRight
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +49,7 @@ export default function SettingsPage() {
               className={cn(
                 "w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all text-left group",
                 activeSection === section.id 
-                  ? "bg-white border border-border-subtle shadow-soft text-primary" 
+                  ? "bg-surface border border-border-subtle shadow-soft text-primary" 
                   : "text-muted hover:bg-background hover:text-foreground"
               )}
             >
@@ -78,7 +71,7 @@ export default function SettingsPage() {
         {/* Settings Content */}
         <div className="flex-1 space-y-6">
           {activeSection === "general" && (
-            <div className="bg-white rounded-3xl border border-border-subtle shadow-soft overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="bg-surface rounded-3xl border border-border-subtle shadow-soft overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="p-8 border-b border-border-subtle">
                 <h3 className="text-lg font-black tracking-tight mb-1">General Configuration</h3>
                 <p className="text-sm font-medium text-muted">Basic institutional details and contact information.</p>
@@ -123,7 +116,7 @@ export default function SettingsPage() {
           )}
 
           {activeSection === "policy" && (
-            <div className="bg-white rounded-3xl border border-border-subtle shadow-soft overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="bg-surface rounded-3xl border border-border-subtle shadow-soft overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="p-8 border-b border-border-subtle">
                 <h3 className="text-lg font-black tracking-tight mb-1">Placement Rules & Policies</h3>
                 <p className="text-sm font-medium text-muted">Define global rules for student eligibility and offer management.</p>
@@ -165,7 +158,7 @@ export default function SettingsPage() {
                           pref.enabled ? "bg-primary" : "bg-muted/30"
                         )}>
                           <div className={cn(
-                            "h-4 w-4 rounded-full bg-white transition-all shadow-sm",
+                            "h-4 w-4 rounded-full bg-surface transition-all shadow-sm",
                             pref.enabled ? "ml-6" : "ml-0"
                           )} />
                         </div>
@@ -179,7 +172,7 @@ export default function SettingsPage() {
 
           {/* Fallback for other sections */}
           {activeSection !== "general" && activeSection !== "policy" && (
-            <div className="bg-white rounded-3xl border border-dashed border-border-subtle p-20 flex flex-col items-center justify-center text-center animate-in zoom-in duration-300">
+            <div className="bg-surface rounded-3xl border border-dashed border-border-subtle p-20 flex flex-col items-center justify-center text-center animate-in zoom-in duration-300">
                <div className="h-16 w-16 rounded-full bg-background flex items-center justify-center text-muted mb-6">
                  <LuSettings size={32} />
                </div>

@@ -3,18 +3,12 @@
 import { useState } from "react";
 import { 
   LuSearch, 
-  LuFilter, 
   LuPlus, 
-  LuMegaphone, 
   LuCalendar, 
   LuClock, 
-  LuUsers, 
   LuBell, 
   LuPin, 
   LuEllipsis, 
-  LuExternalLink,
-  LuCircleCheck,
-  LuTriangleAlert,
   LuSend
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
@@ -89,7 +83,7 @@ export default function NoticesPage() {
           <p className="text-muted text-sm font-medium">Communicate updates and schedule placement activities.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 rounded-xl bg-white border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors">
+          <button className="flex items-center gap-2 rounded-xl bg-surface border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors">
             <LuSend size={16} />
             View Outbox
           </button>
@@ -110,7 +104,7 @@ export default function NoticesPage() {
               className={cn(
                 "px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap",
                 activeTab === tab 
-                  ? "bg-white text-primary shadow-sm" 
+                  ? "bg-surface text-primary shadow-sm" 
                   : "text-muted hover:text-foreground"
               )}
             >
@@ -123,7 +117,7 @@ export default function NoticesPage() {
           <input 
             type="text" 
             placeholder={`Search ${activeTab.toLowerCase()}...`}
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-border-subtle bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-border-subtle bg-surface text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -135,7 +129,7 @@ export default function NoticesPage() {
         {activeTab === "Notices" ? (
           <div className="space-y-4">
             {NOTICES.map((notice) => (
-              <div key={notice.id} className="bg-white p-6 rounded-3xl border border-border-subtle shadow-soft hover:shadow-md transition-all group relative overflow-hidden">
+              <div key={notice.id} className="bg-surface p-6 rounded-3xl border border-border-subtle shadow-soft hover:shadow-md transition-all group relative overflow-hidden">
                 <div className={cn(
                   "absolute top-0 left-0 w-1.5 h-full",
                   notice.priority === "Urgent" ? "bg-red-500" :
@@ -165,10 +159,10 @@ export default function NoticesPage() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-border-subtle bg-white hover:border-primary/30 hover:text-primary transition-all shadow-sm">
+                    <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-border-subtle bg-surface hover:border-primary/30 hover:text-primary transition-all shadow-sm">
                       <LuPin size={18} />
                     </button>
-                    <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-border-subtle bg-white hover:bg-black/5 transition-all shadow-sm">
+                    <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-border-subtle bg-surface hover:bg-black/5 transition-all shadow-sm">
                       <LuEllipsis size={18} className="text-muted" />
                     </button>
                   </div>
@@ -179,7 +173,7 @@ export default function NoticesPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {EVENTS.map((event) => (
-              <div key={event.id} className="bg-white p-6 rounded-3xl border border-border-subtle shadow-soft hover:shadow-md transition-all group">
+              <div key={event.id} className="bg-surface p-6 rounded-3xl border border-border-subtle shadow-soft hover:shadow-md transition-all group">
                 <div className="flex items-start justify-between mb-4">
                   <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
                     <LuCalendar size={24} />

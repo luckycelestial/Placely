@@ -1,15 +1,17 @@
 "use client";
 
 import { 
-  LuSettings, 
   LuUser, 
   LuBell, 
-  LuLock, 
-  LuGlobe, 
-  LuCircleHelp, 
-  LuLogOut, 
+  LuShield, 
+  LuSmartphone, 
+  LuGlobe,
+  LuLogOut,
+  LuCircleCheck,
   LuChevronRight,
-  LuCircleCheck
+  LuPencil,
+  LuLock,
+  LuCircleHelp
 } from "react-icons/lu";
 
 export default function SettingsPage() {

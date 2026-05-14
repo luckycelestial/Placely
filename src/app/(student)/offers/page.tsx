@@ -2,21 +2,18 @@
 
 import { useState } from "react";
 import { 
-  LuTrophy, 
   LuBuilding2, 
-  LuCalendar, 
   LuCircleCheck, 
-  LuClock, 
   LuArrowRight, 
   LuShieldCheck, 
-  LuFileText, 
   LuMapPin,
-  LuExternalLink,
   LuSparkles,
   LuInfo,
   LuPartyPopper,
   LuChevronRight,
-  LuTimer
+  LuTimer,
+  LuClock,
+  LuCalendar
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -68,7 +65,7 @@ export default function OffersJoiningPage() {
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(OFFERS[0]);
 
   return (
-    <div className="space-y-12 py-10 px-4 max-w-[1400px] mx-auto min-h-screen">
+    <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto min-h-screen">
       {/* Header */}
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
@@ -221,7 +218,7 @@ export default function OffersJoiningPage() {
                 </div>
                 <div>
                   <h6 className="font-display text-xl font-black">Offer Mismatch?</h6>
-                  <p className="font-sans text-sm font-medium text-muted mt-1">If the details don't match your expectations or there is a discrepancy, contact our placement desk.</p>
+                  <p className="font-sans text-sm font-medium text-muted mt-1">If the details don&apos;t match your expectations or there is a discrepancy, contact our placement desk.</p>
                 </div>
               </div>
               <button className="btn-secondary whitespace-nowrap px-6 py-4 h-auto text-[9px] uppercase tracking-widest">
@@ -235,7 +232,7 @@ export default function OffersJoiningPage() {
   );
 }
 
-function Milestone({ icon, label, date, completed = false, active = false }: { icon: any, label: string, date: string, completed?: boolean, active?: boolean }) {
+function Milestone({ icon, label, date, completed = false, active = false }: { icon: React.ReactNode, label: string, date: string, completed?: boolean, active?: boolean }) {
   return (
     <div className="flex items-center gap-4 group/ms">
       <div className={cn(
@@ -255,7 +252,7 @@ function Milestone({ icon, label, date, completed = false, active = false }: { i
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const configs: Record<string, { color: string, icon: any }> = {
+  const configs: Record<string, { color: string, icon: import("react-icons").IconType }> = {
     "Offered": { color: "text-amber-500 bg-amber-50", icon: LuClock },
     "Accepted": { color: "text-primary bg-primary/10", icon: LuCircleCheck },
     "Verified": { color: "text-emerald-500 bg-emerald-50", icon: LuShieldCheck },

@@ -67,6 +67,11 @@ export const ADMIN_NAV_ITEMS = [
     icon: LuUser,
   },
   {
+    title: "Data Workspace",
+    href: "/admin/data",
+    icon: LuLayers,
+  },
+  {
     title: "Companies & Drives",
     href: "/admin/drives",
     icon: LuBriefcase,

@@ -1,171 +1,142 @@
 "use client";
 
-import { useState } from "react";
-import { 
-  LuBuilding2, 
-  LuMapPin, 
-  LuCalendar, 
-  LuArrowRight, 
-  LuSearch, 
+import { useEffect, useState } from "react";
+import {
+  LuMapPin,
+  LuCalendar,
+  LuArrowRight,
+  LuSearch,
   LuFilter,
   LuChevronDown,
   LuHeart,
   LuInfo,
   LuX,
   LuCircleCheck,
-  LuTriangleAlert
+  LuTriangleAlert,
+  LuBuilding2,
+  LuGraduationCap,
+  LuTrendingUp,
+  LuCircleAlert,
+  LuHistory,
+  LuCircleX
 } from "react-icons/lu";
-import { 
-  SiGoogle, 
-  SiAtlassian, 
-  SiUber, 
-  SiAirbnb, 
-  SiSpotify
-} from "react-icons/si";
-import { FaMicrosoft, FaAmazon } from "react-icons/fa";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { db } from "@/services/database";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Drive {
   id: string;
-  companyName: string;
-  role: string;
+  company_id: string;
+  role_title: string;
   location: string;
-  package: string;
-  deadline: string;
-  icon: any;
-  color: string;
-  type: "Full-time" | "Internship";
-  category: "Tech" | "Product" | "Design";
-  isEligible: boolean;
-  eligibilityReason?: string;
-  description: string;
+  package_ctc: string;
+  application_end: string;
+  drive_type: string;
+  eligibility_rules: {
+    branches: string[];
+    min_cgpa: number;
+    backlogs_allowed: number;
+    history_of_arrears: boolean;
+  };
+  status: string;
+  companies: {
+    name: string;
+    logo_url: string;
+    theme_color: string;
+  };
+  isEligible?: boolean;
+  ineligibleReasons?: string[];
 }
 
-const ALL_DRIVES: Drive[] = [
-  {
-    id: "1",
-    companyName: "Google",
-    role: "Software Engineer",
-    location: "Bangalore",
-    package: "24-30 LPA",
-    deadline: "2 days left",
-    icon: SiGoogle,
-    color: "#4285F4",
-    type: "Full-time",
-    category: "Tech",
-    isEligible: true,
-    description: "Join Google's Core Engineering team to build the next generation of search algorithms. You will be working on large-scale distributed systems and high-performance computing.",
-  },
-  {
-    id: "2",
-    companyName: "Microsoft",
-    role: "Cloud Associate",
-    location: "Hyderabad",
-    package: "18-22 LPA",
-    deadline: "5 days left",
-    icon: FaMicrosoft,
-    color: "#00A4EF",
-    type: "Full-time",
-    category: "Tech",
-    isEligible: true,
-    description: "Empower every person and every organization on the planet to achieve more. As a Cloud Associate, you will help customers migrate their workloads to Azure.",
-  },
-  {
-    id: "3",
-    companyName: "Atlassian",
-    role: "Product Intern",
-    location: "Remote",
-    package: "80k / month",
-    deadline: "Tomorrow",
-    icon: SiAtlassian,
-    color: "#0052CC",
-    type: "Internship",
-    category: "Product",
-    isEligible: false,
-    eligibilityReason: "Requires CGPA > 8.5 (Current: 8.2)",
-    description: "Help us build the future of collaboration. You will work alongside product managers to define and ship features for Jira and Confluence.",
-  },
-  {
-    id: "4",
-    companyName: "Uber",
-    role: "Backend Engineer",
-    location: "Gurgaon",
-    package: "22-26 LPA",
-    deadline: "1 week left",
-    icon: SiUber,
-    color: "#000000",
-    type: "Full-time",
-    category: "Tech",
-    isEligible: true,
-    description: "Uber is looking for Backend Engineers to join our Mobility and Delivery teams. You will be responsible for building scalable services that power millions of rides daily.",
-  },
-  {
-    id: "5",
-    companyName: "Airbnb",
-    role: "Frontend Engineer",
-    location: "Remote",
-    package: "28-32 LPA",
-    deadline: "3 days left",
-    icon: SiAirbnb,
-    color: "#FF5A5F",
-    type: "Full-time",
-    category: "Tech",
-    isEligible: true,
-    description: "Create experiences that make people feel at home anywhere in the world. You will be working with React, TypeScript, and modern CSS to build beautiful UIs.",
-  },
-  {
-    id: "6",
-    companyName: "Spotify",
-    role: "Product Designer",
-    location: "Stockholm / Remote",
-    package: "35-40 LPA",
-    deadline: "Expired",
-    icon: SiSpotify,
-    color: "#1DB954",
-    type: "Full-time",
-    category: "Design",
-    isEligible: true,
-    description: "Design the future of audio. Join our design team to create seamless experiences for millions of listeners and creators worldwide.",
-  },
-  {
-    id: "7",
-    companyName: "Amazon",
-    role: "SDE Intern",
-    location: "Chennai",
-    package: "60k / month",
-    deadline: "4 days left",
-    icon: FaAmazon,
-    color: "#FF9900",
-    type: "Internship",
-    category: "Tech",
-    isEligible: true,
-    description: "Work on Earth's most customer-centric company. As an SDE Intern, you will be part of a team that builds and operates large-scale software systems.",
-  },
-];
+const DUMMY_STUDENT = {
+  branch: "CSE",
+  cgpa: 8.2,
+  backlogs: 0,
+  history_of_arrears: false
+};
 
 export default function JobDrivesPage() {
+  const [drives, setDrives] = useState<Drive[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [savedDrives, setSavedDrives] = useState<string[]>([]);
   const [selectedDrive, setSelectedDrive] = useState<Drive | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
+  const router = useRouter();
 
-  const filteredDrives = ALL_DRIVES.filter(drive => {
-    const matchesSearch = drive.companyName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         drive.role.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = activeCategory === "All" || drive.category === activeCategory;
+  useEffect(() => {
+    loadDrives();
+  }, []);
+
+  const loadDrives = async () => {
+    try {
+      const data = await db.getDrives();
+      const processedDrives = (data || []).map((drive: any) => {
+        const rules = drive.eligibility_rules || {};
+        const ineligibleReasons: string[] = [];
+
+        if (rules.branches && !rules.branches.includes(DUMMY_STUDENT.branch)) {
+          ineligibleReasons.push(`Not open to ${DUMMY_STUDENT.branch} branch`);
+        }
+        if (rules.min_cgpa && DUMMY_STUDENT.cgpa < rules.min_cgpa) {
+          ineligibleReasons.push(`CGPA too low (Requires ${rules.min_cgpa}+)`);
+        }
+        if (rules.backlogs_allowed !== undefined && DUMMY_STUDENT.backlogs > rules.backlogs_allowed) {
+          ineligibleReasons.push(`Too many backlogs (Max ${rules.backlogs_allowed})`);
+        }
+        if (rules.history_of_arrears === false && DUMMY_STUDENT.history_of_arrears === true) {
+          ineligibleReasons.push("Drive requires no history of arrears");
+        }
+
+        return {
+          ...drive,
+          isEligible: ineligibleReasons.length === 0,
+          ineligibleReasons
+        };
+      });
+      setDrives(processedDrives);
+    } catch (err) {
+      console.error("Failed to load drives", err);
+      toast.error("Failed to load job drives");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApply = async (driveId: string) => {
+    setIsApplying(true);
+    try {
+      const STUDENT_ID = "550e8400-e29b-41d4-a716-446655440000"; 
+      await db.applyToDrive(STUDENT_ID, driveId);
+      toast.success("Application submitted successfully!");
+      router.push("/applications");
+    } catch (err: any) {
+      console.error("Failed to apply", err);
+      toast.error(err.message || "Failed to submit application");
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  const filteredDrives = drives.filter(drive => {
+    const matchesSearch = drive.companies?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      drive.role_title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = activeCategory === "All" || drive.drive_type === activeCategory;
     return matchesSearch && matchesCategory;
   });
 
   const toggleSave = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSavedDrives(prev => 
+    setSavedDrives(prev =>
       prev.includes(id) ? prev.filter(dId => dId !== id) : [...prev, id]
     );
   };
 
   return (
-    <div className="space-y-10 py-10 px-4 max-w-[1400px] mx-auto min-h-screen relative">
-      {/* Header Section */}
+    <div className="space-y-10 py-10 px-4 max-w-7xl mx-auto min-h-screen relative">
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <span className="h-2 w-12 rounded-full bg-primary" />
@@ -179,13 +150,12 @@ export default function JobDrivesPage() {
         </p>
       </section>
 
-      {/* Filter Bar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between sticky top-0 z-10 bg-background/80 backdrop-blur-md py-4 -mx-4 px-4">
         <div className="relative w-full md:w-96 group">
           <LuSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={20} />
-          <input 
-            type="text" 
-            placeholder="Search companies or roles..." 
+          <input
+            type="text"
+            placeholder="Search companies or roles..."
             className="w-full pl-12 pr-4 py-4 rounded-2xl border border-border-subtle bg-surface shadow-soft focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-medium"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -193,15 +163,16 @@ export default function JobDrivesPage() {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full md:w-auto no-scrollbar">
-          {["All", "Tech", "Product", "Design"].map((category) => (
+          {["All", "Full-time", "Internship", "Contract"].map((category) => (
             <button
               key={category}
               onClick={() => setActiveCategory(category)}
-              className={`px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                activeCategory === category 
-                  ? "bg-primary text-white shadow-tactile scale-105" 
+              className={cn(
+                "px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                activeCategory === category
+                  ? "bg-primary text-white shadow-tactile scale-105"
                   : "bg-surface border border-border-subtle text-muted hover:border-primary hover:text-primary"
-              }`}
+              )}
             >
               {category}
             </button>
@@ -214,129 +185,114 @@ export default function JobDrivesPage() {
         </div>
       </div>
 
-      {/* Grid */}
       <div className="grid gap-8 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-        {filteredDrives.map((drive) => {
-          const BrandIcon = drive.icon;
-          const isExpired = drive.deadline === "Expired";
+        {loading ? (
+          Array(6).fill(0).map((_, i) => (
+            <div key={i} className="h-[400px] rounded-[32px] bg-surface animate-pulse border border-border-subtle" />
+          ))
+        ) : filteredDrives.map((drive) => {
+          const isExpired = new Date(drive.application_end) < new Date();
           const isSaved = savedDrives.includes(drive.id);
-          
+          const deadlineText = isExpired ? "Expired" : `${Math.ceil((new Date(drive.application_end).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days left`;
+
           return (
-            <div 
-              key={drive.id} 
+            <div
+              key={drive.id}
               onClick={() => setSelectedDrive(drive)}
-              className="app-card group relative flex flex-col h-full hover:border-primary/50 cursor-pointer transition-all hover:shadow-hover"
+              className="app-card group relative flex flex-col h-full hover:border-primary/50 cursor-pointer transition-all hover:shadow-hover overflow-hidden"
             >
-              {/* Card Header */}
               <div className="p-8 pb-4">
                 <div className="flex items-start justify-between">
-                  <div 
-                    className="h-16 w-16 rounded-2xl bg-background border border-border-subtle flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"
-                    style={{ color: drive.color }}
-                  >
-                    <BrandIcon size={32} />
+                  <div className="h-16 w-16 rounded-2xl bg-background border border-border-subtle flex items-center justify-center p-3 shadow-sm overflow-hidden group-hover:shadow-md transition-shadow">
+                    {drive.companies?.logo_url?.startsWith('http') ? (
+                      <img src={drive.companies.logo_url} alt="" className="h-full w-full object-contain" />
+                    ) : (
+                      <LuBuilding2 size={32} style={{ color: drive.companies?.theme_color || 'var(--primary)' }} />
+                    )}
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <button 
+                  <div className="flex gap-2">
+                    <button
                       onClick={(e) => toggleSave(drive.id, e)}
-                      className={`h-10 w-10 rounded-full flex items-center justify-center border transition-all ${
-                        isSaved ? "bg-red-50 border-red-200 text-red-500 shadow-sm" : "bg-surface border-border-subtle text-muted hover:border-red-200 hover:text-red-500"
-                      }`}
+                      className={cn(
+                        "h-10 w-10 rounded-xl border flex items-center justify-center transition-all",
+                        isSaved ? "bg-red-50 border-red-100 text-red-500" : "bg-background border-border-subtle text-muted hover:text-primary"
+                      )}
                     >
                       <LuHeart size={18} fill={isSaved ? "currentColor" : "none"} />
                     </button>
-                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                      drive.type === "Full-time" ? "bg-green-100 text-green-600" : "bg-blue-100 text-blue-600"
-                    }`}>
-                      {drive.type}
-                    </div>
+                    {!drive.isEligible && (
+                      <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-500">
+                        <LuCircleAlert size={18} />
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="mt-6">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest ${
-                      drive.isEligible ? "text-primary" : "text-amber-500"
-                    }`}>
-                      {drive.isEligible ? (
-                        <>
-                          <LuCircleCheck size={12} />
-                          Eligible
-                        </>
-                      ) : (
-                        <>
-                          <LuTriangleAlert size={12} />
-                          Not Eligible
-                        </>
-                      )}
-                    </div>
-                  </div>
                   <h4 className="font-display text-2xl font-bold tracking-tight group-hover:text-primary transition-colors leading-tight">
-                    {drive.role}
+                    {drive.role_title}
                   </h4>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="font-sans text-sm font-bold text-muted">{drive.companyName}</span>
+                    <span className="font-sans text-sm font-bold text-muted">{drive.companies?.name}</span>
                     <span className="h-1 w-1 rounded-full bg-border-subtle" />
-                    <span className="font-sans text-sm font-bold text-muted">{drive.category}</span>
+                    <span className="font-sans text-sm font-bold text-muted">{drive.drive_type}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Card Content */}
               <div className="px-8 py-6 space-y-4 flex-1">
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2 text-muted">
                     <LuMapPin size={16} className="text-primary/60" />
                     <span className="font-bold">{drive.location}</span>
                   </div>
-                  <div className="font-display text-lg font-black text-foreground">{drive.package}</div>
+                  <div className="font-display text-lg font-black text-foreground">{drive.package_ctc}</div>
                 </div>
 
                 <div className="pt-4 border-t border-border-subtle flex items-center justify-between">
-                  <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
+                  <div className={cn(
+                    "flex items-center gap-2 text-[10px] font-black uppercase tracking-widest",
                     isExpired ? "text-red-500" : "text-primary"
-                  }`}>
+                  )}>
                     <LuCalendar size={14} />
-                    {drive.deadline}
+                    {deadlineText}
                   </div>
                   {!isExpired && (
                     <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-                      124 Applied
+                      Active Drive
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Card Footer */}
               <div className="p-4 bg-background/30 border-t border-border-subtle group-hover:bg-primary/5 transition-colors">
-                <Link href="/applications" className="w-full">
-                  <button 
-                    disabled={isExpired || !drive.isEligible}
-                    className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 text-xs font-black uppercase tracking-widest transition-all ${
-                      isExpired || !drive.isEligible
-                        ? "bg-border-subtle text-muted cursor-not-allowed" 
-                        : "bg-surface border border-border-subtle group-hover:bg-primary group-hover:text-white group-hover:border-primary group-hover:shadow-tactile"
-                    }`}
-                  >
-                    {isExpired ? "Drive Closed" : !drive.isEligible ? "Ineligible" : "Apply to Drive"}
-                    {!isExpired && drive.isEligible && <LuArrowRight size={18} />}
-                  </button>
-                </Link>
+                <button
+                  disabled={isExpired || !drive.isEligible}
+                  className={cn(
+                    "w-full py-4 rounded-xl flex items-center justify-center gap-3 text-xs font-black uppercase tracking-widest transition-all",
+                    isExpired || !drive.isEligible
+                      ? "bg-border-subtle text-muted cursor-not-allowed"
+                      : "bg-surface border border-border-subtle group-hover:bg-primary group-hover:text-white group-hover:border-primary group-hover:shadow-tactile"
+                  )}
+                >
+                  {isExpired ? "Drive Closed" : !drive.isEligible ? "Ineligible" : "Apply to Drive"}
+                  {!isExpired && drive.isEligible && <LuArrowRight size={18} />}
+                </button>
               </div>
             </div>
           );
         })}
       </div>
 
-      {filteredDrives.length === 0 && (
+      {filteredDrives.length === 0 && !loading && (
         <div className="py-20 text-center">
           <div className="h-20 w-20 rounded-full bg-primary/5 flex items-center justify-center text-primary mx-auto mb-6">
             <LuSearch size={32} />
           </div>
           <h3 className="font-display text-2xl font-bold tracking-tight text-foreground">No drives found</h3>
           <p className="text-muted mt-2 font-medium">Try adjusting your search or filters to find more opportunities.</p>
-          <button 
-            onClick={() => {setSearchQuery(""); setActiveCategory("All");}}
+          <button
+            onClick={() => { setSearchQuery(""); setActiveCategory("All"); }}
             className="mt-8 text-xs font-black uppercase tracking-widest text-primary hover:underline"
           >
             Clear all filters
@@ -344,107 +300,164 @@ export default function JobDrivesPage() {
         </div>
       )}
 
-      {/* Drive Detail Overlay */}
       {selectedDrive && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setSelectedDrive(null)} />
-          <div className="relative bg-surface w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-            {/* Header */}
-            <div className="p-8 border-b border-border-subtle flex items-start justify-between">
+          <div className="relative bg-surface w-full max-w-2xl rounded-[40px] border border-border-subtle shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div className="p-8 border-b border-border-subtle flex items-start justify-between bg-background/50">
               <div className="flex items-center gap-6">
-                <div 
-                  className="h-20 w-20 rounded-3xl bg-background border border-border-subtle flex items-center justify-center shadow-sm"
-                  style={{ color: selectedDrive.color }}
-                >
-                  <selectedDrive.icon size={40} />
+                <div className="h-20 w-20 rounded-3xl bg-background border border-border-subtle flex items-center justify-center shadow-sm p-4 overflow-hidden">
+                  {selectedDrive.companies?.logo_url?.startsWith('http') ? (
+                    <img src={selectedDrive.companies.logo_url} alt="" className="h-full w-full object-contain" />
+                  ) : (
+                    <LuBuilding2 size={40} style={{ color: selectedDrive.companies?.theme_color || 'var(--primary)' }} />
+                  )}
                 </div>
                 <div>
-                  <h3 className="font-display text-3xl font-black tracking-tight">{selectedDrive.role}</h3>
-                  <p className="font-sans text-xl font-bold text-muted">{selectedDrive.companyName}</p>
+                  <h3 className="font-display text-3xl font-black tracking-tight">{selectedDrive.role_title}</h3>
+                  <p className="font-sans text-xl font-bold text-muted">{selectedDrive.companies?.name}</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedDrive(null)}
-                className="h-10 w-10 rounded-full bg-background border border-border-subtle flex items-center justify-center text-muted hover:text-primary transition-colors"
+                className="h-10 w-10 rounded-xl bg-surface border border-border-subtle flex items-center justify-center text-muted hover:text-primary transition-colors shadow-sm"
               >
                 <LuX size={20} />
               </button>
             </div>
 
-            {/* Content */}
             <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto no-scrollbar">
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-background border border-border-subtle">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-1">Package</p>
-                  <p className="font-display text-xl font-black text-primary">{selectedDrive.package}</p>
+                <div className="p-6 rounded-[24px] bg-background border border-border-subtle shadow-sm">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-1 flex items-center gap-2">
+                    <LuTrendingUp size={12} className="text-primary" />
+                    Package
+                  </p>
+                  <p className="font-display text-xl font-black text-primary">{selectedDrive.package_ctc}</p>
                 </div>
-                <div className="p-4 rounded-2xl bg-background border border-border-subtle">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-1">Location</p>
+                <div className="p-6 rounded-[24px] bg-background border border-border-subtle shadow-sm">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-1 flex items-center gap-2">
+                    <LuMapPin size={12} className="text-primary" />
+                    Location
+                  </p>
                   <p className="font-display text-xl font-black">{selectedDrive.location}</p>
                 </div>
               </div>
 
               <div>
-                <h5 className="text-[10px] font-black uppercase tracking-widest text-muted mb-4">About the Role</h5>
-                <p className="font-sans text-lg text-foreground leading-relaxed">
-                  {selectedDrive.description}
-                </p>
+                <h5 className="text-[10px] font-black uppercase tracking-widest text-muted mb-4">Mandatory Academic Standards</h5>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className={cn(
+                    "p-5 rounded-3xl border flex flex-col items-center gap-3 transition-all shadow-sm",
+                    DUMMY_STUDENT.cgpa >= (selectedDrive.eligibility_rules?.min_cgpa || 0)
+                      ? "bg-green-50/50 border-green-200"
+                      : "bg-red-50/50 border-red-200"
+                  )}>
+                    <LuGraduationCap size={24} className={DUMMY_STUDENT.cgpa >= (selectedDrive.eligibility_rules?.min_cgpa || 0) ? "text-green-600" : "text-red-600"} />
+                    <div className="text-center">
+                      <p className="text-xl font-black">{selectedDrive.eligibility_rules?.min_cgpa}+</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted">Min CGPA</p>
+                    </div>
+                  </div>
+
+                  <div className={cn(
+                    "p-5 rounded-3xl border flex flex-col items-center gap-3 transition-all shadow-sm",
+                    DUMMY_STUDENT.backlogs <= (selectedDrive.eligibility_rules?.backlogs_allowed || 0)
+                      ? "bg-green-50/50 border-green-200"
+                      : "bg-red-50/50 border-red-200"
+                  )}>
+                    <LuCircleAlert size={24} className={DUMMY_STUDENT.backlogs <= (selectedDrive.eligibility_rules?.backlogs_allowed || 0) ? "text-green-600" : "text-red-600"} />
+                    <div className="text-center">
+                      <p className="text-xl font-black">{selectedDrive.eligibility_rules?.backlogs_allowed}</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted">Max Backlogs</p>
+                    </div>
+                  </div>
+
+                  <div className={cn(
+                    "p-5 rounded-3xl border flex flex-col items-center gap-3 transition-all shadow-sm",
+                    (selectedDrive.eligibility_rules?.history_of_arrears === true || DUMMY_STUDENT.history_of_arrears === false)
+                      ? "bg-green-50/50 border-green-200"
+                      : "bg-red-50/50 border-red-200"
+                  )}>
+                    <LuHistory size={24} className={(selectedDrive.eligibility_rules?.history_of_arrears === true || DUMMY_STUDENT.history_of_arrears === false) ? "text-green-600" : "text-red-600"} />
+                    <div className="text-center">
+                      <p className="text-xl font-black">{selectedDrive.eligibility_rules?.history_of_arrears ? "YES" : "NO"}</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted">Arrears OK</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div>
-                <h5 className="text-[10px] font-black uppercase tracking-widest text-muted mb-4">Eligibility Status</h5>
-                <div className={`p-6 rounded-2xl border flex items-start gap-4 ${
+                <h5 className="text-[10px] font-black uppercase tracking-widest text-muted mb-4">Eligibility Conclusion</h5>
+                <div className={cn(
+                  "p-6 rounded-[24px] border flex items-start gap-4",
                   selectedDrive.isEligible ? "bg-primary/5 border-primary/20" : "bg-amber-50 border-amber-200"
-                }`}>
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                )}>
+                  <div className={cn(
+                    "h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm",
                     selectedDrive.isEligible ? "bg-primary text-white" : "bg-amber-500 text-white"
-                  }`}>
-                    {selectedDrive.isEligible ? <LuCircleCheck size={24} /> : <LuTriangleAlert size={24} />}
+                  )}>
+                    {selectedDrive.isEligible ? <LuCircleCheck size={28} /> : <LuTriangleAlert size={28} />}
                   </div>
                   <div>
-                    <p className={`font-display text-lg font-bold ${
+                    <p className={cn(
+                      "font-display text-xl font-bold tracking-tight",
                       selectedDrive.isEligible ? "text-primary" : "text-amber-700"
-                    }`}>
-                      {selectedDrive.isEligible ? "You are eligible to apply!" : "You are currently ineligible."}
+                    )}>
+                      {selectedDrive.isEligible ? "Verification Successful" : "Eligibility Mismatch"}
                     </p>
-                    {selectedDrive.eligibilityReason && (
-                      <p className="text-sm font-medium text-muted mt-1">{selectedDrive.eligibilityReason}</p>
-                    )}
-                    <button className="text-[10px] font-black uppercase tracking-widest text-primary mt-4 flex items-center gap-2 hover:underline">
-                      <LuInfo size={14} />
-                      View detailed criteria
-                    </button>
+                    <div className="mt-2 space-y-1">
+                      {selectedDrive.isEligible ? (
+                        <p className="text-sm font-medium text-muted">Your profile meets all the mandatory criteria for this drive. You can proceed with the application.</p>
+                      ) : (
+                        selectedDrive.ineligibleReasons?.map((reason, i) => (
+                          <div key={i} className="flex items-center gap-2 text-xs font-bold text-amber-800">
+                            <div className="h-1 w-1 rounded-full bg-amber-500" />
+                            {reason}
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
             <div className="p-8 border-t border-border-subtle bg-background/50 flex items-center gap-4">
-              <button 
+              <button
                 onClick={(e) => toggleSave(selectedDrive.id, e)}
-                className={`flex-1 py-4 rounded-2xl border font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all ${
-                  savedDrives.includes(selectedDrive.id) 
-                    ? "bg-red-50 border-red-200 text-red-500" 
-                    : "bg-surface border-border-subtle text-muted hover:border-red-200 hover:text-red-500"
-                }`}
+                className={cn(
+                  "flex-1 py-5 rounded-2xl border font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-all",
+                  savedDrives.includes(selectedDrive.id)
+                    ? "bg-red-50 border-red-200 text-red-500 shadow-inner"
+                    : "bg-surface border-border-subtle text-muted hover:border-red-200 hover:text-red-500 shadow-sm"
+                )}
               >
                 <LuHeart size={18} fill={savedDrives.includes(selectedDrive.id) ? "currentColor" : "none"} />
-                {savedDrives.includes(selectedDrive.id) ? "Saved to Profile" : "Save for Later"}
+                {savedDrives.includes(selectedDrive.id) ? "Saved" : "Save"}
               </button>
-              <Link href="/applications" className="flex-[2]">
-                <button 
-                  disabled={selectedDrive.deadline === "Expired" || !selectedDrive.isEligible}
-                  className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 shadow-tactile transition-all ${
-                    selectedDrive.deadline === "Expired" || !selectedDrive.isEligible
+              <div className="flex-[2.5]">
+                <button
+                  onClick={() => handleApply(selectedDrive.id)}
+                  disabled={new Date(selectedDrive.application_end) < new Date() || !selectedDrive.isEligible || isApplying}
+                  className={cn(
+                    "w-full py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 shadow-tactile transition-all",
+                    (new Date(selectedDrive.application_end) < new Date() || !selectedDrive.isEligible || isApplying)
                       ? "bg-border-subtle text-muted cursor-not-allowed"
-                      : "bg-primary text-white hover:scale-[1.02] active:scale-[0.98]"
-                  }`}
+                      : "bg-primary text-white hover:shadow-hover hover:-translate-y-0.5 active:translate-y-0"
+                  )}
                 >
-                  {selectedDrive.deadline === "Expired" ? "Drive Closed" : "Proceed to Apply"}
-                  {selectedDrive.deadline !== "Expired" && selectedDrive.isEligible && <LuArrowRight size={20} />}
+                  {isApplying ? (
+                    <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      {new Date(selectedDrive.application_end) < new Date() ? "Closed" : "Start Application"}
+                      {new Date(selectedDrive.application_end) >= new Date() && selectedDrive.isEligible && <LuArrowRight size={20} />}
+                    </>
+                  )}
                 </button>
-              </Link>
+              </div>
             </div>
           </div>
         </div>

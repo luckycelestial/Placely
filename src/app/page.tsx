@@ -19,7 +19,7 @@ export default function TenantEntryPage() {
   const [role, setRole] = useState<"student" | "admin">("student");
 
   return (
-    <div className="min-h-screen bg-white flex flex-col lg:flex-row font-sans selection:bg-primary/20">
+    <div className="min-h-screen bg-background flex flex-col lg:flex-row font-sans selection:bg-primary/20 text-foreground overflow-x-hidden max-w-full">
       
       {/* Left Section: Large Brand Hero */}
       <div className="relative w-full lg:w-[55%] bg-[#0A0A0B] flex flex-col justify-center p-8 lg:p-24 overflow-hidden">
@@ -31,11 +31,6 @@ export default function TenantEntryPage() {
         </div>
 
         <div className="relative z-10 space-y-12 max-w-2xl">
-          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md animate-in fade-in slide-in-from-left-4 duration-700">
-            <img src="/placely.png" alt="Placely" className="h-8 w-8 object-contain" />
-            <span className="text-white text-lg font-black tracking-tight">Placely</span>
-          </div>
-
           <div className="space-y-6">
             <h1 className="text-5xl lg:text-7xl font-black text-white tracking-tighter leading-[0.9] animate-in fade-in slide-in-from-left-6 duration-1000 delay-100">
               The Future of <br />
@@ -72,24 +67,16 @@ export default function TenantEntryPage() {
       </div>
 
       {/* Right Section: Login Area */}
-      <div className="w-full lg:w-[45%] flex flex-col justify-center p-8 lg:p-20 bg-[#F8F9FB] relative">
+      <div className="w-full lg:w-[45%] flex flex-col justify-center p-8 lg:p-20 bg-background relative border-l border-border-subtle">
         <div className="max-w-[420px] mx-auto w-full space-y-10">
           
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-widest mb-2">
-              <LuGlobe size={14} />
-              College Portal Detected
+          <div className="space-y-12">
+            <div className="flex items-center gap-6 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+              <img src="/placely.png" alt="Placely" className="h-20 w-20 object-contain" />
+              <span className="text-7xl font-black tracking-tighter text-foreground leading-none">Placely</span>
             </div>
-            <h2 className="text-3xl font-black tracking-tight text-foreground">Sign in to Continue</h2>
-            <div className="flex items-center gap-3 p-4 rounded-2xl bg-white border border-border-subtle shadow-sm mt-4">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                <LuBuilding2 size={20} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-black text-muted uppercase tracking-widest leading-none mb-1">Institution</p>
-                <p className="text-sm font-black tracking-tight truncate">National Institute of Technology</p>
-              </div>
-              <button className="text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors">Change</button>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold tracking-tight text-muted">Sign in to Continue</h2>
             </div>
           </div>
 
@@ -100,7 +87,7 @@ export default function TenantEntryPage() {
                 onClick={() => setRole("student")}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[16px] text-[11px] font-black uppercase tracking-widest transition-all",
-                  role === "student" ? "bg-white shadow-sm text-primary" : "text-muted hover:text-foreground"
+                  role === "student" ? "bg-surface shadow-sm text-primary" : "text-muted hover:text-foreground"
                 )}
               >
                 <LuUser size={16} />
@@ -110,7 +97,7 @@ export default function TenantEntryPage() {
                 onClick={() => setRole("admin")}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[16px] text-[11px] font-black uppercase tracking-widest transition-all",
-                  role === "admin" ? "bg-white shadow-sm text-primary" : "text-muted hover:text-foreground"
+                  role === "admin" ? "bg-surface shadow-sm text-primary" : "text-muted hover:text-foreground"
                 )}
               >
                 <LuShieldCheck size={16} />
@@ -127,7 +114,7 @@ export default function TenantEntryPage() {
                   <input 
                     type="text"
                     placeholder={role === "student" ? "Student Roll Number" : "Administrator ID"}
-                    className="w-full pl-14 pr-6 py-4.5 rounded-[24px] border border-border-subtle bg-white text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all shadow-sm"
+                    className="w-full pl-14 pr-6 py-4.5 rounded-[24px] border border-border-subtle bg-surface text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all shadow-sm"
                   />
                 </div>
               </div>

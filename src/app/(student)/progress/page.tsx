@@ -2,16 +2,10 @@
 
 import { useState } from "react";
 import { 
-  LuActivity, 
   LuCircle, 
-  LuClock, 
-  LuSearch, 
-  LuFilter,
   LuChevronRight,
   LuBuilding2,
-  LuTrophy,
   LuTarget,
-  LuLayoutList,
   LuCircleCheck,
   LuX,
   LuInfo
@@ -74,7 +68,7 @@ export default function ProgressPage() {
   const [selectedApp, setSelectedApp] = useState<ApplicationProgress>(PROGRESS_DATA[0]);
 
   return (
-    <div className="space-y-12 py-10 px-4 max-w-[1400px] mx-auto min-h-screen">
+    <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto min-h-screen">
       {/* Header */}
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
@@ -173,7 +167,7 @@ export default function ProgressPage() {
                  <div className="absolute left-6 top-0 bottom-0 w-1 bg-border-subtle rounded-full" />
                  
                  <div className="space-y-12">
-                    {selectedApp.events.map((event, idx) => (
+                    {selectedApp.events.map((event) => (
                       <div key={event.id} className="relative pl-16 group/item">
                          {/* Circle Indicator */}
                          <div className={cn(

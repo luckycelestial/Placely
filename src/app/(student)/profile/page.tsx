@@ -28,119 +28,190 @@ import {
 } from "react-icons/si";
 import { FaLinkedin } from "react-icons/fa";
 import { ProfileSection } from "@/components/student/profile-section";
+import { db } from "@/services/database";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { DEV_STUDENT_ID } from "@/lib/dev-config";
+import { useEffect, useRef } from "react";
 
 export default function ProfilePage() {
-  const [isEditing, setIsEditing] = useState(false);
-  const completionPercentage = 85;
+  const [student, setStudent] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const data = await db.getStudentProfile(DEV_STUDENT_ID);
+        setStudent(data);
+      } catch (error) {
+        console.error("Error loading profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadProfile();
+  }, []);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (limit to 2MB for Base64 storage)
+    if (file.size > 2 * 1024 * 1024) {
+      alert("File is too large. Please select an image under 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      
+      // Update DB
+      try {
+        const userId = student.user_id || student.users?.id;
+        if (!userId) throw new Error("User ID not found in profile data");
+
+        await db.updateProfilePicture(userId, base64String);
+        
+        // Update local state
+        setStudent((prev: any) => ({
+          ...prev,
+          users: {
+            ...prev.users,
+            avatar_url: base64String
+          }
+        }));
+      } catch (error: any) {
+        console.error("Error updating profile picture:", error);
+        alert(`Failed to update profile picture: ${error.message || "Unknown error"}`);
+      }
+    };
+    reader.onerror = () => {
+      console.error("FileReader error");
+      alert("Failed to read the file");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  const academics = student?.student_academics?.[0] || student?.student_academics;
+  const profile = student?.student_profiles?.[0] || student?.student_profiles;
+  const completionPercentage = student?.profile_completion || 0;
+
+  const year = student?.year || 4;
+  const endYear = 2020 + (student?.year || 4);
+  const startYear = endYear - 4;
+  const romanMap: Record<number, string> = { 1: "I", 2: "II", 3: "III", 4: "IV" };
+  const romanYear = romanMap[year as keyof typeof romanMap] || "IV";
 
   return (
-    <div className="space-y-12 max-w-5xl py-10 px-4 mx-auto">
-      {/* Profile Header */}
-      <div className="app-card bg-primary p-8 md:p-12 overflow-hidden relative border-none">
-        <div className="flex flex-col lg:flex-row gap-10 items-center relative z-10">
-          <div className="relative group flex-shrink-0">
-            <div className="h-44 w-44 rounded-3xl bg-white p-2 shadow-2xl transition-transform group-hover:scale-105">
-              <div className="h-full w-full rounded-2xl bg-background flex items-center justify-center text-primary border-2 border-primary/10 overflow-hidden">
-                <LuUser size={100} />
+    <div className="space-y-12 max-w-7xl py-10 px-4 mx-auto">
+      {/* Master Profile Card */}
+      <div className="app-card overflow-hidden border border-border-subtle shadow-xl bg-surface">
+        {/* Profile Header (White Theme) */}
+        <div className="p-8 md:p-12 relative">
+          <div className="flex flex-col lg:flex-row gap-10 items-start relative z-10">
+            {/* Profile Image */}
+            <div className="relative group flex-shrink-0">
+              <div className="h-44 w-44 rounded-3xl bg-surface p-2 shadow-sm transition-transform group-hover:scale-105 border border-border-subtle">
+                <div className="h-full w-full rounded-2xl bg-surface flex items-center justify-center text-primary/20 border border-primary/5 overflow-hidden">
+                  {student?.users?.avatar_url ? (
+                    <img src={student.users.avatar_url} alt="Profile" className="h-full w-full object-cover rounded-2xl" />
+                  ) : (
+                    <LuUser size={100} />
+                  )}
+                </div>
               </div>
-            </div>
-            <button className="absolute -bottom-2 -right-2 h-12 w-12 rounded-2xl bg-secondary text-foreground shadow-lg border-4 border-primary flex items-center justify-center hover:scale-110 transition-transform">
-              <LuUpload size={20} />
-            </button>
-          </div>
-          
-          <div className="flex-1 text-center lg:text-left text-white">
-            <div className="flex flex-col md:flex-row md:items-center gap-4 justify-center lg:justify-start">
-              <h2 className="font-display text-5xl md:text-6xl font-black tracking-tighter">John Doe</h2>
-              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-                <LuShieldCheck size={16} className="text-secondary" />
-                <span className="font-sans text-[10px] font-black uppercase tracking-widest text-white">
-                  Verified Identity
-                </span>
-              </div>
-            </div>
-            <p className="font-display text-2xl font-bold mt-2 opacity-90">B.Tech Computer Science (2020-2024)</p>
-            
-            {/* Completeness Bar */}
-            <div className="mt-8 max-w-md mx-auto lg:mx-0">
-              <div className="flex justify-between items-end mb-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">Profile Completeness</span>
-                <span className="text-2xl font-display font-black text-secondary">{completionPercentage}%</span>
-              </div>
-              <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
-                <div 
-                  className="h-full bg-secondary shadow-[0_0_20px_rgba(255,232,116,0.5)] transition-all duration-1000 ease-out" 
-                  style={{ width: `${completionPercentage}%` }} 
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-4 w-full lg:w-auto">
-            {!isEditing ? (
-                <button 
-                onClick={() => setIsEditing(true)}
-                className="btn-secondary border-none bg-white hover:bg-secondary hover:text-foreground text-primary px-8 py-5 shadow-xl w-full justify-center"
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*"
+                onChange={handlePhotoUpload}
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-2 -right-2 h-12 w-12 rounded-2xl bg-primary text-white shadow-lg border-4 border-white flex items-center justify-center hover:scale-110 transition-transform"
               >
-                <LuPencil size={20} />
-                <span>Edit Profile</span>
+                <LuUpload size={20} />
               </button>
-            ) : (
-              <div className="flex flex-col sm:flex-row gap-4 w-full">
-                <button 
-                  onClick={() => setIsEditing(false)}
-                  className="btn-secondary border-white/20 bg-white/10 text-white hover:bg-white/20 px-8 py-5 flex-1 justify-center"
-                >
-                  <LuCircleX size={20} />
-                  <span>Cancel</span>
-                </button>
-                <button 
-                  onClick={() => setIsEditing(false)}
-                  className="btn-secondary border-none bg-secondary text-foreground hover:scale-105 px-8 py-5 shadow-xl flex-1 justify-center"
-                >
-                  <LuCircleCheck size={20} />
-                  <span>Save</span>
-                </button>
+            </div>
+            
+            {/* Identity & Academic Info */}
+            <div className="flex-1 text-center lg:text-left">
+              <div className="flex flex-col md:flex-row md:items-center gap-4 justify-center lg:justify-start">
+                <h2 className="font-display text-5xl md:text-6xl font-black tracking-tighter text-foreground">
+                  {student?.users?.name || "Student"}
+                </h2>
               </div>
-            )}
+              <p className="font-display text-2xl font-bold mt-2 text-muted-foreground/80">
+                B.Tech {student?.department || "Department"} ({startYear}-{endYear} : {romanYear})
+              </p>
+
+              {/* Small Academic Info (Image 1 Style) */}
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 mt-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
+                    <LuBook size={20} />
+                  </div>
+                  <span className="font-display font-black text-lg text-foreground">
+                    {student?.register_number || student?.roll_number || "---"}
+                  </span>
+                </div>
+                <div className="h-4 w-px bg-border-subtle hidden md:block" />
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
+                    <LuGraduationCap size={20} />
+                  </div>
+                  <span className="font-display font-black text-lg text-foreground">
+                    {academics?.cgpa || "0.00"} / 10
+                  </span>
+                </div>
+              </div>
+              
+              {/* Completeness Bar */}
+              <div className="mt-8 max-w-sm mx-auto lg:mx-0">
+                <div className="flex justify-between items-end mb-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted/60">Profile Completeness</span>
+                  <span className="text-xl font-display font-black text-primary">{completionPercentage}%</span>
+                </div>
+                <div className="h-2 w-full bg-surface rounded-full overflow-hidden border border-border-subtle">
+                  <div 
+                    className="h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(255,56,60,0.2)]" 
+                    style={{ width: `${completionPercentage}%` }} 
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Info (Image 2 Style) */}
+            <div className="w-full lg:w-auto flex flex-col gap-3">
+              <HeaderDetailItem value={student?.users?.email || ""} icon={LuMail} />
+              <HeaderDetailItem value={student?.users?.phone || "+91 ----- -----"} icon={LuPhone} />
+              <HeaderDetailItem value="Campus Resident" icon={LuMapPin} />
+            </div>
           </div>
+
+          {/* Decor */}
+          <div className="absolute top-0 right-0 h-64 w-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl opacity-50" />
+          <div className="absolute bottom-0 left-0 h-48 w-48 bg-primary/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl opacity-50" />
         </div>
-
-        {/* Decor */}
-        <div className="absolute top-0 right-0 h-96 w-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-48 w-48 bg-secondary/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
-      </div>
-
-      <div className="grid gap-12 lg:grid-cols-2">
-        {/* Personal Details */}
-        <ProfileSection title="Personal Details" description="Identity Dispatch">
-          <div className="grid gap-8">
-            <DetailItem label="Full Name" value="John Doe" icon={LuUser} isEditing={isEditing} />
-            <DetailItem label="Email Address" value="john.doe@university.edu" icon={LuMail} isEditing={isEditing} />
-            <DetailItem label="Phone Number" value="+91 98765 43210" icon={LuPhone} isEditing={isEditing} />
-            <DetailItem label="Current Address" value="Boys Hostel 2, University Campus" icon={LuMapPin} isEditing={isEditing} />
-          </div>
-        </ProfileSection>
-
-        {/* Academic Overview */}
-        <ProfileSection title="Academic Overview" description="Performance Metrics">
-          <div className="grid gap-8">
-            <DetailItem label="Roll Number" value="2024CS101" icon={LuBook} isEditing={false} />
-            <DetailItem label="Current CGPA" value="8.92 / 10" icon={LuGraduationCap} isEditing={false} />
-            <DetailItem label="Batch" value="2020 - 2024" icon={LuCalendar} isEditing={false} />
-            <DetailItem label="Department" value="Computer Science & Engineering" icon={LuGraduationCap} isEditing={false} />
-          </div>
-        </ProfileSection>
       </div>
 
       {/* Placement Preferences */}
       <ProfileSection title="Placement Preferences" description="Career Strategy">
         <div className="grid gap-8 md:grid-cols-3 mt-4">
-          <DetailItem label="Preferred Role" value="SDE / Full Stack" icon={LuBriefcase} isEditing={isEditing} />
-          <DetailItem label="Expected CTC" value="12 - 18 LPA" icon={LuDollarSign} isEditing={isEditing} />
-          <DetailItem label="Preferred Locations" value="Bangalore, Hyderabad, Remote" icon={LuMapPin} isEditing={isEditing} />
+          <DetailItem value="SDE / Full Stack" icon={LuBriefcase} />
+          <DetailItem value="12 - 18 LPA" icon={LuDollarSign} />
+          <DetailItem value="Bangalore, Hyderabad, Remote" icon={LuMapPin} />
         </div>
       </ProfileSection>
 
@@ -157,7 +228,7 @@ export default function ProfilePage() {
           }
         >
           <div className="grid gap-4 mt-4">
-            <DocumentCard name="Resume_JohnDoe_2024.pdf" date="Updated 2 days ago" type="pdf" />
+            <DocumentCard name="Resume_Aarav_2024.pdf" date="Updated 2 days ago" type="pdf" />
             <DocumentCard name="10th_Marksheet.pdf" date="Verified" type="pdf" isVerified />
             <DocumentCard name="12th_Marksheet.pdf" date="Verified" type="pdf" isVerified />
           </div>
@@ -166,10 +237,10 @@ export default function ProfilePage() {
         {/* Experience & Links */}
         <ProfileSection title="Professional Links" description="External Assets">
           <div className="grid gap-4 mt-4">
-            <LinkCard title="GitHub" url="github.com/johndoe" icon={SiGithub} color="#181717" />
-            <LinkCard title="LinkedIn" url="linkedin.com/in/johndoe" icon={FaLinkedin} color="#0A66C2" />
-            <LinkCard title="LeetCode" url="leetcode.com/johndoe" icon={SiLeetcode} color="#FFA116" />
-            <LinkCard title="Portfolio" url="johndoe.dev" icon={LuGlobe} color="#ff383c" />
+            <LinkCard title="GitHub" url="github.com/aarav" icon={SiGithub} color="#181717" />
+            <LinkCard title="LinkedIn" url="linkedin.com/in/aarav" icon={FaLinkedin} color="#0A66C2" />
+            <LinkCard title="LeetCode" url="leetcode.com/aarav" icon={SiLeetcode} color="#FFA116" />
+            <LinkCard title="Portfolio" url="aarav.dev" icon={LuGlobe} color="#ff383c" />
           </div>
         </ProfileSection>
       </div>
@@ -177,29 +248,31 @@ export default function ProfilePage() {
   );
 }
 
-function DetailItem({ label, value, icon: Icon, isEditing }: any) {
+function HeaderDetailItem({ value, icon: Icon }: { value: string, icon: import("react-icons").IconType }) {
   return (
-    <div className="flex flex-col gap-2">
-      <label className="section-label pl-2">{label}</label>
-      <div className="flex items-center gap-4 group bg-background/50 rounded-3xl p-5 border border-border-subtle hover:border-primary transition-all">
-        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
-          <Icon size={20} />
-        </div>
-        {isEditing ? (
-          <input 
-            type="text" 
-            defaultValue={value}
-            className="w-full bg-transparent px-2 py-1 text-sm font-bold uppercase tracking-tight focus:outline-none"
-          />
-        ) : (
-          <p className="text-lg font-display font-bold tracking-tight text-foreground">{value}</p>
-        )}
+    <div className="flex items-center gap-4 bg-surface/50 border border-border-subtle p-4 rounded-2xl w-full lg:min-w-[340px] shadow-sm hover:shadow-md transition-shadow">
+      <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary flex-shrink-0">
+        <Icon size={20} />
+      </div>
+      <p className="text-sm font-bold text-foreground truncate">{value}</p>
+    </div>
+  );
+}
+
+function DetailItem({ value, icon: Icon, placeholder }: { value: string, icon: import("react-icons").IconType, placeholder?: string }) {
+  return (
+    <div className="flex items-center gap-4 group bg-background/50 rounded-3xl p-5 border border-border-subtle hover:border-primary transition-all">
+      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all flex-shrink-0">
+        <Icon size={20} />
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <p className="text-lg font-display font-bold tracking-tight text-foreground truncate">{value || placeholder}</p>
       </div>
     </div>
   );
 }
 
-function DocumentCard({ name, date, isVerified }: any) {
+function DocumentCard({ name, date, isVerified, type }: { name: string, date: string, isVerified?: boolean, type?: string }) {
   return (
     <div className="flex items-center justify-between p-6 rounded-3xl bg-background border border-border-subtle hover:border-primary hover:bg-surface hover:shadow-xl hover:shadow-black/5 transition-all group">
       <div className="flex items-center gap-5">
@@ -226,7 +299,7 @@ function DocumentCard({ name, date, isVerified }: any) {
   );
 }
 
-function LinkCard({ title, url, icon: Icon, color }: any) {
+function LinkCard({ title, url, icon: Icon, color }: { title: string, url: string, icon: import("react-icons").IconType, color: string }) {
   return (
     <a 
       href={`https://${url}`} 

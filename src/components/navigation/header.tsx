@@ -5,11 +5,28 @@ import { STUDENT_NAV_ITEMS } from "./nav-config";
 import { LuSearch, LuBell, LuUser, LuShield } from "react-icons/lu";
 import Link from "next/link";
 import { TypographyToggle } from "./typography-toggle";
+import { DesignToggle } from "./design-toggle";
+import { useEffect, useState } from "react";
+import { db } from "@/services/database";
+import { DEV_STUDENT_ID } from "@/lib/dev-config";
 
 export function Header() {
   const pathname = usePathname();
+  const [student, setStudent] = useState<any>(null);
   const currentItem = STUDENT_NAV_ITEMS.find((item) => item.href === pathname);
   const title = currentItem?.title || "Placely";
+
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const data = await db.getStudentProfile(DEV_STUDENT_ID);
+        setStudent(data);
+      } catch (error) {
+        console.error("Error loading header profile:", error);
+      }
+    }
+    loadProfile();
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between bg-background/80 backdrop-blur-md px-6 md:px-12 border-b border-border-subtle/50">
@@ -65,6 +82,7 @@ export function Header() {
             <LuShield size={18} className="text-primary" />
           </Link>
 
+          <DesignToggle />
           <TypographyToggle />
 
           <button className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/5 transition-all group">
@@ -74,11 +92,13 @@ export function Header() {
           
           <div className="flex items-center gap-3 ml-2 pl-4 border-l border-border-subtle">
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-black uppercase tracking-tight leading-none">John Doe</p>
+              <p className="text-xs font-black uppercase tracking-tight leading-none">
+                {student?.users?.name || "Loading..."}
+              </p>
               <p className="text-[10px] font-bold text-primary uppercase mt-1">Student</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-display text-sm font-bold text-primary overflow-hidden">
-              JD
+            <div className="h-10 w-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-display text-sm font-bold text-primary overflow-hidden uppercase">
+              {student?.users?.name?.charAt(0) || "S"}
             </div>
           </div>
         </div>

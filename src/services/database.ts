@@ -19,9 +19,23 @@ export async function getStudents(options: {
   pageSize?: number; 
   dept?: string; 
   status?: string;
+  minCgpa?: number;
+  maxCgpa?: number;
+  minLeetcode?: number;
+  specialization?: string;
 } = {}) {
-  const { page = 1, pageSize = 10, dept = "All Departments", status = "All Statuses" } = options;
+  const { 
+    page = 1, 
+    pageSize = 10, 
+    dept = "All Departments", 
+    status = "All Statuses",
+    minCgpa,
+    maxCgpa,
+    minLeetcode,
+    specialization
+  } = options;
   
+  // Base query with necessary joins for filtering
   let query = supabase
     .from('students')
     .select(`
@@ -34,11 +48,13 @@ export async function getStudents(options: {
       verification_status,
       users (name),
       student_academics (cgpa),
+      student_profiles (leetcode_count, specializations),
       offers (
         company:companies (name)
       )
     `, { count: 'exact' });
 
+  // Apply filters
   if (dept !== "All Departments") {
     query = query.eq('department', dept);
   }
@@ -47,13 +63,28 @@ export async function getStudents(options: {
     const statusMap: Record<string, string> = {
       'Placed': 'placed',
       'Applied': 'applied',
-      'Unplaced': 'unplaced',
+      'Unplaced': 'not_placed',
       'In-Process': 'applied'
     };
     const dbStatus = statusMap[status];
     if (dbStatus) {
       query = query.eq('placement_status', dbStatus);
     }
+  }
+
+  if (minCgpa !== undefined && minCgpa > 0) {
+    query = query.gte('student_academics.cgpa', minCgpa);
+  }
+  if (maxCgpa !== undefined && maxCgpa < 10) {
+    query = query.lte('student_academics.cgpa', maxCgpa);
+  }
+
+  if (minLeetcode !== undefined && minLeetcode > 0) {
+    query = query.gte('student_profiles.leetcode_count', minLeetcode);
+  }
+
+  if (specialization && specialization !== "All Domains") {
+    query = query.contains('student_profiles.specializations', [specialization]);
   }
 
   const from = (page - 1) * pageSize;
@@ -71,7 +102,9 @@ export async function getStudents(options: {
     regNo: s.register_number,
     dept: s.department,
     year: `${s.year}${s.year === 1 ? 'st' : s.year === 2 ? 'nd' : s.year === 3 ? 'rd' : 'th'} Year`,
-    cgpa: (s.student_academics as any)?.[0]?.cgpa || 0,
+    cgpa: (s.student_academics as any)?.[0]?.cgpa || (s.student_academics as any)?.cgpa || 0,
+    leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
+    specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
     status: s.placement_status === 'placed' ? 'Placed' : 
             s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
     completeness: s.profile_completion || 0,
@@ -82,6 +115,64 @@ export async function getStudents(options: {
   }));
 
   return { data: formatted, total: count || 0 };
+}
+
+export async function upsertTableData(tableName: string, data: any[]) {
+  const { data: result, error } = await supabase
+    .from(tableName)
+    .upsert(data);
+  if (error) throw error;
+  return result;
+}
+
+export async function getTableData(tableName: string) {
+  const { data, error } = await supabase
+    .from(tableName)
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getAllStudents() {
+  const { data, error } = await supabase
+    .from('students')
+    .select(`
+      id,
+      register_number,
+      department,
+      year,
+      placement_status,
+      profile_completion,
+      verification_status,
+      users (name, email),
+      student_academics (cgpa, tenth_score, twelfth_score, backlog_count),
+      student_profiles (leetcode_count, specializations)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map(s => ({
+    id: s.id,
+    name: (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
+    email: (s.users as any)?.email || (s.users as any)?.[0]?.email || 'N/A',
+    regNo: s.register_number,
+    dept: s.department,
+    year: s.year,
+    cgpa: (s.student_academics as any)?.[0]?.cgpa || (s.student_academics as any)?.cgpa || 0,
+    tenth_score: (s.student_academics as any)?.[0]?.tenth_score || (s.student_academics as any)?.tenth_score || 0,
+    twelfth_score: (s.student_academics as any)?.[0]?.twelfth_score || (s.student_academics as any)?.twelfth_score || 0,
+    backlog_count: (s.student_academics as any)?.[0]?.backlog_count || (s.student_academics as any)?.backlog_count || 0,
+    leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
+    specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
+    status: s.placement_status === 'placed' ? 'Placed' : 
+            s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
+    completeness: s.profile_completion || 0,
+    verification: s.verification_status === 'verified' ? 'Verified' : 
+                  s.verification_status === 'pending' ? 'Pending' : 'Rejected'
+  }));
 }
 
 export async function createStudent(studentData: any) {
@@ -188,12 +279,56 @@ export async function getDashboardStats() {
   };
 }
 
-export async function getApplicationStats() {
+export async function getFilteredStudentCount(filters: {
+  minCgpa?: number;
+  maxCgpa?: number;
+  minLeetcode?: number;
+  specialization?: string;
+  dept?: string;
+}) {
+  let query = supabase
+    .from('students')
+    .select('id, student_academics(cgpa), student_profiles(leetcode_count, specializations)', { count: 'exact', head: true });
+
+  if (filters.dept && filters.dept !== "All Departments") {
+    query = query.eq('department', filters.dept);
+  }
+  if (filters.minCgpa !== undefined && filters.minCgpa > 0) {
+    query = query.gte('student_academics.cgpa', filters.minCgpa);
+  }
+  if (filters.maxCgpa !== undefined && filters.maxCgpa < 10) {
+    query = query.lte('student_academics.cgpa', filters.maxCgpa);
+  }
+  if (filters.minLeetcode !== undefined && filters.minLeetcode > 0) {
+    query = query.gte('student_profiles.leetcode_count', filters.minLeetcode);
+  }
+  if (filters.specialization && filters.specialization !== "All Domains") {
+    query = query.contains('student_profiles.specializations', [filters.specialization]);
+  }
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return count || 0;
+}
+
+export async function getApplicationStats(driveId?: string) {
+  let pendingQuery = supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'applied');
+  let shortlistedQuery = supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'shortlisted');
+  let interviewingQuery = supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'interviewing');
+  let offeredQuery = supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'offered');
+
+  if (driveId && driveId !== "All") {
+    pendingQuery = pendingQuery.eq('drive_id', driveId);
+    shortlistedQuery = shortlistedQuery.eq('drive_id', driveId);
+    interviewingQuery = interviewingQuery.eq('drive_id', driveId);
+    offeredQuery = offeredQuery.eq('drive_id', driveId);
+  }
+
   const [pending, shortlisted, interviewing, offered] = await Promise.all([
-    supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'applied'),
-    supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'shortlisted'),
-    supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'interviewing'),
-    supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'offered')
+    pendingQuery,
+    shortlistedQuery,
+    interviewingQuery,
+    offeredQuery
   ]);
 
   return {
@@ -225,46 +360,178 @@ export async function getRecentActivity() {
 }
 
 // --- Job Drives & Applications ---
-export async function getDrives() {
-  const { data, error } = await supabase
+export async function getDrives(options: { 
+  search?: string; 
+  status?: string;
+  type?: string;
+} = {}) {
+  let query = supabase
     .from('job_drives')
     .select(`
       *,
       companies (
-        name
+        name,
+        logo_url,
+        theme_color
+      ),
+      applications (
+        id
       )
     `);
+
+  if (options.search) {
+    query = query.ilike('role_title', `%${options.search}%`);
+  }
+
+  if (options.status && options.status !== 'All') {
+    query = query.eq('status', options.status.toLowerCase());
+  }
+
+  if (options.type && options.type !== 'All') {
+    query = query.eq('drive_type', options.type);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
   if (error) throw error;
   return data;
 }
 
-export async function getCompanies() {
-  const { data, error } = await supabase
+export async function getCompanies(options: { search?: string } = {}) {
+  let query = supabase
     .from('companies')
-    .select('id, name')
-    .order('name');
+    .select('*');
+
+  if (options.search) {
+    query = query.ilike('name', `%${options.search}%`);
+  }
+
+  const { data, error } = await query.order('name');
   if (error) throw error;
   return data;
+}
+
+// --- Templates ---
+export async function getTemplates() {
+  const { data, error } = await supabase
+    .from('drive_templates')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createTemplate(templateData: any) {
+  const { data, error } = await supabase
+    .from('drive_templates')
+    .insert([templateData])
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateTemplate(id: string, templateData: any) {
+  const { data, error } = await supabase
+    .from('drive_templates')
+    .update(templateData)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTemplate(id: string) {
+  const { error } = await supabase
+    .from('drive_templates')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+  return true;
 }
 
 export async function createDrive(driveData: any) {
   const { data, error } = await supabase
     .from('job_drives')
     .insert([{
-      company_id: driveData.companyId,
-      role_title: driveData.roleTitle,
-      drive_type: driveData.driveType,
-      package_ctc: driveData.package,
+      company_id: driveData.company_id,
+      role_title: driveData.role_title,
+      drive_type: driveData.drive_type,
+      package_ctc: driveData.package_ctc,
       location: driveData.location,
-      application_end: driveData.deadline,
-      eligibility_rules: driveData.eligibility,
-      status: 'published'
+      application_end: driveData.application_end,
+      eligibility_rules: driveData.eligibility_rules,
+      status: driveData.status || 'published'
     }])
     .select()
     .single();
 
   if (error) throw error;
   return data;
+}
+
+export async function updateDrive(id: string, driveData: any) {
+  const { data, error } = await supabase
+    .from('job_drives')
+    .update({
+      company_id: driveData.company_id,
+      role_title: driveData.role_title,
+      drive_type: driveData.drive_type,
+      package_ctc: driveData.package_ctc,
+      location: driveData.location,
+      application_end: driveData.application_end,
+      eligibility_rules: driveData.eligibility_rules,
+      status: driveData.status || 'published'
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteDrive(id: string) {
+  const { error } = await supabase
+    .from('job_drives')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+  return true;
+}
+
+export async function createCompany(companyData: any) {
+  const { data, error } = await supabase
+    .from('companies')
+    .insert([companyData])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateCompany(id: string, companyData: any) {
+  const { data, error } = await supabase
+    .from('companies')
+    .update(companyData)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteCompany(id: string) {
+  const { error } = await supabase
+    .from('companies')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+  return true;
 }
 
 export async function getApplications(options: { driveId?: string } = {}) {
@@ -332,8 +599,49 @@ export async function getStudentDashboardStats(studentId: string) {
     applicationsCount: apps.count || 0,
     offersCount: offers.count || 0,
     interviewsCount: interviews.count || 0,
-    pendingTasks: tasks.count || 0
+    tasksCount: tasks.count || 0
   };
+}
+
+export async function getStudentApplications(studentId: string) {
+  const { data, error } = await supabase
+    .from('applications')
+    .select(`
+      *,
+      job_drives (
+        role_title,
+        drive_type,
+        package_ctc,
+        location,
+        companies (
+          name,
+          logo_url,
+          theme_color
+        )
+      )
+    `)
+    .eq('student_id', studentId)
+    .order('applied_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function applyToDrive(studentId: string, driveId: string) {
+  const { data, error } = await supabase
+    .from('applications')
+    .insert([{
+      student_id: studentId,
+      drive_id: driveId,
+      status: 'Applied',
+      current_stage: 'applied',
+      applied_at: new Date().toISOString()
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function getTasks(studentId: string) {
@@ -351,7 +659,9 @@ export async function getStudentProfile(studentId: string) {
     .from('students')
     .select(`
       *,
-      users (name, email, avatar_url)
+      users (id, name, email, avatar_url),
+      student_academics (*),
+      student_profiles (*)
     `)
     .eq('id', studentId)
     .single();
@@ -554,9 +864,273 @@ export async function getTrendData() {
   }
 }
 
+// --- Reports & Exports ---
+export async function generateStudentReport(studentId: string) {
+  const { data: student, error } = await supabase
+    .from('students')
+    .select(`
+      *,
+      users (name, email),
+      student_academics (*),
+      student_profiles (*)
+    `)
+    .eq('id', studentId)
+    .single();
+
+  if (error) throw error;
+
+  const { jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+
+  // --- Header Background ---
+  doc.setFillColor(33, 33, 33); // Dark gray header
+  doc.rect(0, 0, pageWidth, 40, 'F');
+  
+  // --- Header Text ---
+  doc.setFontSize(24);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(255, 255, 255);
+  doc.text('Placely', 14, 25);
+  
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(200, 200, 200);
+  doc.text('Official Student Record', pageWidth - 14, 25, { align: 'right' });
+
+  // --- Title & Date ---
+  doc.setFontSize(18);
+  doc.setTextColor(33, 33, 33);
+  doc.setFont("helvetica", "bold");
+  doc.text('Comprehensive Performance Report', 14, 55);
+  
+  doc.setFontSize(10);
+  doc.setTextColor(120, 120, 120);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 62);
+  doc.text(`Record ID: ${student.id.substring(0, 8).toUpperCase()}`, pageWidth - 14, 62, { align: 'right' });
+
+  // --- Divider ---
+  doc.setDrawColor(220, 220, 220);
+  doc.line(14, 66, pageWidth - 14, 66);
+
+  // --- Personal Information Section ---
+  doc.setFontSize(14);
+  doc.setTextColor(50, 50, 50);
+  doc.setFont("helvetica", "bold");
+  doc.text('Personal Information', 14, 78);
+
+  autoTable(doc, {
+    startY: 82,
+    theme: 'grid',
+    styles: { fontSize: 11, cellPadding: 4, lineColor: [230, 230, 230] },
+    columnStyles: { 
+      0: { fontStyle: 'bold', fillColor: [248, 248, 248], cellWidth: 50, textColor: [50, 50, 50] }, 
+      1: { cellWidth: 'auto', textColor: [30, 30, 30] } 
+    },
+    body: [
+      ['Full Name', student.users?.name || 'N/A'],
+      ['Register Number', student.register_number || 'N/A'],
+      ['Email Address', student.users?.email || 'N/A'],
+      ['Department', student.department || 'N/A'],
+      ['Batch Year', student.year || 'N/A'],
+    ]
+  });
+
+  // --- Academic Performance ---
+  const currentY = (doc as any).lastAutoTable.finalY + 15;
+  doc.setFontSize(14);
+  doc.setTextColor(50, 50, 50);
+  doc.setFont("helvetica", "bold");
+  doc.text('Academic & Professional Profile', 14, currentY);
+
+  autoTable(doc, {
+    startY: currentY + 4,
+    theme: 'grid',
+    styles: { fontSize: 11, cellPadding: 4, lineColor: [230, 230, 230] },
+    columnStyles: { 
+      0: { fontStyle: 'bold', fillColor: [248, 248, 248], cellWidth: 50, textColor: [50, 50, 50] }, 
+      1: { cellWidth: 'auto', textColor: [30, 30, 30] } 
+    },
+    body: [
+      ['Current CGPA', String(student.student_academics?.cgpa || 'N/A')],
+      ['LeetCode Progress', `${student.student_profiles?.leetcode_count || 0} Problems Solved`],
+      ['Specializations', (student.student_profiles?.specializations || []).join(', ') || 'None Listed'],
+    ]
+  });
+
+  // --- Status Summary ---
+  const statusY = (doc as any).lastAutoTable.finalY + 15;
+  doc.setFontSize(14);
+  doc.setTextColor(50, 50, 50);
+  doc.setFont("helvetica", "bold");
+  doc.text('Current Standing', 14, statusY);
+
+  const verStatus = (student.verification_status || 'PENDING').toUpperCase();
+  const plcStatus = (student.placement_status || 'NOT_PLACED').replace('_', ' ').toUpperCase();
+
+  autoTable(doc, {
+    startY: statusY + 4,
+    theme: 'grid',
+    styles: { fontSize: 11, cellPadding: 4, lineColor: [230, 230, 230] },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 1) {
+        if (data.cell.text[0] === 'VERIFIED' || data.cell.text[0] === 'PLACED') {
+          data.cell.styles.textColor = [34, 139, 34]; // Green
+        } else if (data.cell.text[0] === 'PENDING' || data.cell.text[0] === 'UNPLACED') {
+          data.cell.styles.textColor = [255, 140, 0]; // Orange
+        } else if (data.cell.text[0] === 'REJECTED') {
+          data.cell.styles.textColor = [220, 20, 60]; // Red
+        }
+      }
+    },
+    body: [
+      ['Verification Status', verStatus],
+      ['Placement Status', plcStatus]
+    ]
+  });
+
+  // --- Footer ---
+  doc.setFontSize(9);
+  doc.setTextColor(150, 150, 150);
+  doc.setFont("helvetica", "italic");
+  doc.text('This is a system-generated official document by the Placely Admin Portal.', 14, pageHeight - 15);
+  doc.text('© 2026 Placely System', pageWidth - 14, pageHeight - 15, { align: 'right' });
+
+  return doc.output('blob');
+}
+
+export async function generateSystemReport() {
+  const stats = await getDashboardStats(); 
+  
+  const { count: totalPlaced } = await supabase
+    .from('students')
+    .select('*', { count: 'exact', head: true })
+    .eq('placement_status', 'placed');
+    
+  const totalUnplaced = (stats.totalStudents || 0) - (totalPlaced || 0);
+  
+  const { data: studentsData } = await supabase
+    .from('students')
+    .select('department, placement_status');
+    
+  const deptMap: Record<string, { total: number, placed: number, unplaced: number }> = {};
+  if (studentsData) {
+    studentsData.forEach(s => {
+      const dept = s.department || 'Unknown';
+      if (!deptMap[dept]) deptMap[dept] = { total: 0, placed: 0, unplaced: 0 };
+      deptMap[dept].total++;
+      if (s.placement_status === 'placed') deptMap[dept].placed++;
+      else deptMap[dept].unplaced++;
+    });
+  }
+  
+  const placementByDept = Object.entries(deptMap).map(([department, counts]) => ({
+    department,
+    ...counts
+  }));
+  
+  const { jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  
+  doc.setFillColor(15, 23, 42); 
+  doc.rect(0, 0, pageWidth, 45, 'F');
+
+  doc.setFontSize(26);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(255, 255, 255);
+  doc.text('Placely Admin', 14, 28);
+  
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(200, 200, 200);
+  doc.text('Placement Operations Report', pageWidth - 14, 28, { align: 'right' });
+
+  doc.setFontSize(18);
+  doc.setTextColor(33, 33, 33);
+  doc.setFont("helvetica", "bold");
+  doc.text('System Dashboard Report', 14, 60);
+  
+  doc.setFontSize(10);
+  doc.setTextColor(120, 120, 120);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Report Period: As of ${new Date().toLocaleDateString()}`, 14, 67);
+  doc.text(`Time: ${new Date().toLocaleTimeString()}`, pageWidth - 14, 67, { align: 'right' });
+
+  doc.setDrawColor(220, 220, 220);
+  doc.line(14, 72, pageWidth - 14, 72);
+
+  doc.setFontSize(14);
+  doc.setTextColor(50, 50, 50);
+  doc.setFont("helvetica", "bold");
+  doc.text('Overall Executive Summary', 14, 85);
+
+  autoTable(doc, {
+    startY: 90,
+    theme: 'grid',
+    headStyles: { fillColor: [50, 50, 50], textColor: [255, 255, 255], fontStyle: 'bold' },
+    styles: { fontSize: 11, cellPadding: 5 },
+    body: [
+      ['Metric', 'Recorded Value'],
+      ['Total Registered Students', String(stats.totalStudents)],
+      ['Total Placed Students', String(totalPlaced || 0)],
+      ['Total Unplaced Students', String(totalUnplaced)],
+      ['Total Recruitment Drives', String(stats.totalDrives)],
+    ]
+  });
+
+  const currentY = (doc as any).lastAutoTable.finalY + 15;
+  
+  doc.setFontSize(14);
+  doc.setTextColor(50, 50, 50);
+  doc.setFont("helvetica", "bold");
+  doc.text('Placement Analytics by Department', 14, currentY);
+
+  const placementByDeptBody = placementByDept.map((dept: any) => {
+    const placementRate = dept.total > 0 ? Math.round((dept.placed / dept.total) * 100) : 0;
+    return [
+      dept.department, 
+      String(dept.total), 
+      String(dept.placed), 
+      String(dept.unplaced),
+      `${placementRate}%`
+    ];
+  });
+
+  autoTable(doc, {
+    startY: currentY + 5,
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+    styles: { fontSize: 10, cellPadding: 4 },
+    head: [['Department', 'Total Students', 'Placed', 'Unplaced', 'Placement Rate']],
+    body: placementByDeptBody
+  });
+
+  doc.setFontSize(9);
+  doc.setTextColor(150, 150, 150);
+  doc.setFont("helvetica", "italic");
+  doc.text('Strictly Confidential • For Administrative Use Only', 14, pageHeight - 15);
+  doc.text('© 2026 Placely Systems', pageWidth - 14, pageHeight - 15, { align: 'right' });
+
+  return doc.output('blob');
+}
+
+export async function generateStudentProfilePDF(studentId: string) {
+  return generateStudentReport(studentId);
+}
+
 // Backward compatibility export
 export const db = {
   getStudents,
+  getTableData,
+  getAllStudents,
   createStudent,
   getPendingApprovals,
   getOffers,
@@ -565,11 +1139,23 @@ export const db = {
   getRecentActivity,
   getDrives,
   getCompanies,
+  getTemplates,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
   createDrive,
+  updateDrive,
+  deleteDrive,
+  createCompany,
+  updateCompany,
+  deleteCompany,
   getApplications,
   getReportStats,
-  getTrendData,
   getStudentDashboardStats,
+  getStudentApplications,
+  applyToDrive,
+  getTrendData,
+  getFilteredStudentCount,
   getTasks,
   getStudentProfile,
   getStudentActivity,
@@ -578,6 +1164,78 @@ export const db = {
   formatRelativeTime,
   toggleTaskStatus,
   bulkCreateStudents,
-  bulkUploadResults
-};
+  upsertTableData,
+  bulkUploadResults,
+  generateStudentProfilePDF,
+  generateStudentReport,
+  generateSystemReport,
+  async updateStudentVerification(studentId: string, status: 'verified' | 'pending' | 'rejected') {
+    const { data, error } = await supabase
+      .from('students')
+      .update({ verification_status: status })
+      .eq('id', studentId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async flagStudent(studentId: string, reason: string) {
+    const { data, error } = await supabase
+      .from('students')
+      .update({ 
+        verification_status: 'rejected',
+        // Assuming there might be a notes field or similar, otherwise just status
+      })
+      .eq('id', studentId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async updateStudentProfile(studentId: string, profileData: any) {
+    // Update students table
+    const { error: studentError } = await supabase
+      .from('students')
+      .update({
+        department: profileData.dept,
+        year: parseInt(profileData.year),
+      })
+      .eq('id', studentId);
+    
+    if (studentError) throw studentError;
 
+    // Update academics
+    const { error: academicError } = await supabase
+      .from('student_academics')
+      .upsert({
+        student_id: studentId,
+        cgpa: parseFloat(profileData.cgpa),
+      }, { onConflict: 'student_id' });
+
+    if (academicError) throw academicError;
+
+    // Update profile (leetcode, specializations)
+    const { error: profileError } = await supabase
+      .from('student_profiles')
+      .upsert({
+        student_id: studentId,
+        leetcode_count: parseInt(profileData.leetcode),
+        specializations: profileData.specializations,
+      }, { onConflict: 'student_id' });
+
+    if (profileError) throw profileError;
+
+    return { success: true };
+  },
+  async updateProfilePicture(userId: string, avatarUrl: string) {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ avatar_url: avatarUrl })
+      .eq('id', userId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+};

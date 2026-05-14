@@ -12,11 +12,11 @@ interface Drive {
   location: string;
   package: string;
   deadline: string;
-  icon: any;
+  icon: import("react-icons").IconType;
   color: string;
 }
 
-const ICON_MAP: Record<string, any> = {
+const ICON_MAP: Record<string, import("react-icons").IconType> = {
   'Google': SiGoogle,
   'Microsoft': FaMicrosoft,
   'Atlassian': SiAtlassian,
@@ -38,7 +38,7 @@ export function ActiveDrives() {
     async function loadDrives() {
       try {
         const data = await db.getDrives();
-        const formatted = (data || []).map((d: any) => ({
+        const formatted = (data || []).map((d: { id: string; companies: { name: string }; role_title: string; location: string; package_ctc: string; application_end: string }) => ({
           id: d.id,
           companyName: d.companies?.name || 'Unknown',
           role: d.role_title,

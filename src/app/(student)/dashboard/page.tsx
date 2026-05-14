@@ -20,47 +20,58 @@ import { ProfileCompleteness } from "@/components/student/profile-completeness";
 import { ActiveDrives } from "@/components/student/active-drives";
 import { TaskInbox } from "@/components/student/task-inbox";
 import { db } from "@/services/database";
+import { DEV_STUDENT_ID } from "@/lib/dev-config";
 
-const RECENT_ACTIVITY = [
-  {
-    company: "Amazon",
-    role: "SDE-1",
-    time: "2 hours ago",
-    icon: FaAmazon,
-    color: "#FF9900"
-  },
-  {
-    company: "Meta",
-    role: "Product Designer",
-    time: "5 hours ago",
-    icon: SiMeta,
-    color: "#0668E1"
-  },
-  {
-    company: "Netflix",
-    role: "UI Engineer",
-    time: "Yesterday",
-    icon: SiNetflix,
-    color: "#E50914"
-  }
-];
+
+
+interface StudentProfile {
+  users?: {
+    name?: string;
+  };
+  profile_completion?: number;
+}
+
+interface Activity {
+  job_drives?: {
+    companies?: {
+      name?: string;
+    };
+    role_title?: string;
+  };
+  applied_at: string;
+  status: string;
+}
+
+interface Notice {
+  id: string;
+  title: string;
+  created_at: string;
+  category?: string;
+}
+
+interface Event {
+  id: string;
+  event_date: string;
+  title: string;
+  location?: string;
+}
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
     applicationsCount: 0,
     offersCount: 0,
     interviewsCount: 0,
-    pendingTasks: 0
+    tasksCount: 0
   });
-  const [profile, setProfile] = useState<any>(null);
-  const [activities, setActivities] = useState<any[]>([]);
-  const [bulletin, setBulletin] = useState<{notices: any[], events: any[]}>({notices: [], events: []});
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [bulletin, setBulletin] = useState<{notices: Notice[], events: Event[]}>({notices: [], events: []});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const studentId = "fd6d99a3-41d9-488d-9e98-b50b649233a8";
+        const studentId = DEV_STUDENT_ID;
         
         const [statsData, profileData, activityData, noticesData, eventsData] = await Promise.all([
           db.getStudentDashboardStats(studentId),
@@ -95,7 +106,7 @@ export default function DashboardPage() {
   const firstName = profile?.users?.name?.split(' ')[0] || 'Student';
 
   return (
-    <div className="space-y-8 py-6 px-4 max-w-[1400px] mx-auto">
+    <div className="space-y-8 py-6 px-4 max-w-7xl mx-auto">
       {/* Welcome Section */}
       <section className="relative">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -115,7 +126,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <Link href="/notifications" className="h-12 w-12 rounded-2xl bg-surface border border-border-subtle flex items-center justify-center text-muted relative cursor-pointer hover:bg-background transition-colors group">
               <LuBell size={20} />
-              {stats.pendingTasks > 0 && (
+              {stats.tasksCount > 0 && (
                 <div className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-primary border-2 border-surface animate-bounce" />
               )}
             </Link>
@@ -140,7 +151,7 @@ export default function DashboardPage() {
         <Link href="/notifications" className="block transition-transform hover:scale-[1.02]">
           <StatCard 
             title="Pending Tasks" 
-            value={stats.pendingTasks} 
+            value={stats.tasksCount} 
             icon={LuTimer} 
             description="Due by end of week"
           />
@@ -212,7 +223,7 @@ export default function DashboardPage() {
           {/* Profile Metrics */}
           <ProfileCompleteness 
             percentage={profile?.profile_completion || 0} 
-            missingItems={profile?.profile_completion < 100 ? [
+            missingItems={(profile?.profile_completion ?? 0) < 100 ? [
               "Upload latest resume",
               "Verify phone number",
               "Add project details"
@@ -262,7 +273,7 @@ export default function DashboardPage() {
             <p className="text-[10px] font-medium text-muted mt-2 leading-relaxed">
               Your placement officer is available for 1-on-1 career coaching.
             </p>
-            <Link href="/profile" className="block mt-4 w-full py-2.5 rounded-full bg-white border border-border-subtle text-[9px] font-black text-center uppercase tracking-widest hover:border-primary hover:text-primary transition-all">
+            <Link href="/profile" className="block mt-4 w-full py-2.5 rounded-full bg-surface border border-border-subtle text-[9px] font-black text-center uppercase tracking-widest hover:border-primary hover:text-primary transition-all">
               Book a Session
             </Link>
           </div>

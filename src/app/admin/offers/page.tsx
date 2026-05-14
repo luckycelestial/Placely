@@ -3,30 +3,42 @@
 import { useState, useEffect } from "react";
 import { 
   LuSearch, 
-  LuFilter, 
   LuDownload, 
   LuCircleCheck, 
   LuCircleX, 
   LuClock, 
   LuCalendar, 
   LuBuilding2, 
-  LuUser, 
   LuEllipsis, 
   LuTriangleAlert,
-  LuMapPin,
   LuBriefcase,
   LuShieldCheck,
-  LuArrowUpRight
+  LuExternalLink,
+  LuTrash
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
 
 const FILTERS = ["All", "Pending", "Verified", "Joined", "Deferred", "Mismatch"];
 
+interface AdminOffer {
+  id: string;
+  studentName: string;
+  regNo: string;
+  company: string;
+  role: string;
+  package: string;
+  status: string;
+  joiningDate: string;
+  outcome: string;
+  verification: string;
+  avatar: string;
+}
+
 export default function OffersPage() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
-  const [offers, setOffers] = useState<any[]>([]);
+  const [offers, setOffers] = useState<AdminOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     total: 0,
@@ -45,27 +57,27 @@ export default function OffersPage() {
           const company = Array.isArray(offer.companies) ? offer.companies[0] : offer.companies;
 
           return {
-            id: offer.id,
-            studentName: user?.name || "Unknown",
-            regNo: student?.register_number || "N/A",
-            company: company?.name || "Unknown",
-            role: offer.role_title,
-            package: offer.package_ctc,
-            status: offer.acceptance_status,
-            joiningDate: offer.joining_date || "N/A",
-            outcome: offer.offer_status,
-            verification: offer.verification_status,
-            avatar: (user?.name || "U").split(' ').map((n: any) => n[0]).join('').toUpperCase().substring(0, 2)
-          };
+            id: String(offer.id),
+            studentName: String(user?.name || "Unknown"),
+            regNo: String(student?.register_number || "N/A"),
+            company: String(company?.name || "Unknown"),
+            role: String(offer.role_title || "N/A"),
+            package: String(offer.package_ctc || "N/A"),
+            status: String(offer.acceptance_status || "N/A"),
+            joiningDate: String(offer.joining_date || "N/A"),
+            outcome: String(offer.offer_status || "N/A"),
+            verification: String(offer.verification_status || "N/A"),
+            avatar: String((user?.name || "U").split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2))
+          } as AdminOffer;
         });
         setOffers(mappedOffers);
         
         // Compute stats
         setStats({
           total: mappedOffers.length,
-          verified: mappedOffers.filter((o: any) => ['verified', 'joined'].includes(o.verification)).length,
-          pending: mappedOffers.filter((o: any) => o.verification === 'pending').length,
-          mismatch: mappedOffers.filter((o: any) => o.verification === 'rejected').length
+          verified: mappedOffers.filter((o) => ['verified', 'joined'].includes(o.verification)).length,
+          pending: mappedOffers.filter((o) => o.verification === 'pending').length,
+          mismatch: mappedOffers.filter((o) => o.verification === 'rejected').length
         });
       } catch (error) {
         console.error("Failed to fetch offers:", error);
@@ -95,7 +107,7 @@ export default function OffersPage() {
           <p className="text-muted text-sm font-medium">Verify final outcomes and track the offer-to-joining lifecycle.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 rounded-xl bg-white border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors">
+          <button className="flex items-center gap-2 rounded-xl bg-surface border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors">
             <LuDownload size={16} />
             Export Final List
           </button>
@@ -113,7 +125,7 @@ export default function OffersPage() {
           { label: "Pending", value: stats.pending.toString(), color: "text-blue-600" },
           { label: "Mismatches", value: stats.mismatch.toString(), color: "text-red-600" }
         ].map((stat) => (
-          <div key={stat.label} className="p-5 rounded-3xl border border-border-subtle bg-white shadow-soft">
+          <div key={stat.label} className="p-5 rounded-3xl border border-border-subtle bg-surface shadow-soft">
             <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">{stat.label}</p>
             <p className={cn("text-2xl font-black", stat.color)}>{stat.value}</p>
           </div>
@@ -130,7 +142,7 @@ export default function OffersPage() {
               className={cn(
                 "px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap",
                 activeFilter === filter 
-                  ? "bg-white text-primary shadow-sm" 
+                  ? "bg-surface text-primary shadow-sm" 
                   : "text-muted hover:text-foreground"
               )}
             >
@@ -143,7 +155,7 @@ export default function OffersPage() {
           <input 
             type="text" 
             placeholder="Search student or company..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-border-subtle bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-border-subtle bg-surface text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -151,7 +163,7 @@ export default function OffersPage() {
       </div>
 
       {/* Offers Table */}
-      <div className="bg-white rounded-3xl border border-border-subtle shadow-soft overflow-hidden">
+      <div className="bg-surface rounded-3xl border border-border-subtle shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -245,11 +257,11 @@ export default function OffersPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button className="h-8 w-8 flex items-center justify-center rounded-lg border border-border-subtle bg-white hover:border-primary/30 hover:text-primary transition-all shadow-sm">
-                        <LuCircleCheck size={18} />
+                      <button className="h-8 w-8 flex items-center justify-center rounded-lg border border-border-subtle bg-surface hover:border-primary/30 hover:text-primary transition-all shadow-sm">
+                        <LuExternalLink size={14} />
                       </button>
-                      <button className="h-8 w-8 flex items-center justify-center rounded-lg border border-border-subtle bg-white hover:border-red-500/30 hover:text-red-600 transition-all shadow-sm">
-                        <LuCircleX size={18} />
+                      <button className="h-8 w-8 flex items-center justify-center rounded-lg border border-border-subtle bg-surface hover:border-red-500/30 hover:text-red-600 transition-all shadow-sm">
+                        <LuTrash size={14} />
                       </button>
                       <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors">
                         <LuEllipsis size={18} className="text-muted" />

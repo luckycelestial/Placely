@@ -6,6 +6,7 @@ import { LuSearch, LuBell, LuShield, LuUser } from "react-icons/lu";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { TypographyToggle } from "./typography-toggle";
+import { DesignToggle } from "./design-toggle";
 
 export function AdminHeader() {
   const pathname = usePathname();
@@ -66,6 +67,7 @@ export function AdminHeader() {
             <LuUser size={18} className="text-primary" />
           </Link>
 
+          <DesignToggle />
           <TypographyToggle />
 
           <button className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/5 transition-all group">
