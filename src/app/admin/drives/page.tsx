@@ -23,6 +23,7 @@ import {
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
+import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
@@ -344,12 +345,8 @@ export default function DrivesPage() {
                   <div className="p-8">
                     <div className="flex items-start justify-between mb-8">
                       <div className="flex items-center gap-5">
-                        <div className="h-16 w-16 rounded-[22px] bg-background border border-border-subtle flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform p-3 overflow-hidden">
-                          {drive.companyLogo?.startsWith('http') ? (
-                            <img src={drive.companyLogo} alt="" className="h-full w-full object-contain" />
-                          ) : (
-                            <LuBuilding2 size={28} className="text-muted group-hover:text-primary transition-colors" />
-                          )}
+                        <div className="group-hover:scale-105 transition-transform shrink-0">
+                          <CompanyLogo name={drive.company} size={64} rounded="rounded-[22px]" />
                         </div>
                         <div>
                           <h3 className="font-black text-xl leading-tight group-hover:text-primary transition-colors">{drive.role}</h3>
@@ -493,13 +490,7 @@ export default function DrivesPage() {
               companies.map((company) => (
                 <div key={company.id} className="bg-surface p-6 rounded-[32px] border border-border-subtle shadow-soft hover:shadow-lg transition-all duration-300 group">
                   <div className="flex items-center justify-between mb-6">
-                    <div className="h-14 w-14 rounded-2xl bg-background border border-border-subtle flex items-center justify-center shrink-0 p-3 overflow-hidden shadow-tactile-sm">
-                      {company.logo_url?.startsWith('http') ? (
-                        <img src={company.logo_url} alt="" className="h-full w-full object-contain" />
-                      ) : (
-                        <LuBuilding2 size={24} className="text-muted group-hover:text-primary transition-colors" />
-                      )}
-                    </div>
+                    <CompanyLogo name={company.name} size={56} rounded="rounded-2xl" />
                     <div className="flex gap-2">
                       <button 
                         onClick={() => handleEditCompany(company)}

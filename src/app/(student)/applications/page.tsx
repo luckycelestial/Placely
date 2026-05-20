@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { db } from "@/services/database";
 import { cn } from "@/lib/utils";
+import { CompanyLogo } from "@/components/ui/CompanyLogo";
 
 
 
@@ -144,14 +145,8 @@ export default function ApplicationsPage() {
               <div key={app.id} className="p-8 hover:bg-background/50 transition-all group">
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
                   <div className="flex items-center gap-8 flex-1 min-w-0">
-                    <div 
-                      className="h-20 w-20 rounded-3xl bg-surface border border-border-subtle flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:border-primary/20 transition-all shadow-sm p-4 overflow-hidden"
-                    >
-                      {app.companyLogo?.startsWith('http') ? (
-                        <img src={app.companyLogo} alt="" className="h-full w-full object-contain" />
-                      ) : (
-                        <LuBuilding2 size={32} style={{ color: app.companyTheme || 'var(--primary)' }} />
-                      )}
+                    <div className="group-hover:scale-105 group-hover:border-primary/20 transition-all flex-shrink-0">
+                      <CompanyLogo name={app.companyName} size={80} rounded="rounded-3xl" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-3 mb-2">

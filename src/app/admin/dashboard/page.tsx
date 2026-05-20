@@ -21,6 +21,7 @@ import {
   LuTriangleAlert
 } from "react-icons/lu";
 import { db } from "@/services/database";
+import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { cn } from "@/lib/utils";
 import DriveDialog from "../drives/drive-dialog";
 import { toast } from "sonner";
@@ -428,7 +429,6 @@ function StatCard({ title, value, icon: Icon, trend, color, className }: any) {
 
 function DriveCard({ drive, viewMode }: { drive: any, viewMode: 'grid' | 'list' }) {
   const companyName = drive.companies?.name || drive.companyName || 'Unknown Company';
-  const logoUrl = drive.companies?.logo_url || drive.logoUrl || `https://logo.clearbit.com/${(companyName || 'unknown').toLowerCase().replace(/\s+/g, '')}.com`;
   const jobRole = drive.role_title || drive.roleTitle || 'Unknown Role';
   const driveDate = drive.created_at || drive.createdAt || new Date().toISOString();
   const status = drive.status || 'draft';
@@ -440,15 +440,8 @@ function DriveCard({ drive, viewMode }: { drive: any, viewMode: 'grid' | 'list' 
       viewMode === 'list' && "flex items-center justify-between"
     )}>
       <div className={cn("flex gap-4", viewMode === 'list' && "items-center flex-1")}>
-        <div className="h-14 w-14 rounded-2xl bg-white border border-border-subtle flex items-center justify-center overflow-hidden p-2 shrink-0 group-hover:rotate-3 transition-transform shadow-sm">
-          <img 
-            src={logoUrl} 
-            alt={companyName}
-            className="h-full w-full object-contain"
-            onError={(e: any) => {
-              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName)}&background=random&color=fff&bold=true`;
-            }}
-          />
+        <div className="group-hover:rotate-3 transition-transform shrink-0">
+          <CompanyLogo name={companyName} size={56} rounded="rounded-2xl" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">

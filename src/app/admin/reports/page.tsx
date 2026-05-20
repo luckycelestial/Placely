@@ -1,478 +1,900 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { 
-  LuTrendingUp, 
-  LuDownload, 
-  LuTarget, 
-  LuAward, 
-  LuActivity, 
-  LuLoader,
-  LuChartPie,
-  LuArrowUpRight,
-  LuLayers,
-  LuBuilding2
+import { useState, useEffect, useCallback } from 'react';
+import {
+  LuTrendingUp, LuDownload, LuTarget, LuAward, LuActivity, LuLoader,
+  LuChartPie, LuArrowUpRight, LuArrowDownRight, LuLayers, LuBuilding2,
+  LuGraduationCap, LuCalendar, LuFilter, LuX, LuChevronRight,
+  LuIndianRupee, LuUsers, LuChartBar,
 } from 'react-icons/lu';
 import { db } from '@/services/database';
 import { cn } from '@/lib/utils';
-import { 
+import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell
+  BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts';
 
-interface ReportStats {
-  placementRate: string;
-  avgCTC: string;
-  totalOffers: string | number;
-  atRisk?: string | number;
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface ReportStats { placementRate: string; avgCTC: string; totalOffers: string | number; atRisk?: string | number }
+interface TrendPoint  { month: string; placements: number; offers: number; drives?: number }
+interface DeptData    { name: string; total: number; placed: number; unplaced: number; placementRate: number; avgCTC: number }
+interface CompanyData { name: string; industry: string; hires: number; avgCTC: number; departments: string[]; departmentCount: number }
+interface YearData    { year: string; totalOffers: number; avgCTC: number; drives: number; placementRate: number }
+interface CrossItem   { name: string; hires: number; avgCTC: number }
+interface CrossData   { companies: CrossItem[]; depts: CrossItem[]; years: (CrossItem & { year: string })[] }
+type AnalyticsTab = 'overview' | 'department' | 'company' | 'year';
+type Selection = { type: 'dept' | 'company' | 'year'; value: string } | null;
+
+// ─── Palette ──────────────────────────────────────────────────────────────────
+const DEPT_PALETTE = ['#ff383c','#ffd400','#3b82f6','#4ade80','#a855f7','#f97316','#06b6d4','#ec4899','#84cc16','#f59e0b'];
+const INDUSTRY_COLOR: Record<string, string> = {
+  Technology: '#3b82f6', 'IT Services': '#6366f1', 'E-commerce': '#f97316',
+  Consulting: '#a855f7', Finance: '#4ade80', Healthcare: '#06b6d4',
+};
+const C = { primary:'#ff383c', secondary:'#ffd400', blue:'#3b82f6', purple:'#a855f7', muted:'#8e8e93' };
+
+const TT = {
+  contentStyle: { borderRadius:'16px', border:'1px solid #e6e6e6', boxShadow:'0 10px 25px -5px rgba(0,0,0,0.07)', padding:'12px' },
+  itemStyle:    { fontSize:'11px', fontWeight:800 },
+  labelStyle:   { fontSize:'12px', fontWeight:900, marginBottom:'6px', color:'#1f1f1f' },
+};
+
+// ─── StatChip ─────────────────────────────────────────────────────────────────
+function StatChip({ label, value, trend, color }: { label:string; value:string|number; trend?:string; color:string }) {
+  const up = trend?.startsWith('+');
+  return (
+    <div className="app-card p-5 flex flex-col gap-2.5">
+      <div className="flex items-start justify-between">
+        <p className="text-[10px] font-black text-muted uppercase tracking-widest">{label}</p>
+        {trend && (
+          <span className={cn('flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full', up ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-primary')}>
+            {up ? <LuArrowUpRight size={10}/> : <LuArrowDownRight size={10}/>}{trend}
+          </span>
+        )}
+      </div>
+      <p className={cn('text-2xl font-black tracking-tight', color)}>{value}</p>
+    </div>
+  );
 }
 
-interface TrendPoint {
-  month: string;
-  placements: number;
-  offers: number;
+// ─── TabBtn ───────────────────────────────────────────────────────────────────
+function TabBtn({ id, active, icon:Icon, label, onClick }: { id:string; active:boolean; icon:any; label:string; onClick:()=>void }) {
+  return (
+    <button id={`tab-${id}`} onClick={onClick}
+      className={cn('flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap',
+        active ? 'bg-primary text-white shadow-sm' : 'bg-background text-muted hover:text-foreground hover:bg-border-subtle/50 border border-border-subtle')}>
+      <Icon size={15}/>{label}
+    </button>
+  );
 }
 
-export default function ReportsPage() {
-  const [batch, setBatch] = useState("2024 Batch");
-  const [stats, setStats] = useState<ReportStats | null>(null);
-  const [trendData, setTrendData] = useState<TrendPoint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
+// ─── DrillDownPanel ───────────────────────────────────────────────────────────
+function DrillDownPanel({
+  selected, data, loading, onClose,
+}: {
+  selected: Selection;
+  data: CrossData | null;
+  loading: boolean;
+  onClose: () => void;
+}) {
+  if (!selected) return null;
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [reportStats, trends] = await Promise.all([
-          db.getReportStats(),
-          db.getTrendData()
-        ]);
-        setStats(reportStats);
-        setTrendData(trends);
-      } catch (error) {
-        console.error('Error loading reports:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
+  const isYear = selected.type === 'year';
+  const label = selected.type === 'dept'    ? `${selected.value} Department`
+    : selected.type === 'company' ? selected.value
+    : `${selected.value} Batch`;
 
-  const handleDownloadPDF = () => {
-    setIsExporting(true);
-    // Add a slight delay to allow UI to settle before printing
-    setTimeout(() => {
-      window.print();
-      setIsExporting(false);
-    }, 1000);
-  };
+  const leftTitle  = selected.type === 'dept'    ? `Companies that hired from ${selected.value}`
+    : selected.type === 'company' ? `Departments hired by ${selected.value}`
+    : `Department-wise breakdown · ${selected.value}`;
+  const rightTitle = selected.type === 'dept'    ? `Year-wise trend for ${selected.value}`
+    : selected.type === 'company' ? `Year-wise hiring by ${selected.value}`
+    : `Top companies in ${selected.value} batch`;
 
-  if (loading) {
+  const leftData  = selected.type === 'dept'    ? (data?.companies ?? [])
+    : selected.type === 'company' ? (data?.depts ?? [])
+    : (data?.depts ?? []);
+  const rightData = selected.type === 'year' ? (data?.companies ?? [])
+    : (data?.years ?? []).map(y => ({ ...y, name: y.year }));
+
+  const maxLeft  = Math.max(1, ...leftData.map((d:any) => d.hires));
+  const maxRight = Math.max(1, ...rightData.map((d:any) => d.hires));
+
+  // Reusable inline bar row
+  function BarRow({ d, i, palette, max }: { d:any; i:number; palette:string[]; max:number }) {
+    const color   = palette[i % palette.length];
+    const fillPct = Math.max(2, (d.hires / max) * 100);
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <LuLoader className="animate-spin text-primary" size={40} />
+      <div className="flex items-center gap-3 group">
+        {/* Name */}
+        <div className="w-14 shrink-0">
+          <span className="text-[11px] font-black text-muted truncate block">{d.name}</span>
+        </div>
+
+        {/* Bar + inline labels */}
+        <div className="flex-1 relative h-7">
+          {/* Track */}
+          <div className="absolute inset-0 rounded-lg bg-background border border-border-subtle/60 overflow-hidden">
+            {/* Fill */}
+            <div
+              className="absolute inset-y-0 left-0 rounded-lg transition-all duration-500"
+              style={{ width: `${fillPct}%`, backgroundColor: color, opacity: 0.88 }}
+            />
+            {/* Ghost remainder */}
+            <div
+              className="absolute inset-y-0 rounded-r-lg"
+              style={{ left: `${fillPct}%`, right: 0, backgroundColor: `${color}14` }}
+            />
+          </div>
+
+          {/* Labels float above the bar */}
+          <div className="absolute inset-0 flex items-center justify-between px-2.5">
+            {/* Hires count — left side, inside fill when wide enough */}
+            <span
+              className="text-[10px] font-black leading-none"
+              style={{ color: fillPct > 18 ? 'rgba(255,255,255,0.95)' : color }}
+            >
+              {d.hires} hire{d.hires !== 1 ? 's' : ''}
+            </span>
+
+            {/* Avg CTC — right side */}
+            {d.avgCTC > 0 && (
+              <span
+                className="text-[10px] font-black leading-none flex items-center gap-0.5"
+                style={{ color: fillPct > 65 ? 'rgba(255,255,255,0.85)' : '#4b5563' }}
+              >
+                <LuIndianRupee size={9} />
+                {d.avgCTC} LPA
+              </span>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
 
-  const chartColors = {
-    primary: '#ff383c',
-    secondary: '#ffd400',
-    accent: '#4ade80',
-    muted: '#8e8e93',
-    placements: '#ff383c',
-    offers: '#ffd400',
-    drives: '#1f1f1f'
-  };
+  return (
+    <div className="app-card border-primary/20 overflow-hidden animate-in slide-in-from-bottom-3 fade-in duration-300">
+      {/* Panel header */}
+      <div className="flex items-center justify-between px-7 py-4 bg-gradient-to-r from-primary/5 to-transparent border-b border-primary/10">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-6 bg-primary rounded-full"/>
+          <div>
+            <p className="text-[10px] font-black text-primary uppercase tracking-widest">Drill-down · {selected.type}</p>
+            <h3 className="text-base font-black tracking-tight">{label}</h3>
+          </div>
+        </div>
+        <button onClick={onClose}
+          className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-primary/10 transition-colors text-muted hover:text-foreground">
+          <LuX size={16}/>
+        </button>
+      </div>
 
-  const departmentData = [
-    { name: 'AI&DS', placements: 65, offers: 90, avg: 14.5 },
-    { name: 'AI&ML', placements: 60, offers: 85, avg: 14.0 },
-    { name: 'CSE', placements: 85, offers: 124, avg: 12.5 },
-    { name: 'CYS', placements: 55, offers: 75, avg: 11.8 },
-    { name: 'CSBS', placements: 50, offers: 70, avg: 11.0 },
-    { name: 'CCE', placements: 48, offers: 65, avg: 10.5 },
-    { name: 'ECE', placements: 72, offers: 98, avg: 9.2 },
-    { name: 'EEE', placements: 60, offers: 80, avg: 8.5 },
-    { name: 'MECH', placements: 45, offers: 56, avg: 6.8 },
-    { name: 'IT', placements: 80, offers: 110, avg: 12.0 }
+      {loading ? (
+        <div className="flex items-center justify-center gap-3 h-48">
+          <LuLoader className="animate-spin text-primary" size={22}/>
+          <span className="text-sm font-bold text-muted">Loading breakdown…</span>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border-subtle">
+
+          {/* LEFT panel — bar list */}
+          <div className="p-6">
+            <p className="text-sm font-black mb-4">{leftTitle}</p>
+            {leftData.length === 0 ? (
+              <div className="h-40 flex items-center justify-center text-sm font-bold text-muted">No data available</div>
+            ) : (
+              <div className="space-y-2.5">
+                {leftData.slice(0, 8).map((d:any, i:number) => (
+                  <BarRow key={d.name} d={d} i={i} palette={DEPT_PALETTE} max={maxLeft}/>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT panel */}
+          <div className="p-6">
+            <p className="text-sm font-black mb-4">{rightTitle}</p>
+            {rightData.length === 0 ? (
+              <div className="h-40 flex items-center justify-center text-sm font-bold text-muted">No data available</div>
+            ) : isYear ? (
+              /* Year drill-down: right = company bar list */
+              <div className="space-y-2.5">
+                {rightData.slice(0, 8).map((d:any, i:number) => (
+                  <BarRow key={d.name} d={d} i={i}
+                    palette={Object.values(INDUSTRY_COLOR)} max={maxRight}/>
+                ))}
+              </div>
+            ) : (
+              /* Dept/Company drill-down: right = year-wise area chart */
+              <>
+                <div className="h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={rightData} margin={{ top:4, right:8, left:-20, bottom:0 }}>
+                      <defs>
+                        <linearGradient id="ddGradR" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%"  stopColor={C.primary} stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor={C.primary} stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0"/>
+                      <XAxis dataKey="name" axisLine={false} tickLine={false}
+                        tick={{ fontSize:10, fontWeight:800, fill:'#8e8e93' }}/>
+                      <YAxis axisLine={false} tickLine={false}
+                        tick={{ fontSize:10, fontWeight:800, fill:'#8e8e93' }}/>
+                      <Tooltip {...TT} formatter={(v:any) => [`${v} hires`, 'Offers']}/>
+                      <Area type="monotone" dataKey="hires" stroke={C.primary} strokeWidth={2.5}
+                        fill="url(#ddGradR)" dot={{ fill:C.primary, r:4, strokeWidth:0 }}/>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* Year summary pills */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {rightData.map((d:any) => (
+                    <div key={d.name} className="flex items-center justify-between px-3 py-2 rounded-xl bg-background border border-border-subtle">
+                      <span className="text-[10px] font-black text-muted">{d.name}</span>
+                      <span className="text-xs font-black">{d.hires} <span className="text-muted font-bold">hires</span></span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+// ─── Department Tab ────────────────────────────────────────────────────────────
+function DepartmentTab({ data, selected, onSelect }: { data:DeptData[]; selected:Selection; onSelect:(v:string)=>void }) {
+  // Sort by placement rate descending for display
+  const sorted = [...data].sort((a, b) => b.placementRate - a.placementRate);
+  const maxTotal = Math.max(1, ...sorted.map(d => d.total));
+  const totalPlaced = data.reduce((a, d) => a + d.placed, 0);
+  const totalStudents = data.reduce((a, d) => a + d.total, 0);
+  const overallRate = totalStudents ? Math.round((totalPlaced / totalStudents) * 100) : 0;
+  const topCTC = Math.max(...data.map(d => d.avgCTC));
+
+  return (
+    <div className="space-y-5">
+      {/* Single main module */}
+      <div className="app-card overflow-hidden">
+        {/* Card header */}
+        <div className="px-7 py-5 border-b border-border-subtle">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black tracking-tight">Department Performance</h2>
+              <p className="text-xs text-muted font-medium mt-1">Click any department to drill down into company &amp; year-wise data</p>
+            </div>
+            {/* Inline summary pills */}
+            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/8 border border-primary/15">
+                <LuUsers size={12} className="text-primary"/>
+                <span className="text-[11px] font-black text-primary">{totalPlaced} / {totalStudents} Placed</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border-subtle">
+                <LuChartBar size={12} className="text-muted"/>
+                <span className="text-[11px] font-black">{overallRate}% Overall</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                <LuIndianRupee size={12} className="text-emerald-600"/>
+                <span className="text-[11px] font-black text-emerald-700">{topCTC.toFixed(1)} LPA Best</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Column headers */}
+        <div className="flex items-center gap-4 px-7 py-3 border-b border-border-subtle/60 bg-background/50">
+          <div className="w-16 shrink-0">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Dept</span>
+          </div>
+          <div className="flex-1">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Placement Progress</span>
+          </div>
+          <div className="w-36 shrink-0 text-center">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Placed / Total</span>
+          </div>
+          <div className="w-24 shrink-0 text-right">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Avg CTC</span>
+          </div>
+          <div className="w-5 shrink-0"/>
+        </div>
+
+        {/* Department rows */}
+        <div className="divide-y divide-border-subtle/50">
+          {sorted.map((d, i) => {
+            const isActive = selected?.value === d.name;
+            const color = DEPT_PALETTE[data.indexOf(d) % DEPT_PALETTE.length];
+            // bar width based on placed/total ratio
+            const fillPct = d.total > 0 ? (d.placed / d.total) * 100 : 0;
+
+            return (
+              <div
+                key={d.name}
+                onClick={() => onSelect(d.name)}
+                className={cn(
+                  'flex items-center gap-4 px-7 py-4 cursor-pointer transition-all group',
+                  isActive ? 'bg-primary/5' : 'hover:bg-background'
+                )}
+              >
+                {/* Dept name */}
+                <div className="w-16 shrink-0">
+                  <span className={cn(
+                    'text-sm font-black tracking-tight leading-tight block',
+                    isActive ? 'text-primary' : 'text-foreground'
+                  )}>{d.name}</span>
+                  {isActive && (
+                    <span className="text-[8px] font-black text-primary uppercase tracking-widest mt-0.5 block">Selected</span>
+                  )}
+                </div>
+
+                {/* Bar track */}
+                <div className="flex-1 relative">
+                  {/* Track */}
+                  <div className="h-10 rounded-xl border border-border-subtle bg-background overflow-hidden relative">
+                    {/* Fill */}
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-xl transition-all duration-700"
+                      style={{
+                        width: `${fillPct}%`,
+                        backgroundColor: color,
+                        opacity: isActive ? 1 : (selected && !isActive ? 0.35 : 0.85),
+                      }}
+                    />
+                    {/* Unplaced ghost */}
+                    <div
+                      className="absolute inset-y-0 rounded-r-xl"
+                      style={{
+                        left: `${fillPct}%`,
+                        right: 0,
+                        backgroundColor: `${color}12`,
+                      }}
+                    />
+                    {/* Rank badge inside bar start */}
+                    <div className="absolute inset-y-0 left-3 flex items-center">
+                      <span
+                        className="text-[10px] font-black"
+                        style={{ color: fillPct > 20 ? 'rgba(255,255,255,0.9)' : color }}
+                      >
+                        #{i + 1}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Placed / Total + Rate */}
+                <div className="w-36 shrink-0 flex items-center gap-2">
+                  <span className="text-sm font-black">
+                    {d.placed}
+                    <span className="text-muted font-bold"> / {d.total}</span>
+                  </span>
+                  <span
+                    className="text-[11px] font-black px-2 py-0.5 rounded-full border"
+                    style={{
+                      color: color,
+                      borderColor: `${color}40`,
+                      backgroundColor: `${color}12`,
+                    }}
+                  >
+                    {d.placementRate}%
+                  </span>
+                </div>
+
+                {/* Avg CTC with rupee icon */}
+                <div className="w-24 shrink-0 flex items-center gap-1.5 justify-end">
+                  <LuIndianRupee
+                    size={13}
+                    className={d.avgCTC > 0 ? 'text-emerald-500 shrink-0' : 'text-muted shrink-0'}
+                  />
+                  <span className={cn(
+                    'text-sm font-black',
+                    d.avgCTC > 0 ? 'text-foreground' : 'text-muted'
+                  )}>
+                    {d.avgCTC > 0 ? `${d.avgCTC} LPA` : '—'}
+                  </span>
+                </div>
+
+                {/* Expand chevron */}
+                <LuChevronRight
+                  size={15}
+                  className={cn(
+                    'shrink-0 transition-all duration-200',
+                    isActive ? 'text-primary rotate-90' : 'text-muted group-hover:translate-x-0.5'
+                  )}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Company Tab ──────────────────────────────────────────────────────────────
+function CompanyTab({ data, selected, onSelect }: { data:CompanyData[]; selected:Selection; onSelect:(v:string)=>void }) {
+  const [search, setSearch]   = useState('');
+  const [sortBy, setSortBy]   = useState<'hires'|'avgCTC'>('hires');
+
+  const filtered = data
+    .filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.industry.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => b[sortBy] - a[sortBy]);
+
+  const maxHires    = Math.max(1, ...data.map(d => d.hires));
+  const totalHires  = data.reduce((s, d) => s + d.hires, 0);
+  const topCTC      = Math.max(...data.map(d => d.avgCTC));
+  const topRecruiter = [...data].sort((a,b) => b.hires - a.hires)[0];
+
+  return (
+    <div className="space-y-5">
+      <div className="app-card overflow-hidden">
+
+        {/* Card header */}
+        <div className="px-7 py-5 border-b border-border-subtle">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black tracking-tight">Company Performance</h2>
+              <p className="text-xs text-muted font-medium mt-1">Click any company to drill down into dept &amp; year-wise data</p>
+            </div>
+            {/* Summary pills */}
+            <div className="flex items-center gap-2 shrink-0 flex-wrap sm:justify-end">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/8 border border-primary/15">
+                <LuBuilding2 size={12} className="text-primary"/>
+                <span className="text-[11px] font-black text-primary">{data.length} Companies</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border-subtle">
+                <LuUsers size={12} className="text-muted"/>
+                <span className="text-[11px] font-black">{totalHires} Total Offers</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                <LuIndianRupee size={12} className="text-emerald-600"/>
+                <span className="text-[11px] font-black text-emerald-700">{topCTC.toFixed(1)} LPA Best</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Search + sort controls */}
+          <div className="flex items-center gap-3 mt-4">
+            <div className="relative flex-1 max-w-xs">
+              <LuFilter size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"/>
+              <input
+                value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search company or industry…"
+                className="w-full pl-8 pr-4 py-2 rounded-xl border border-border-subtle bg-background text-sm font-medium placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              {(['hires', 'avgCTC'] as const).map(s => (
+                <button key={s} onClick={() => setSortBy(s)}
+                  className={cn('px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all',
+                    sortBy === s ? 'bg-primary text-white' : 'bg-background border border-border-subtle text-muted hover:text-foreground')}>
+                  {s === 'hires' ? 'Offers' : 'CTC'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Column headers */}
+        <div className="flex items-center gap-4 px-7 py-3 border-b border-border-subtle/60 bg-background/50">
+          <div className="w-44 shrink-0">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Company</span>
+          </div>
+          <div className="flex-1">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Hiring Volume</span>
+          </div>
+          <div className="w-36 shrink-0 text-center">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Offers / Share</span>
+          </div>
+          <div className="w-24 shrink-0 text-right">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Avg CTC</span>
+          </div>
+          <div className="w-5 shrink-0"/>
+        </div>
+
+        {/* Company rows */}
+        <div className="divide-y divide-border-subtle/50">
+          {filtered.map((c, i) => {
+            const isActive  = selected?.value === c.name;
+            const color     = INDUSTRY_COLOR[c.industry] || DEPT_PALETTE[i % DEPT_PALETTE.length];
+            const fillPct   = (c.hires / maxHires) * 100;
+            const sharePct  = totalHires > 0 ? ((c.hires / totalHires) * 100).toFixed(1) : '0';
+
+            return (
+              <div
+                key={c.name}
+                onClick={() => onSelect(c.name)}
+                className={cn(
+                  'flex items-center gap-4 px-7 py-4 cursor-pointer transition-all group',
+                  isActive ? 'bg-primary/5' : 'hover:bg-background'
+                )}
+              >
+                {/* Company name + industry */}
+                <div className="w-44 shrink-0 flex items-center gap-3 min-w-0">
+                  {/* Avatar */}
+                  <div
+                    className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-white text-xs shrink-0"
+                    style={{ backgroundColor: color }}
+                  >
+                    {c.name[0]}
+                  </div>
+                  <div className="min-w-0">
+                    <span className={cn(
+                      'text-sm font-black tracking-tight block truncate',
+                      isActive ? 'text-primary' : 'text-foreground'
+                    )}>{c.name}</span>
+                    <span className="text-[9px] font-black text-muted uppercase tracking-widest block truncate">{c.industry}</span>
+                    {isActive && (
+                      <span className="text-[8px] font-black text-primary uppercase tracking-widest block">Selected</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bar track */}
+                <div className="flex-1 relative">
+                  <div className="h-10 rounded-xl border border-border-subtle bg-background overflow-hidden relative">
+                    {/* Fill */}
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-xl transition-all duration-700"
+                      style={{
+                        width: `${fillPct}%`,
+                        backgroundColor: color,
+                        opacity: isActive ? 1 : (selected && !isActive ? 0.35 : 0.85),
+                      }}
+                    />
+                    {/* Ghost remainder */}
+                    <div
+                      className="absolute inset-y-0 rounded-r-xl"
+                      style={{ left: `${fillPct}%`, right: 0, backgroundColor: `${color}12` }}
+                    />
+                    {/* Rank badge */}
+                    <div className="absolute inset-y-0 left-3 flex items-center">
+                      <span
+                        className="text-[10px] font-black"
+                        style={{ color: fillPct > 20 ? 'rgba(255,255,255,0.9)' : color }}
+                      >
+                        #{i + 1}
+                      </span>
+                    </div>
+                    {/* Dept tags inside bar — far right of fill */}
+                    {fillPct > 35 && (
+                      <div className="absolute inset-y-0 right-3 flex items-center">
+                        <span className="text-[9px] font-black text-white/70 truncate max-w-[100px]">
+                          {c.departments.slice(0, 2).join(' · ')}{c.departmentCount > 2 ? ` +${c.departmentCount - 2}` : ''}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Hires count + share % */}
+                <div className="w-36 shrink-0 flex items-center gap-2">
+                  <span className="text-sm font-black">
+                    {c.hires}
+                    <span className="text-muted font-bold text-xs"> offers</span>
+                  </span>
+                  <span
+                    className="text-[11px] font-black px-2 py-0.5 rounded-full border"
+                    style={{
+                      color,
+                      borderColor: `${color}40`,
+                      backgroundColor: `${color}12`,
+                    }}
+                  >
+                    {sharePct}%
+                  </span>
+                </div>
+
+                {/* Avg CTC with rupee icon */}
+                <div className="w-24 shrink-0 flex items-center gap-1.5 justify-end">
+                  <LuIndianRupee
+                    size={13}
+                    className={c.avgCTC > 0 ? 'text-emerald-500 shrink-0' : 'text-muted shrink-0'}
+                  />
+                  <span className={cn('text-sm font-black', c.avgCTC > 0 ? 'text-foreground' : 'text-muted')}>
+                    {c.avgCTC > 0 ? `${c.avgCTC} LPA` : '—'}
+                  </span>
+                </div>
+
+                {/* Expand chevron */}
+                <LuChevronRight
+                  size={15}
+                  className={cn(
+                    'shrink-0 transition-all duration-200',
+                    isActive ? 'text-primary rotate-90' : 'text-muted group-hover:translate-x-0.5'
+                  )}
+                />
+              </div>
+            );
+          })}
+          {filtered.length === 0 && (
+            <div className="px-7 py-12 text-center text-muted font-bold text-sm">
+              No companies match your search.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Year Tab ─────────────────────────────────────────────────────────────────
+function YearTab({ data, selected, onSelect }: { data:YearData[]; selected:Selection; onSelect:(v:string)=>void }) {
+  const latest = data[data.length-1];
+  const prev   = data[data.length-2];
+  const offerGrowth = prev ? (((latest?.totalOffers-prev.totalOffers)/prev.totalOffers)*100).toFixed(1) : '0';
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatChip label="Years Tracked" value={data.length} color="text-foreground"/>
+        <StatChip label="Offer Growth" value={`${offerGrowth}%`} color="text-emerald-600" trend={`+${offerGrowth}%`}/>
+        <StatChip label="Best Year" value={data.reduce((a,b)=>a.placementRate>b.placementRate?a:b).year} color="text-primary"/>
+        <StatChip label="Latest Avg CTC" value={`${latest?.avgCTC} LPA`} color="text-blue-600" trend="+1.4L"/>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 app-card p-7">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-black tracking-tight">Year-over-Year Comparison</h3>
+              <p className="text-xs text-muted font-medium mt-0.5">Click a bar to drill-down into that batch year</p>
+            </div>
+            <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest">
+              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-primary"/><span>Offers</span></div>
+              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-secondary"/><span>Drives</span></div>
+            </div>
+          </div>
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} margin={{ top:4, right:10, left:-10, bottom:0 }}
+                onClick={(e: any)=>{ if(e?.activePayload?.[0]?.payload?.year) onSelect(e.activePayload[0].payload.year); }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0"/>
+                <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fontSize:11, fontWeight:800, fill:'#8e8e93' }} cursor="pointer"/>
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize:11, fontWeight:800, fill:'#8e8e93' }}/>
+                <Tooltip {...TT}/>
+                <Bar dataKey="totalOffers" name="Offers" radius={[8,8,0,0]} barSize={28} cursor="pointer">
+                  {data.map((d,i)=>( <Cell key={i} fill={C.primary} opacity={selected && selected.value!==d.year ? 0.35 : 1}/> ))}
+                </Bar>
+                <Bar dataKey="drives" name="Drives" radius={[8,8,0,0]} barSize={28} cursor="pointer">
+                  {data.map((d,i)=>( <Cell key={i} fill={C.secondary} opacity={selected && selected.value!==d.year ? 0.35 : 1}/> ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="app-card p-7">
+          <h3 className="text-lg font-black tracking-tight mb-1">Placement Rate Trend</h3>
+          <p className="text-xs text-muted font-medium mb-4">% placed year on year</p>
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top:4, right:8, left:-20, bottom:0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0"/>
+                <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fontSize:10, fontWeight:800, fill:'#8e8e93' }}/>
+                <YAxis domain={[60,100]} axisLine={false} tickLine={false} tick={{ fontSize:10, fontWeight:800, fill:'#8e8e93' }}/>
+                <Tooltip {...TT} formatter={(v:any)=>[`${v}%`,'Placement Rate']}/>
+                <Line type="monotone" dataKey="placementRate" stroke={C.primary} strokeWidth={3}
+                  dot={{ fill:C.primary, r:5, strokeWidth:0 }} activeDot={{ r:7 }}/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Year table — clickable rows */}
+      <div className="app-card overflow-hidden">
+        <div className="px-7 py-5 border-b border-border-subtle flex items-center justify-between">
+          <h3 className="text-lg font-black tracking-tight">Year-by-Year Summary</h3>
+          <p className="text-[10px] font-black text-muted uppercase tracking-widest">Click a row to drill-down</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border-subtle">
+                {['Batch Year','Total Offers','Avg CTC','Drives','Placement Rate','Growth',''].map(h=>(
+                  <th key={h} className="px-6 py-3 text-left text-[10px] font-black text-muted uppercase tracking-widest">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((y,i)=>{
+                const p = data[i-1];
+                const growth = p ? (((y.totalOffers-p.totalOffers)/p.totalOffers)*100).toFixed(1) : null;
+                const isActive = selected?.value===y.year;
+                return (
+                  <tr key={y.year} onClick={()=>onSelect(y.year)}
+                    className={cn('border-b border-border-subtle/50 cursor-pointer transition-all group',
+                      isActive ? 'bg-primary/5' : 'hover:bg-background')}>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <LuCalendar size={14} className="text-primary"/>
+                        </div>
+                        <span className={cn('font-black text-sm', isActive && 'text-primary')}>{y.year}</span>
+                        {i===data.length-1 && <span className="text-[9px] font-black px-2 py-0.5 bg-primary/10 text-primary rounded-full uppercase tracking-widest">Current</span>}
+                        {isActive && <span className="text-[9px] font-black px-2 py-0.5 bg-foreground/10 text-foreground rounded-full uppercase tracking-widest">Selected</span>}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-black">{y.totalOffers}</td>
+                    <td className="px-6 py-4 text-sm font-black">{y.avgCTC} LPA</td>
+                    <td className="px-6 py-4 text-sm font-bold text-muted">{y.drives}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 bg-border-subtle rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full" style={{ width:`${y.placementRate}%` }}/>
+                        </div>
+                        <span className="text-sm font-black">{y.placementRate}%</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {growth!==null ? (
+                        <span className={cn('flex items-center gap-1 text-xs font-black w-fit', parseFloat(growth)>=0 ? 'text-emerald-600' : 'text-primary')}>
+                          {parseFloat(growth)>=0 ? <LuArrowUpRight size={12}/> : <LuArrowDownRight size={12}/>}
+                          {Math.abs(parseFloat(growth))}%
+                        </span>
+                      ) : <span className="text-muted text-xs font-bold">—</span>}
+                    </td>
+                    <td className="px-6 py-4">
+                      <LuChevronRight size={16} className={cn('text-muted transition-all', isActive ? 'text-primary rotate-90' : 'group-hover:translate-x-1')}/>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Overview Tab ──────────────────────────────────────────────────────────────
+function OverviewTab({ stats, trendData }: { stats:ReportStats|null; trendData:TrendPoint[] }) {
+  const pkgDist = [
+    { range:'3-6 LPA',count:45 },{ range:'6-10 LPA',count:82 },{ range:'10-15 LPA',count:34 },
+    { range:'15-25 LPA',count:12 },{ range:'25+ LPA',count:5 },
   ];
-
-  const packageDistribution = [
-    { range: '3-6 LPA', count: 45 },
-    { range: '6-10 LPA', count: 82 },
-    { range: '10-15 LPA', count: 34 },
-    { range: '15-25 LPA', count: 12 },
-    { range: '25+ LPA', count: 5 }
+  const funnel = [
+    { stage:'Eligible',count:542,pct:'100%' },{ stage:'Applied',count:486,pct:'89.6%' },
+    { stage:'Shortlisted',count:312,pct:'64.2%' },{ stage:'Interviewed',count:156,pct:'50.0%' },
+    { stage:'Offered',count:124,pct:'79.4%' },
   ];
-
-  const distributionData = [
-    { name: 'Placed', value: parseInt(stats?.placementRate || '0') },
-    { name: 'Remaining', value: 100 - parseInt(stats?.placementRate || '0') }
+  const topCo = [
+    { name:'Amazon',count:15,pkg:'32.0 LPA',color:'#f97316' },{ name:'Google',count:12,pkg:'24.5 LPA',color:'#3b82f6' },
+    { name:'Microsoft',count:8,pkg:'18.2 LPA',color:'#6366f1' },{ name:'Zomato',count:22,pkg:'14.5 LPA',color:'#ff383c' },
+    { name:'TCS',count:45,pkg:'7.2 LPA',color:'#a855f7' },
   ];
-
-  const funnelData = [
-    { stage: 'Eligible', count: 542, percentage: '100%', color: 'bg-primary/5' },
-    { stage: 'Applied', count: 486, percentage: '89.6%', color: 'bg-primary/10' },
-    { stage: 'Shortlisted', count: 312, percentage: '64.2%', color: 'bg-primary/20' },
-    { stage: 'Interviewed', count: 156, percentage: '50%', color: 'bg-primary/30' },
-    { stage: 'Offered', count: 124, percentage: '79.4%', color: 'bg-primary/40' }
-  ];
-
-  const topCompanies = [
-    { name: "Google", count: 12, color: "bg-blue-500", avgPackage: "24.5 LPA" },
-    { name: "Microsoft", count: 8, color: "bg-emerald-500", avgPackage: "18.2 LPA" },
-    { name: "Amazon", count: 15, color: "bg-orange-500", avgPackage: "32.0 LPA" },
-    { name: "Zomato", count: 22, color: "bg-red-500", avgPackage: "14.5 LPA" },
-    { name: "TCS", count: 45, color: "bg-purple-500", avgPackage: "7.2 LPA" }
+  const distData = [
+    { name:'Placed',value:parseInt(stats?.placementRate||'0') },
+    { name:'Remaining',value:100-parseInt(stats?.placementRate||'0') },
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Header Area */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between no-print">
-        <div>
-          <h1 className="text-4xl font-black tracking-tight mb-2">Reports & Analytics</h1>
-          <p className="text-muted font-medium">Strategic insights and placement performance trends for the 2024-25 batch.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <select 
-            className="rounded-xl border border-border-subtle bg-white px-4 py-2.5 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer pr-10"
-            value={batch}
-            onChange={(e) => setBatch(e.target.value)}
-          >
-            <option>2024 Batch</option>
-            <option>2023 Batch</option>
-            <option>2022 Batch</option>
-          </select>
-          <button 
-            onClick={handleDownloadPDF}
-            disabled={isExporting}
-            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-tactile hover:scale-[1.02] transition-all disabled:opacity-70"
-          >
-            {isExporting ? <LuLoader className="animate-spin" size={18} /> : <LuDownload size={18} />}
-            <span>{isExporting ? 'Preparing...' : 'Download PDF'}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Print-only Header */}
-      <div className="hidden print-only mb-8 border-b-2 border-primary pb-6">
-        <h1 className="text-3xl font-black uppercase tracking-tighter">Placely Placement Report</h1>
-        <p className="text-muted font-bold">Academic Year 2024-25 • Generated on {new Date().toLocaleDateString()}</p>
-      </div>
-
-      {/* KPI Overviews */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Overall Placement', value: stats?.placementRate || '0%', trend: '+4.2%', icon: LuTarget, color: 'text-primary bg-primary/10' },
-          { label: 'Average Package', value: stats?.avgCTC || '0 LPA', trend: '+1.2L', icon: LuTrendingUp, color: 'text-emerald-600 bg-emerald-50' },
-          { label: 'Total Offers', value: stats?.totalOffers || '0', trend: '+12', icon: LuAward, color: 'text-blue-600 bg-blue-50' },
-          { label: 'At-Risk Students', value: stats?.atRisk || '0', trend: '-2', icon: LuActivity, color: 'text-orange-600 bg-orange-50' },
-        ].map((kpi, i) => (
-          <div key={i} className="app-card p-6 flex flex-col gap-4">
-            <div className="flex items-start justify-between">
-              <div className={`p-3 rounded-2xl ${kpi.color}`}>
-                <kpi.icon size={24} />
-              </div>
-              <div className="flex items-center gap-1 text-[10px] font-black px-3 py-1 bg-green-500/10 text-green-600 rounded-full uppercase tracking-tight whitespace-nowrap">
-                <LuArrowUpRight size={10} className="shrink-0" />
-                {kpi.trend}
-              </div>
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">{kpi.label}</p>
-              <h3 className="text-3xl font-black tracking-tight">{kpi.value}</h3>
-            </div>
-          </div>
-        ))}
+          { label:'Overall Placement',value:stats?.placementRate||'0%',trend:'+4.2%',color:'text-primary' },
+          { label:'Average Package',value:stats?.avgCTC||'0 LPA',trend:'+1.2L',color:'text-emerald-600' },
+          { label:'Total Offers',value:stats?.totalOffers||'0',trend:'+12',color:'text-blue-600' },
+          { label:'At-Risk Students',value:stats?.atRisk||'0',trend:'-2',color:'text-orange-500' },
+        ].map((kpi,i)=><StatChip key={i} label={kpi.label} value={kpi.value} trend={kpi.trend} color={kpi.color}/>)}
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Trend Visualization */}
-        <div className="lg:col-span-2 app-card p-8">
-          <div className="flex items-center justify-between mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 app-card p-7">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-xl font-black tracking-tight mb-1">Monthly Placement Trend</h3>
-              <p className="text-sm text-muted font-medium">Growth in offers and actual placements over time.</p>
+              <h3 className="text-lg font-black tracking-tight">Monthly Placement Trend</h3>
+              <p className="text-xs text-muted font-medium mt-0.5">Offers vs. actual placements · last 6 months</p>
             </div>
             <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
-                <span>Placements</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-secondary"></div>
-                <span>Offers</span>
-              </div>
+              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-primary"/><span>Placements</span></div>
+              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-secondary"/><span>Offers</span></div>
             </div>
           </div>
-          
-          <div className="h-[350px] w-full">
+          <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={trendData} margin={{ top:10, right:10, left:-20, bottom:0 }}>
                 <defs>
-                  <linearGradient id="colorPlacements" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={chartColors.primary} stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor={chartColors.primary} stopOpacity={0}/>
+                  <linearGradient id="gP" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={C.primary} stopOpacity={0.15}/><stop offset="95%" stopColor={C.primary} stopOpacity={0}/>
                   </linearGradient>
-                  <linearGradient id="colorOffers" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={chartColors.secondary} stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor={chartColors.secondary} stopOpacity={0}/>
+                  <linearGradient id="gO" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={C.secondary} stopOpacity={0.2}/><stop offset="95%" stopColor={C.secondary} stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="month" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 11, fontWeight: 800, fill: '#8e8e93' }}
-                  dy={10}
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 11, fontWeight: 800, fill: '#8e8e93' }}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: '20px', 
-                    border: '1px solid #e6e6e6', 
-                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)',
-                    padding: '16px'
-                  }}
-                  itemStyle={{ fontSize: '11px', fontWeight: 800 }}
-                  labelStyle={{ fontSize: '12px', fontWeight: 900, marginBottom: '8px', color: '#1f1f1f' }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="placements" 
-                  stroke={chartColors.primary} 
-                  strokeWidth={4}
-                  fillOpacity={1} 
-                  fill="url(#colorPlacements)" 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="offers" 
-                  stroke={chartColors.secondary} 
-                  strokeWidth={4}
-                  fillOpacity={1} 
-                  fill="url(#colorOffers)" 
-                />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0"/>
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize:11, fontWeight:800, fill:'#8e8e93' }} dy={10}/>
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize:11, fontWeight:800, fill:'#8e8e93' }}/>
+                <Tooltip {...TT}/>
+                <Area type="monotone" dataKey="placements" stroke={C.primary} strokeWidth={3} fillOpacity={1} fill="url(#gP)"/>
+                <Area type="monotone" dataKey="offers" stroke={C.secondary} strokeWidth={3} fillOpacity={1} fill="url(#gO)"/>
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
-
-        {/* Package Distribution */}
-        <div className="app-card p-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-xl font-black tracking-tight mb-1">Package Distribution</h3>
-              <p className="text-sm text-muted font-medium">Offers by CTC bracket.</p>
-            </div>
-            <LuAward className="text-muted" size={20} />
-          </div>
-          
-          <div className="h-[300px] w-full">
+        <div className="app-card p-7">
+          <h3 className="text-lg font-black tracking-tight mb-1">Placement Rate</h3>
+          <p className="text-xs text-muted font-medium mb-4">Batch success vs. pending</p>
+          <div className="h-[170px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={packageDistribution}>
-                <XAxis 
-                  dataKey="range" 
-                  axisLine={false} 
-                  tickLine={false}
-                  tick={{ fontSize: 10, fontWeight: 900, fill: '#8e8e93' }}
-                />
-                <YAxis hide />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(0,0,0,0.02)' }}
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                  itemStyle={{ fontSize: '11px', fontWeight: 800 }}
-                />
-                <Bar 
-                  dataKey="count" 
-                  fill={chartColors.secondary} 
-                  radius={[10, 10, 0, 0]} 
-                  barSize={30}
-                />
-              </BarChart>
+              <PieChart>
+                <Pie data={distData} cx="50%" cy="50%" innerRadius={52} outerRadius={76} paddingAngle={8} dataKey="value">
+                  <Cell fill={C.primary} stroke="none"/><Cell fill="#f3f4f6" stroke="none"/>
+                </Pie>
+                <Tooltip contentStyle={{ borderRadius:'14px', border:'none', boxShadow:'0 4px 20px rgba(0,0,0,0.08)' }}/>
+              </PieChart>
             </ResponsiveContainer>
           </div>
-          
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="p-3 bg-background rounded-xl border border-border-subtle">
-              <p className="text-[9px] font-black text-muted uppercase tracking-widest">Modal Bracket</p>
-              <p className="text-sm font-black">6-10 LPA</p>
-            </div>
-            <div className="p-3 bg-background rounded-xl border border-border-subtle">
-              <p className="text-[9px] font-black text-muted uppercase tracking-widest">Dream Offers</p>
-              <p className="text-sm font-black text-primary">17 Students</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Dept Wise Performance */}
-        <div className="app-card p-8 lg:col-span-2">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-xl font-black tracking-tight mb-1">Dept. Success</h3>
-              <p className="text-sm text-muted font-medium">Placement % by branch.</p>
-            </div>
-            <LuActivity className="text-muted" size={20} />
-          </div>
-          
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart layout="vertical" data={departmentData} margin={{ left: -10, right: 20 }}>
-                <XAxis type="number" hide />
-                <YAxis 
-                  dataKey="name" 
-                  type="category" 
-                  axisLine={false} 
-                  tickLine={false}
-                  tick={{ fontSize: 11, fontWeight: 900, fill: '#1f1f1f' }}
-                />
-                <Tooltip 
-                  cursor={{ fill: 'transparent' }}
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                  itemStyle={{ fontSize: '11px', fontWeight: 800 }}
-                />
-                <Bar 
-                  dataKey="placements" 
-                  fill={chartColors.primary} 
-                  radius={[0, 10, 10, 0]} 
-                  barSize={20}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="mt-6 space-y-3">
-            <div className="flex items-center justify-between p-4 bg-background rounded-2xl border border-border-subtle group hover:border-primary/20 transition-all">
-              <div className="flex items-center gap-3">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
-                <span className="text-[10px] font-black uppercase tracking-widest">Highest</span>
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            {distData.map((d,i)=>(
+              <div key={i} className="flex items-center gap-2 p-3 bg-background rounded-2xl border border-border-subtle">
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor:i===0?C.primary:'#f3f4f6', border:i===1?'1px solid #e6e6e6':'none' }}/>
+                <div><p className="text-[9px] font-black text-muted uppercase tracking-widest">{d.name}</p><p className="text-sm font-black">{d.value}%</p></div>
               </div>
-              <span className="text-xs font-black">AI&DS (92%)</span>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-background rounded-2xl border border-border-subtle group hover:border-primary/20 transition-all">
-              <div className="flex items-center gap-3">
-                <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_8px_rgba(255,56,60,0.4)]"></div>
-                <span className="text-[10px] font-black uppercase tracking-widest">Most Volume</span>
-              </div>
-              <span className="text-xs font-black">CSE (124)</span>
-            </div>
+            ))}
           </div>
-        </div>
-
-        {/* Placement Distribution */}
-        <div className="app-card p-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-xl font-black tracking-tight mb-1">Placement Distribution</h3>
-              <p className="text-sm text-muted font-medium">Batch success vs. pending.</p>
-            </div>
-            <LuChartPie className="text-muted" size={20} />
-          </div>
-          <div className="flex flex-col items-center justify-center gap-6">
-            <div className="w-full h-[180px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={distributionData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={85}
-                    paddingAngle={8}
-                    dataKey="value"
-                  >
-                    <Cell fill={chartColors.primary} stroke="none" />
-                    <Cell fill="#f3f4f6" stroke="none" />
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-2 gap-4 w-full">
-              {distributionData.map((d, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 bg-background rounded-2xl border border-border-subtle">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: i === 0 ? chartColors.primary : '#f3f4f6' }} />
-                  <div>
-                    <p className="text-[9px] font-black text-muted uppercase tracking-widest">{d.name}</p>
-                    <p className="text-sm font-black">{d.value}%</p>
+          <div className="mt-5 pt-4 border-t border-border-subtle">
+            <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-3">Package Distribution</p>
+            <div className="space-y-2">
+              {pkgDist.map(p=>(
+                <div key={p.range} className="flex items-center gap-3">
+                  <span className="text-[10px] font-black text-muted w-16 shrink-0">{p.range}</span>
+                  <div className="flex-1 h-1.5 bg-border-subtle rounded-full overflow-hidden">
+                    <div className="h-full bg-secondary rounded-full" style={{ width:`${(p.count/82)*100}%` }}/>
                   </div>
+                  <span className="text-[10px] font-black w-5 text-right">{p.count}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Placement Funnel */}
-        <div className="app-card p-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-xl font-black tracking-tight mb-1">Placement Funnel</h3>
-              <p className="text-sm text-muted font-medium">Conversion from eligibility to final offer.</p>
-            </div>
-            <LuLayers className="text-muted" size={20} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="app-card p-7">
+          <div className="flex items-center justify-between mb-6">
+            <div><h3 className="text-lg font-black tracking-tight">Placement Funnel</h3><p className="text-xs text-muted font-medium mt-0.5">Eligibility → offer conversion</p></div>
+            <LuLayers className="text-muted" size={20}/>
           </div>
-          <div className="space-y-4">
-            {funnelData.map((item, idx) => (
+          <div className="space-y-3">
+            {funnel.map((item,idx)=>(
               <div key={item.stage} className="flex items-center gap-4">
                 <div className="flex-1">
-                  <div 
-                    className={cn(
-                      "h-12 border border-border-subtle rounded-2xl flex items-center justify-between px-6 group hover:border-primary/30 transition-all cursor-default",
-                      item.color
-                    )}
-                    style={{ width: `${100 - (idx * 5)}%` }}
-                  >
-                    <span className="text-[10px] font-black uppercase tracking-widest text-foreground/70">{item.stage}</span>
+                  <div className="h-12 border border-border-subtle rounded-2xl flex items-center justify-between px-5 hover:border-primary/30 transition-all"
+                    style={{ width:`${100-idx*5}%`, backgroundColor:`rgba(255,56,60,${0.04+idx*0.04})` }}>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-foreground/60">{item.stage}</span>
                     <span className="text-sm font-black">{item.count}</span>
                   </div>
                 </div>
-                <div className="w-12 text-right text-[10px] font-black text-muted shrink-0 uppercase tracking-tighter">
-                  {item.percentage}
-                </div>
+                <div className="w-10 text-right text-[10px] font-black text-muted shrink-0">{item.pct}</div>
               </div>
             ))}
           </div>
         </div>
-
-        {/* Top Hiring Partners */}
-        <div className="app-card p-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-xl font-black tracking-tight mb-1">Top Hiring Partners</h3>
-              <p className="text-sm text-muted font-medium">Companies with highest recruitment volume.</p>
-            </div>
-            <LuBuilding2 className="text-muted" size={20} />
+        <div className="app-card p-7">
+          <div className="flex items-center justify-between mb-6">
+            <div><h3 className="text-lg font-black tracking-tight">Top Hiring Partners</h3><p className="text-xs text-muted font-medium mt-0.5">Highest recruitment volume</p></div>
+            <LuBuilding2 className="text-muted" size={20}/>
           </div>
           <div className="space-y-4">
-            {topCompanies.map((item) => (
-              <div key={item.name} className="flex items-center gap-4 group">
-                <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center font-black text-white text-xs shadow-sm", item.color)}>
-                  {item.name[0]}
-                </div>
+            {topCo.map(c=>(
+              <div key={c.name} className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-white text-xs shrink-0" style={{ backgroundColor:c.color }}>{c.name[0]}</div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-black tracking-tight">{item.name}</span>
-                    <span className="text-xs font-black text-primary uppercase tracking-widest">{item.count} Offers</span>
+                    <span className="text-sm font-black">{c.name}</span>
+                    <span className="text-xs font-black text-primary">{c.count} Offers</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden border border-border-subtle/30">
-                      <div 
-                        className={cn("h-full transition-all duration-1000", item.color)} 
-                        style={{ width: `${(item.count/50)*100}%` }} 
-                      />
+                    <div className="flex-1 h-1.5 bg-background rounded-full border border-border-subtle/30 overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width:`${(c.count/50)*100}%`, backgroundColor:c.color }}/>
                     </div>
-                    <span className="text-[10px] font-black text-muted w-16 text-right uppercase tracking-tighter">{item.avgPackage}</span>
+                    <span className="text-[10px] font-black text-muted w-16 text-right">{c.pkg}</span>
                   </div>
                 </div>
               </div>
@@ -480,21 +902,154 @@ export default function ReportsPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
 
-      <div className="bg-white p-8 rounded-3xl border-2 border-dashed border-border-subtle flex flex-col items-center justify-center text-center group hover:border-primary/20 transition-all duration-500">
-        <div className="h-20 w-20 rounded-full bg-background flex items-center justify-center text-muted mb-6 group-hover:scale-110 transition-transform duration-500">
-          <LuTrendingUp size={40} className="group-hover:text-primary transition-colors" />
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function ReportsPage() {
+  const [activeTab, setActiveTab]     = useState<AnalyticsTab>('overview');
+  const [stats, setStats]             = useState<ReportStats|null>(null);
+  const [trendData, setTrendData]     = useState<TrendPoint[]>([]);
+  const [deptData, setDeptData]       = useState<DeptData[]>([]);
+  const [companyData, setCompanyData] = useState<CompanyData[]>([]);
+  const [yearData, setYearData]       = useState<YearData[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Drill-down state
+  const [selected, setSelected]       = useState<Selection>(null);
+  const [drillData, setDrillData]     = useState<CrossData|null>(null);
+  const [drillLoading, setDrillLoading] = useState(false);
+
+  // Load page data
+  useEffect(()=>{
+    async function load() {
+      try {
+        const [s, t, d, c, y] = await Promise.all([
+          db.getReportStats(), db.getTrendData(),
+          db.getDepartmentAnalytics(), db.getCompanyAnalytics(), db.getYearAnalytics(),
+        ]);
+        setStats(s); setTrendData(t);
+        setDeptData(d as DeptData[]); setCompanyData(c as CompanyData[]); setYearData(y as YearData[]);
+      } catch(e) { console.error(e); }
+      finally { setLoading(false); }
+    }
+    load();
+  },[]);
+
+  // Load drill-down when selection changes
+  useEffect(()=>{
+    if (!selected) { setDrillData(null); return; }
+    setDrillLoading(true);
+    setDrillData(null);
+    const filter = selected.type==='dept' ? { dept:selected.value }
+      : selected.type==='company' ? { company:selected.value }
+      : { year:selected.value };
+    db.getCrossAnalytics(filter)
+      .then(d=>setDrillData(d as CrossData))
+      .catch(()=>setDrillData({ companies:[], depts:[], years:[] }))
+      .finally(()=>setDrillLoading(false));
+  },[selected]);
+
+  const handleSelect = useCallback((type:'dept'|'company'|'year', value:string)=>{
+    setSelected(prev => prev?.value===value ? null : { type, value });
+  },[]);
+
+  const handleTabChange = (tab:AnalyticsTab) => { setActiveTab(tab); setSelected(null); };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <LuLoader className="animate-spin text-primary" size={36}/>
+        <p className="text-sm font-bold text-muted">Loading analytics…</p>
+      </div>
+    );
+  }
+
+  const tabs = [
+    { id:'overview'   as const, label:'Overview',   icon:LuChartPie },
+    { id:'department' as const, label:'Department',  icon:LuGraduationCap },
+    { id:'company'    as const, label:'Company',     icon:LuBuilding2 },
+    { id:'year'       as const, label:'Year-wise',   icon:LuCalendar },
+  ];
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between no-print">
+        <div>
+          <h1 className="text-4xl font-black tracking-tight mb-2">Reports &amp; Analytics</h1>
+          <p className="text-muted font-medium">Cross-dimensional placement insights — click any row to drill-down.</p>
         </div>
-        <h3 className="text-2xl font-black tracking-tight mb-3">Predictive Insights</h3>
+        <button onClick={()=>{ setIsExporting(true); setTimeout(()=>{ window.print(); setIsExporting(false); },800); }}
+          disabled={isExporting}
+          className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-tactile hover:scale-[1.02] transition-all disabled:opacity-70 self-start md:self-auto">
+          {isExporting ? <LuLoader className="animate-spin" size={16}/> : <LuDownload size={16}/>}
+          <span>{isExporting?'Preparing…':'Download PDF'}</span>
+        </button>
+      </div>
+
+      {/* Print header */}
+      <div className="hidden print-only mb-8 border-b-2 border-primary pb-6">
+        <h1 className="text-3xl font-black uppercase tracking-tighter">Placely Placement Report</h1>
+        <p className="text-muted font-bold">Generated · {new Date().toLocaleDateString()}</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none no-print pb-1">
+        {tabs.map(tab=>(
+          <TabBtn key={tab.id} id={tab.id} active={activeTab===tab.id} icon={tab.icon}
+            label={tab.label} onClick={()=>handleTabChange(tab.id)}/>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div className="space-y-6 animate-in fade-in duration-300">
+        {activeTab==='overview' && <OverviewTab stats={stats} trendData={trendData}/>}
+
+        {activeTab==='department' && (
+          <>
+            <DepartmentTab data={deptData} selected={selected} onSelect={v=>handleSelect('dept',v)}/>
+            {selected?.type==='dept' && (
+              <DrillDownPanel selected={selected} data={drillData} loading={drillLoading} onClose={()=>setSelected(null)}/>
+            )}
+          </>
+        )}
+
+        {activeTab==='company' && (
+          <>
+            <CompanyTab data={companyData} selected={selected} onSelect={v=>handleSelect('company',v)}/>
+            {selected?.type==='company' && (
+              <DrillDownPanel selected={selected} data={drillData} loading={drillLoading} onClose={()=>setSelected(null)}/>
+            )}
+          </>
+        )}
+
+        {activeTab==='year' && (
+          <>
+            <YearTab data={yearData} selected={selected} onSelect={v=>handleSelect('year',v)}/>
+            {selected?.type==='year' && (
+              <DrillDownPanel selected={selected} data={drillData} loading={drillLoading} onClose={()=>setSelected(null)}/>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Predictive teaser */}
+      <div className="bg-white p-8 rounded-3xl border-2 border-dashed border-border-subtle flex flex-col items-center justify-center text-center group hover:border-primary/20 transition-all duration-500">
+        <div className="h-16 w-16 rounded-full bg-background flex items-center justify-center text-muted mb-5 group-hover:scale-110 transition-transform duration-500">
+          <LuTrendingUp size={32} className="group-hover:text-primary transition-colors"/>
+        </div>
+        <h3 className="text-xl font-black tracking-tight mb-2">Predictive Insights</h3>
         <p className="text-sm font-medium text-muted max-w-sm mx-auto leading-relaxed">
-          We are leveraging neural models to predict company hiring patterns for the upcoming season. 
+          Neural models predicting company hiring patterns for the upcoming season.
           <span className="block mt-2 font-black text-primary uppercase text-[10px] tracking-widest">Early Access Available Soon</span>
         </p>
-        <button className="mt-8 px-8 py-3 bg-background border border-border-subtle rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all no-print">
+        <button className="mt-6 px-7 py-2.5 bg-background border border-border-subtle rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all no-print">
           Request Early Access
         </button>
       </div>
     </div>
   );
 }
-
