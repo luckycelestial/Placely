@@ -63,8 +63,10 @@ export default function AdminDashboardPage() {
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isDriveDialogOpen, setIsDriveDialogOpen] = useState(false);
-  const [yearFilter, setYearFilter] = useState("2025");
+  const currentYear = new Date().getFullYear();
+  const [yearFilter, setYearFilter] = useState(String(currentYear));
   const [loading, setLoading] = useState(true);
+  const [batchOptions, setBatchOptions] = useState<string[]>([String(currentYear + 1), String(currentYear)]);
 
   useEffect(() => {
     loadDashboardData();
@@ -73,14 +75,24 @@ export default function AdminDashboardPage() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [allDrives, dashboardStats, approvals, activityData] = await Promise.all([
-        db.getDrives(),
+      const [allDrives, dashboardStats, approvals, activityData, distinctBatches] = await Promise.all([
+        db.getDrives(),   // fetch all, filter client-side so null-batch drives show
         db.getDashboardStats(),
         db.getPendingApprovals(),
-        db.getRecentActivity()
+        db.getRecentActivity(),
+        db.getDistinctBatches()
       ]);
 
-      setRecentDrives(allDrives.slice(0, 4));
+      // Update batch options dynamically (sorted descending: newest first)
+      setBatchOptions(distinctBatches);
+
+      // drives with no batch fall under the current year
+      const filtered = allDrives.filter((d: any) => {
+        const driveBatch = d.batch || String(currentYear);
+        return driveBatch === yearFilter;
+      });
+
+      setRecentDrives(filtered.slice(0, 4));
       setPendingApprovals(approvals.slice(0, 5));
       
       // Merge real stats with some mock calculation if needed
@@ -131,7 +143,29 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-
+      {/* Header Area */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">Placement Dashboard</h1>
+          <p className="text-muted text-sm font-medium">Monitor placement drives, student analytics, and overall performance.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={handleExport}
+            className="flex items-center gap-2 rounded-xl bg-surface border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors"
+          >
+            <LuDownload size={16} />
+            Export Report
+          </button>
+          <button 
+            onClick={() => setIsDriveDialogOpen(true)}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-tactile hover:bg-primary-dark transition-all"
+          >
+            <LuPlus size={16} />
+            Create Drive
+          </button>
+        </div>
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -221,7 +255,7 @@ export default function AdminDashboardPage() {
                   id="batch-dropdown"
                   className="absolute right-0 mt-2 w-48 bg-surface border border-border-subtle rounded-2xl shadow-2xl hidden z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
                 >
-                  {["2025", "2024", "2023"].map((year) => (
+                  {batchOptions.map((year) => (
                     <button
                       key={year}
                       onClick={() => {

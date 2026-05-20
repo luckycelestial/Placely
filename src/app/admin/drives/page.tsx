@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   LuSearch, 
   LuFilter, 
@@ -25,11 +25,17 @@ import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import DriveDialog from "./drive-dialog";
-import CompanyDialog from "./company-dialog";
-import TemplateDialog from "./template-dialog";
+import dynamic from "next/dynamic";
+
+const DriveDialog = dynamic(() => import("./drive-dialog"), { ssr: false });
+const CompanyDialog = dynamic(() => import("./company-dialog"), { ssr: false });
+const TemplateDialog = dynamic(() => import("./template-dialog"), { ssr: false });
 
 const TABS = ["Drives", "Companies", "Templates"];
+
+const CURRENT_YEAR = new Date().getFullYear();
+// Base default — will be replaced by dynamic data from DB
+const DEFAULT_BATCH_YEARS = ["All", String(CURRENT_YEAR + 1), String(CURRENT_YEAR)];
 
 export default function DrivesPage() {
   const router = useRouter();
@@ -45,6 +51,8 @@ export default function DrivesPage() {
   // Filter States
   const [showPastDrives, setShowPastDrives] = useState(false);
   const [filterType, setFilterType] = useState("All");
+  const [filterBatch, setFilterBatch] = useState("All");
+  const [batchYears, setBatchYears] = useState<string[]>(DEFAULT_BATCH_YEARS);
 
   // Modal States
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
@@ -56,15 +64,21 @@ export default function DrivesPage() {
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       if (activeTab === "Drives") {
-        const drivesData = await db.getDrives({ 
-          search, 
-          status: showPastDrives ? 'completed' : 'published',
-          type: filterType === 'All' ? undefined : filterType
-        });
+        const [drivesData, distinctBatches] = await Promise.all([
+          db.getDrives({ 
+            search, 
+            status: showPastDrives ? 'completed' : 'published',
+            type: filterType === 'All' ? undefined : filterType,
+            batch: filterBatch === 'All' ? undefined : filterBatch
+          }),
+          db.getDistinctBatches()
+        ]);
+        // Prepend "All" to the sorted distinct batch years
+        setBatchYears(["All", ...distinctBatches]);
         setDrives(drivesData.map((d: any) => ({
           id: d.id,
           company: d.companies?.name || "Unknown",
@@ -76,8 +90,10 @@ export default function DrivesPage() {
           location: d.location,
           deadline: new Date(d.application_end).toLocaleDateString(),
           deadline_iso: d.application_end?.split('T')[0],
+          batch: d.batch || null,
           status: d.status,
-          applications: d.applications?.length || 0, 
+          // Supabase returns [{ count: N }] for count aggregates
+          applications: (d.applications as any)?.[0]?.count ?? d.applications?.length ?? 0,
           eligibility: d.eligibility_rules,
           type: d.drive_type
         })));
@@ -93,14 +109,14 @@ export default function DrivesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, search, showPastDrives, filterType, filterBatch]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       loadData();
     }, 300); // Debounce search
     return () => clearTimeout(timer);
-  }, [search, activeTab, showPastDrives, filterType]);
+  }, [loadData]);
 
   const handleCreate = () => {
     if (activeTab === "Drives") {
@@ -282,6 +298,23 @@ export default function DrivesPage() {
             </button>
           ))}
         </div>
+        {/* Batch Filter Dropdown */}
+        {activeTab === "Drives" && (
+          <div className="flex items-center gap-2 shrink-0">
+            <select
+              value={filterBatch}
+              onChange={(e) => setFilterBatch(e.target.value)}
+              className="appearance-none bg-surface border border-border-subtle rounded-xl px-4 py-2.5 text-sm font-bold text-foreground shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-primary/40 transition-all pr-8"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+            >
+              {batchYears.map(batch => (
+                <option key={batch} value={batch}>
+                  {batch === "All" ? "All Batches" : `Batch ${batch}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Tab Content */}
@@ -327,13 +360,20 @@ export default function DrivesPage() {
                           </div>
                         </div>
                       </div>
-                      <div className={cn(
-                        "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm",
-                        drive.status === "published" || drive.status === "Published" ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
-                        drive.status === "draft" || drive.status === "Draft" ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
-                        "bg-black/5 text-muted border border-border-subtle"
-                      )}>
-                        {drive.status}
+                      <div className="flex items-center gap-2">
+                        {drive.batch && (
+                          <div className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 shadow-sm">
+                            Batch {drive.batch}
+                          </div>
+                        )}
+                        <div className={cn(
+                          "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm",
+                          drive.status === "published" || drive.status === "Published" ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
+                          drive.status === "draft" || drive.status === "Draft" ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
+                          "bg-black/5 text-muted border border-border-subtle"
+                        )}>
+                          {drive.status}
+                        </div>
                       </div>
                     </div>
 

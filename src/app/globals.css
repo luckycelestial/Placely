@@ -131,7 +131,8 @@ html, body {
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -148,6 +149,16 @@ html, body {
 }
 
 .scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar utility used across pages */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 

@@ -175,6 +175,115 @@ export async function getAllStudents() {
   }));
 }
 
+export async function updateTableCell(tableName: string, id: string, updatedFields: any) {
+  const { error } = await supabase
+    .from(tableName)
+    .update(updatedFields)
+    .eq('id', id);
+  if (error) throw error;
+  return { id, success: true };
+}
+
+export async function syncStudentRow(studentId: string, updatedFields: any) {
+  // 1. Fetch user_id of the student to update users table if name/email changed
+  const { data: student, error: fetchError } = await supabase
+    .from('students')
+    .select('user_id')
+    .eq('id', studentId)
+    .single();
+  
+  if (fetchError) throw fetchError;
+
+  // 2. Update users table
+  const userUpdates: any = {};
+  if ('name' in updatedFields) userUpdates.name = updatedFields.name;
+  if ('email' in updatedFields) userUpdates.email = updatedFields.email;
+  if (Object.keys(userUpdates).length > 0 && student?.user_id) {
+    const { error: userError } = await supabase
+      .from('users')
+      .update(userUpdates)
+      .eq('id', student.user_id);
+    if (userError) throw userError;
+  }
+
+  // 3. Update students table
+  const studentUpdates: any = {};
+  if ('regNo' in updatedFields) studentUpdates.register_number = updatedFields.regNo;
+  if ('dept' in updatedFields) studentUpdates.department = updatedFields.dept;
+  if ('year' in updatedFields) studentUpdates.year = parseInt(updatedFields.year);
+  if ('status' in updatedFields) {
+    const statusMap: Record<string, string> = {
+      'Placed': 'placed',
+      'Applied': 'applied',
+      'Unplaced': 'not_placed',
+      'not_placed': 'not_placed',
+      'placed': 'placed',
+      'applied': 'applied'
+    };
+    studentUpdates.placement_status = statusMap[updatedFields.status] || updatedFields.status;
+  }
+  if ('completeness' in updatedFields) studentUpdates.profile_completion = parseInt(updatedFields.completeness);
+  if ('verification' in updatedFields) {
+    const verMap: Record<string, string> = {
+      'Verified': 'verified',
+      'Pending': 'pending',
+      'Rejected': 'rejected',
+      'verified': 'verified',
+      'pending': 'pending',
+      'rejected': 'rejected'
+    };
+    studentUpdates.verification_status = verMap[updatedFields.verification] || updatedFields.verification;
+  }
+
+  if (Object.keys(studentUpdates).length > 0) {
+    const { error: studentError } = await supabase
+      .from('students')
+      .update(studentUpdates)
+      .eq('id', studentId);
+    if (studentError) throw studentError;
+  }
+
+  // 4. Update academics
+  const academicUpdates: any = {};
+  if ('cgpa' in updatedFields) academicUpdates.cgpa = parseFloat(updatedFields.cgpa);
+  if ('tenth_score' in updatedFields) academicUpdates.tenth_score = parseFloat(updatedFields.tenth_score);
+  if ('twelfth_score' in updatedFields) academicUpdates.twelfth_score = parseFloat(updatedFields.twelfth_score);
+  if ('backlog_count' in updatedFields) academicUpdates.backlog_count = parseInt(updatedFields.backlog_count);
+
+  if (Object.keys(academicUpdates).length > 0) {
+    const { error: academicError } = await supabase
+      .from('student_academics')
+      .upsert({
+        student_id: studentId,
+        ...academicUpdates
+      }, { onConflict: 'student_id' });
+    if (academicError) throw academicError;
+  }
+
+  // 5. Update profiles
+  const profileUpdates: any = {};
+  if ('leetcode' in updatedFields) profileUpdates.leetcode_count = parseInt(updatedFields.leetcode);
+  if ('specializations' in updatedFields) {
+    let specs = updatedFields.specializations;
+    if (typeof specs === 'string') {
+      specs = specs.split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+    profileUpdates.specializations = specs;
+  }
+
+  if (Object.keys(profileUpdates).length > 0) {
+    const { error: profileError } = await supabase
+      .from('student_profiles')
+      .upsert({
+        student_id: studentId,
+        ...profileUpdates
+      }, { onConflict: 'student_id' });
+    if (profileError) throw profileError;
+  }
+
+  return { id: studentId, success: true };
+}
+
 export async function createStudent(studentData: any) {
   // 1. Create User
   const { data: userData, error: userError } = await supabase
@@ -246,6 +355,7 @@ export async function getOffers() {
     .select(`
       *,
       students (
+        id,
         register_number,
         users (
           name
@@ -364,6 +474,7 @@ export async function getDrives(options: {
   search?: string; 
   status?: string;
   type?: string;
+  batch?: string;
 } = {}) {
   let query = supabase
     .from('job_drives')
@@ -374,9 +485,7 @@ export async function getDrives(options: {
         logo_url,
         theme_color
       ),
-      applications (
-        id
-      )
+      applications ( count )
     `);
 
   if (options.search) {
@@ -391,9 +500,35 @@ export async function getDrives(options: {
     query = query.eq('drive_type', options.type);
   }
 
+  if (options.batch && options.batch !== 'All') {
+    query = query.eq('batch', options.batch);
+  }
+
   const { data, error } = await query.order('created_at', { ascending: false });
   if (error) throw error;
   return data;
+}
+
+export async function getDistinctBatches(): Promise<string[]> {
+  const currentYear = new Date().getFullYear();
+  const { data, error } = await supabase
+    .from('job_drives')
+    .select('batch');
+  if (error) throw error;
+
+  const years = new Set<string>();
+  // Always include current year + next year as base options
+  years.add(String(currentYear));
+  years.add(String(currentYear + 1));
+
+  // Add any years that actually have drives (treating null as current year)
+  (data || []).forEach((row: any) => {
+    const b = row.batch || String(currentYear);
+    years.add(b);
+  });
+
+  // Sort descending (most recent first)
+  return Array.from(years).sort((a, b) => Number(b) - Number(a));
 }
 
 export async function getCompanies(options: { search?: string } = {}) {
@@ -460,13 +595,15 @@ export async function createDrive(driveData: any) {
       package_ctc: driveData.package_ctc,
       location: driveData.location,
       application_end: driveData.application_end,
+      batch: driveData.batch || null,
       eligibility_rules: driveData.eligibility_rules,
-      status: driveData.status || 'published'
+      status: driveData.status || 'published',
+      title: driveData.title
     }])
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || error.details || 'Failed to create drive');
   return data;
 }
 
@@ -480,14 +617,16 @@ export async function updateDrive(id: string, driveData: any) {
       package_ctc: driveData.package_ctc,
       location: driveData.location,
       application_end: driveData.application_end,
+      batch: driveData.batch || null,
       eligibility_rules: driveData.eligibility_rules,
-      status: driveData.status || 'published'
+      status: driveData.status || 'published',
+      title: driveData.title
     })
     .eq('id', id)
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || error.details || 'Failed to update drive');
   return data;
 }
 
@@ -798,6 +937,124 @@ export async function bulkUploadResults(resultsData: any[]) {
   return results;
 }
 
+export async function deleteOffer(id: string) {
+  const { error } = await supabase
+    .from('offers')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+  return true;
+}
+
+export async function updateOffer(
+  id: string,
+  updates: {
+    offer_status?: string;
+    verification_status?: string;
+    joining_date?: string | null;
+    acceptance_status?: string;
+    mismatch_flag?: boolean;
+  }
+) {
+  const { data, error } = await supabase
+    .from('offers')
+    .update(updates)
+    .eq('id', id)
+    .select();
+
+  if (error) throw error;
+  return data && data.length > 0 ? data[0] : null;
+}
+
+export async function updateOfferStatus(id: string, status: string) {
+  return updateOffer(id, { offer_status: status });
+}
+
+export async function updateOfferVerification(id: string, status: string) {
+  return updateOffer(id, { verification_status: status });
+}
+
+export async function bulkCreateOffers(offersData: any[]) {
+  const results = [];
+  for (const item of offersData) {
+    try {
+      // 1. Get student ID from register number
+      const { data: student, error: studentError } = await supabase
+        .from('students')
+        .select('id')
+        .eq('register_number', item.regNo)
+        .single();
+
+      if (studentError || !student) {
+        console.error(`Student not found for regNo: ${item.regNo}`);
+        continue;
+      }
+
+      // 2. Get or create company ID from name
+      let companyId;
+      const { data: company, error: companyError } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('name', item.company)
+        .maybeSingle();
+
+      if (company && !companyError) {
+        companyId = company.id;
+      } else {
+        // Insert new company if not found
+        const { data: newCompany, error: createCompanyError } = await supabase
+          .from('companies')
+          .insert([{ name: item.company, industry: 'Technology' }])
+          .select()
+          .single();
+        if (!createCompanyError && newCompany) {
+          companyId = newCompany.id;
+        } else {
+          console.error(`Failed to get/create company: ${item.company}`);
+          continue;
+        }
+      }
+
+      // 3. Optional: find matching job drive or default to null
+      let driveId = null;
+      if (item.driveTitle) {
+        const { data: drive } = await supabase
+          .from('job_drives')
+          .select('id')
+          .eq('title', item.driveTitle)
+          .maybeSingle();
+        if (drive) {
+          driveId = drive.id;
+        }
+      }
+
+      // 4. Insert offer
+      const { data: offer, error: offerError } = await supabase
+        .from('offers')
+        .insert([{
+          student_id: student.id,
+          company_id: companyId,
+          job_drive_id: driveId,
+          role_title: item.role || 'Software Engineer',
+          package_ctc: item.package || '6 LPA',
+          acceptance_status: item.status || 'accepted',
+          joining_date: item.joiningDate || new Date().toISOString().split('T')[0],
+          offer_status: item.outcome || 'accepted',
+          verification_status: item.verification || 'pending'
+        }])
+        .select()
+        .single();
+
+      if (offerError) throw offerError;
+      results.push(offer);
+    } catch (err) {
+      console.error(`Error uploading offer for ${item.regNo}:`, err);
+    }
+  }
+  return results;
+}
+
 export async function getTrendData() {
   try {
     const { data: drives } = await supabase.from('job_drives').select('created_at');
@@ -947,6 +1204,10 @@ export async function generateStudentReport(studentId: string) {
   doc.setFont("helvetica", "bold");
   doc.text('Academic & Professional Profile', 14, currentY);
 
+  const cgpaVal = (Array.isArray(student.student_academics) ? student.student_academics[0] : student.student_academics)?.cgpa || 'N/A';
+  const leetcodeVal = (Array.isArray(student.student_profiles) ? student.student_profiles[0] : student.student_profiles)?.leetcode_count || 0;
+  const specList = (Array.isArray(student.student_profiles) ? student.student_profiles[0] : student.student_profiles)?.specializations || [];
+
   autoTable(doc, {
     startY: currentY + 4,
     theme: 'grid',
@@ -956,9 +1217,9 @@ export async function generateStudentReport(studentId: string) {
       1: { cellWidth: 'auto', textColor: [30, 30, 30] } 
     },
     body: [
-      ['Current CGPA', String(student.student_academics?.cgpa || 'N/A')],
-      ['LeetCode Progress', `${student.student_profiles?.leetcode_count || 0} Problems Solved`],
-      ['Specializations', (student.student_profiles?.specializations || []).join(', ') || 'None Listed'],
+      ['Current CGPA', String(cgpaVal)],
+      ['LeetCode Progress', `${leetcodeVal} Problems Solved`],
+      ['Specializations', (specList).join(', ') || 'None Listed'],
     ]
   });
 
@@ -1000,7 +1261,7 @@ export async function generateStudentReport(studentId: string) {
   doc.text('This is a system-generated official document by the Placely Admin Portal.', 14, pageHeight - 15);
   doc.text('© 2026 Placely System', pageWidth - 14, pageHeight - 15, { align: 'right' });
 
-  return doc.output('blob');
+  return new Blob([doc.output('arraybuffer')], { type: 'application/pdf' });
 }
 
 export async function generateSystemReport() {
@@ -1119,7 +1380,7 @@ export async function generateSystemReport() {
   doc.text('Strictly Confidential • For Administrative Use Only', 14, pageHeight - 15);
   doc.text('© 2026 Placely Systems', pageWidth - 14, pageHeight - 15, { align: 'right' });
 
-  return doc.output('blob');
+  return new Blob([doc.output('arraybuffer')], { type: 'application/pdf' });
 }
 
 export async function generateStudentProfilePDF(studentId: string) {
@@ -1138,6 +1399,7 @@ export const db = {
   getApplicationStats,
   getRecentActivity,
   getDrives,
+  getDistinctBatches,
   getCompanies,
   getTemplates,
   createTemplate,
@@ -1166,31 +1428,33 @@ export const db = {
   bulkCreateStudents,
   upsertTableData,
   bulkUploadResults,
+  deleteOffer,
+  updateOffer,
+  updateOfferStatus,
+  updateOfferVerification,
+  bulkCreateOffers,
   generateStudentProfilePDF,
   generateStudentReport,
   generateSystemReport,
+  updateTableCell,
+  syncStudentRow,
   async updateStudentVerification(studentId: string, status: 'verified' | 'pending' | 'rejected') {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('students')
       .update({ verification_status: status })
-      .eq('id', studentId)
-      .select()
-      .single();
+      .eq('id', studentId);
     if (error) throw error;
-    return data;
+    return { id: studentId, verification_status: status };
   },
   async flagStudent(studentId: string, reason: string) {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('students')
       .update({ 
         verification_status: 'rejected',
-        // Assuming there might be a notes field or similar, otherwise just status
       })
-      .eq('id', studentId)
-      .select()
-      .single();
+      .eq('id', studentId);
     if (error) throw error;
-    return data;
+    return { id: studentId, verification_status: 'rejected' };
   },
   async updateStudentProfile(studentId: string, profileData: any) {
     // Update students table
@@ -1228,14 +1492,12 @@ export const db = {
     return { success: true };
   },
   async updateProfilePicture(userId: string, avatarUrl: string) {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('users')
       .update({ avatar_url: avatarUrl })
-      .eq('id', userId)
-      .select()
-      .single();
+      .eq('id', userId);
     
     if (error) throw error;
-    return data;
+    return { id: userId, avatar_url: avatarUrl };
   }
 };

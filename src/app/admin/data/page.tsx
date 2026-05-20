@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { DataGrid, SelectColumn, renderTextEditor } from "react-data-grid";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { DataGrid, renderTextEditor } from "react-data-grid";
 import type { Column, RenderCellProps, RenderEditCellProps } from "react-data-grid";
 import * as XLSX from "xlsx";
 import "react-data-grid/lib/styles.css";
@@ -29,6 +29,10 @@ interface ColumnMapping {
   source: string;
   target: string;
 }
+
+const isUUID = (val: any): boolean =>
+  typeof val === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
 const STUDENT_FIELDS = [
   { id: "register_number", label: "Register Number", required: true, validate: (v: string) => /^[A-Z0-9]{6,12}$/i.test(v) || "Must be 6-12 alphanumeric characters" },
@@ -70,7 +74,60 @@ export default function DataWorkspacePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedYear, setSelectedYear] = useState("4");
   const [validationErrors, setValidationErrors] = useState<Record<number, string[]>>({});
-  const [selectedRows, setSelectedRows] = useState<ReadonlySet<string>>(new Set());
+
+  const [studentsMap, setStudentsMap] = useState<Record<string, string>>({});
+  const [companiesMap, setCompaniesMap] = useState<Record<string, string>>({});
+  const [drivesMap, setDrivesMap] = useState<Record<string, string>>({});
+  const [offersMap, setOffersMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const loadMappings = async () => {
+      try {
+        const [students, companies, drives, offers] = await Promise.all([
+          db.getAllStudents(),
+          db.getCompanies(),
+          db.getDrives(),
+          db.getOffers()
+        ]);
+        
+        const sMap: Record<string, string> = {};
+        students.forEach((s: any) => {
+          if (s.id) sMap[s.id] = s.name;
+        });
+        
+        const cMap: Record<string, string> = {};
+        companies.forEach((c: any) => {
+          if (c.id) cMap[c.id] = c.name;
+        });
+
+        const dMap: Record<string, string> = {};
+        drives.forEach((d: any) => {
+          if (d.id) {
+            const companyName = d.companies?.name || "Unknown Company";
+            dMap[d.id] = `${companyName} - ${d.role_title}`;
+          }
+        });
+
+        const oMap: Record<string, string> = {};
+        offers.forEach((o: any) => {
+          if (o.id) {
+            const studentName = o.students?.users?.name || o.students?.[0]?.users?.[0]?.name || "Unknown Student";
+            const companyName = o.companies?.name || o.companies?.[0]?.name || "Unknown Company";
+            const role = o.role_title || "Unknown Role";
+            oMap[o.id] = `${studentName} (${companyName} - ${role})`;
+          }
+        });
+        
+        setStudentsMap(sMap);
+        setCompaniesMap(cMap);
+        setDrivesMap(dMap);
+        setOffersMap(oMap);
+      } catch (error) {
+        console.error("Failed to load mappings:", error);
+      }
+    };
+    loadMappings();
+  }, []);
 
   // Fetch Live Data for Active Table
   const loadData = useCallback(async () => {
@@ -98,7 +155,7 @@ export default function DataWorkspacePage() {
   // Generate Columns dynamically from data
   const columns = useMemo((): Column<any>[] => {
     if (activeTab === "staging" && !isMappingMode) {
-      return importHeaders.map(h => ({
+      return importHeaders.map((h: string) => ({
         key: h,
         name: h,
         resizable: true,
@@ -112,24 +169,60 @@ export default function DataWorkspacePage() {
     const dataToUse = activeTab === "live" ? rows : stagingData;
     if (dataToUse.length === 0) return [];
 
-    const keys = Object.keys(dataToUse[0]).filter(k => k !== "id");
+    let keys = Object.keys(dataToUse[0]).filter(k => k !== "id");
     
-    return [
-      { ...SelectColumn, frozen: true },
-      ...keys.map((k, index) => {
+    // Position student_id / studentId first if present, company_id / companyId if student_id is not present
+    const studentIdIndex = keys.findIndex(k => k.toLowerCase() === "student_id" || k.toLowerCase() === "studentid");
+    if (studentIdIndex > -1) {
+      const [studentIdKey] = keys.splice(studentIdIndex, 1);
+      keys = [studentIdKey, ...keys];
+    } else {
+      const companyIdIndex = keys.findIndex(k => k.toLowerCase() === "company_id" || k.toLowerCase() === "companyid");
+      if (companyIdIndex > -1) {
+        const [companyIdKey] = keys.splice(companyIdIndex, 1);
+        keys = [companyIdKey, ...keys];
+      }
+    }
+    
+    return keys.map((k, index) => {
         const isStudentField = activeTable === "students" ? STUDENT_FIELDS.find(f => f.id === k) : undefined;
+        const isStudentId = k.toLowerCase() === "student_id" || k.toLowerCase() === "studentid" || k.toLowerCase() === "student";
+        const isCompanyId = k.toLowerCase() === "company_id" || k.toLowerCase() === "companyid" || k.toLowerCase() === "company";
+        const isDriveId = k.toLowerCase() === "drive_id" || k.toLowerCase() === "driveid" || k.toLowerCase() === "drive";
+        const isOfferId = k.toLowerCase() === "offer_id" || k.toLowerCase() === "offerid" || k.toLowerCase() === "offer";
+
+        let headerName = isStudentField?.label || k.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        if (isStudentId) headerName = "Student Name";
+        if (isCompanyId) headerName = "Company Name";
+        if (isDriveId) headerName = "Placement Drive";
+        if (isOfferId) headerName = "Offer Details";
+
         return {
           key: k,
-          name: isStudentField?.label || k.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+          name: headerName,
           resizable: true,
           editable: true,
           frozen: index === 0,
           renderEditCell: renderTextEditor,
-          width: k === "register_number" || k === "regNo" ? 150 : 200,
-          formatter: (props: RenderCellProps<any>) => {
+          width: k === "register_number" || k === "regNo" ? 150 : (isStudentId || isCompanyId || isDriveId || isOfferId ? 250 : 200),
+          renderCell: (props: RenderCellProps<any>) => {
+            if (props.row.isEmptyPlaceholder) return "";
             const value = props.row[k];
             const rowIndex = props.rowIdx;
             
+            if (isUUID(value)) {
+              if (studentsMap[value]) return studentsMap[value];
+              if (companiesMap[value]) return companiesMap[value];
+              if (drivesMap[value]) return drivesMap[value];
+              if (offersMap[value]) return offersMap[value];
+              
+              if (isStudentId) return "Loading Student...";
+              if (isCompanyId) return "Loading Company...";
+              if (isDriveId) return "Loading Drive...";
+              if (isOfferId) return "Loading Offer...";
+              return "Loading...";
+            }
+
             // Validation highlighting in staging mode
             if (activeTab === "staging" && activeTable === "students") {
               const field = STUDENT_FIELDS.find(f => f.id === k);
@@ -139,7 +232,7 @@ export default function DataWorkspacePage() {
                   return (
                     <div className="flex items-center gap-1 text-red-600 font-bold">
                       <LuTriangleAlert size={12} />
-                      {value}
+                      {typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? "")}
                     </div>
                   );
                 }
@@ -158,12 +251,36 @@ export default function DataWorkspacePage() {
                 </span>
               );
             }
+
+            if (Array.isArray(value)) {
+              return value.join(", ");
+            }
+
+            if (typeof value === "object" && value !== null) {
+              const criteria = value as any;
+              const parts: string[] = [];
+              if (criteria.min_cgpa !== undefined && criteria.min_cgpa !== null) {
+                parts.push(`CGPA: ${criteria.min_cgpa}`);
+              }
+              if (criteria.backlogs_allowed !== undefined && criteria.backlogs_allowed !== null) {
+                parts.push(`Backlogs: ${criteria.backlogs_allowed}`);
+              }
+              if (criteria.history_of_arrears !== undefined && criteria.history_of_arrears !== null) {
+                parts.push(`Arrears: ${criteria.history_of_arrears ? "Yes" : "No"}`);
+              }
+              if (criteria.branches && Array.isArray(criteria.branches) && criteria.branches.length > 0) {
+                parts.push(`Branches: ${criteria.branches.join(", ")}`);
+              } else if (criteria.branches && typeof criteria.branches === "string") {
+                parts.push(`Branches: ${criteria.branches}`);
+              }
+              return parts.length > 0 ? parts.join(" | ") : JSON.stringify(value);
+            }
+
             return String(value ?? "");
           }
         };
-      })
-    ];
-  }, [rows, stagingData, activeTab, importHeaders, isMappingMode, activeTable]);
+      });
+    }, [rows, stagingData, activeTab, importHeaders, isMappingMode, activeTable, studentsMap, companiesMap, drivesMap, offersMap]);
 
   // Handle Clipboard Paste
   useEffect(() => {
@@ -338,11 +455,11 @@ export default function DataWorkspacePage() {
   };
 
   const handleImportConfirm = async () => {
-    const mappedData = stagingData.map(row => {
+    const mappedData = stagingData.map((row: any) => {
       const newRow: any = { 
         year: parseInt(selectedYear)
       };
-      mappings.forEach(m => {
+      mappings.forEach((m: ColumnMapping) => {
         newRow[m.target] = row[m.source];
       });
       return newRow;
@@ -351,13 +468,13 @@ export default function DataWorkspacePage() {
     try {
       setLoading(true);
       if (activeTable === "students") {
-        const existingRegNos = new Set(rows.map(s => s.regNo || s.register_number));
-        const toUpdate = mappedData.filter(s => existingRegNos.has(s.regNo || s.register_number));
-        const toInsert = mappedData.filter(s => !existingRegNos.has(s.regNo || s.register_number));
+        const existingRegNos = new Set(rows.map((s: any) => s.regNo || s.register_number));
+        const toUpdate = mappedData.filter((s: any) => existingRegNos.has(s.regNo || s.register_number));
+        const toInsert = mappedData.filter((s: any) => !existingRegNos.has(s.regNo || s.register_number));
 
         if (toInsert.length > 0) await db.bulkCreateStudents(toInsert);
         for (const student of toUpdate) {
-          const existingId = rows.find(s => (s.regNo || s.register_number) === (student.regNo || student.register_number))?.id;
+          const existingId = rows.find((s: any) => (s.regNo || s.register_number) === (student.regNo || student.register_number))?.id;
           if (existingId) await db.updateStudentProfile(existingId, student);
         }
       } else {
@@ -375,9 +492,58 @@ export default function DataWorkspacePage() {
     }
   };
 
-  const onRowsChange = (newRows: any[]) => {
-    if (activeTab === "live") setRows(newRows);
-    else setStagingData(newRows);
+  const onRowsChange = async (newRows: any[]) => {
+    const realRows = newRows.filter(r => !r.isEmptyPlaceholder);
+    
+    if (activeTab === "live") {
+      // Find the changed row and its changed fields
+      const previousRows = rows;
+      let changedRow: any = null;
+      let previousRow: any = null;
+      
+      for (const newRow of realRows) {
+        const prevRow = previousRows.find(r => r.id === newRow.id);
+        if (prevRow) {
+          // Compare fields
+          const keys = Object.keys(newRow);
+          const hasDiff = keys.some(k => JSON.stringify(newRow[k]) !== JSON.stringify(prevRow[k]));
+          if (hasDiff) {
+            changedRow = newRow;
+            previousRow = prevRow;
+            break;
+          }
+        }
+      }
+      
+      setRows(realRows);
+
+      if (changedRow && previousRow) {
+        // Find which fields actually changed
+        const updatedFields: any = {};
+        Object.keys(changedRow).forEach(k => {
+          if (JSON.stringify(changedRow[k]) !== JSON.stringify(previousRow[k])) {
+            updatedFields[k] = changedRow[k];
+          }
+        });
+        
+        if (Object.keys(updatedFields).length > 0) {
+          try {
+            if (activeTable === "students") {
+              await db.syncStudentRow(changedRow.id, updatedFields);
+            } else {
+              await db.updateTableCell(activeTable, changedRow.id, updatedFields);
+            }
+            console.log(`Successfully synced changes for ${activeTable} ID ${changedRow.id}:`, updatedFields);
+          } catch (err) {
+            console.error("Failed to sync changes with DB:", err);
+            alert("Failed to sync changes with database: " + (err as any).message);
+            loadData();
+          }
+        }
+      }
+    } else {
+      setStagingData(realRows);
+    }
   };
 
   const filteredRows = useMemo(() => {
@@ -388,8 +554,24 @@ export default function DataWorkspacePage() {
     );
   }, [rows, stagingData, activeTab, searchQuery]);
 
+  const rowsForGrid = useMemo(() => {
+    const data = [...filteredRows];
+    // Pad with empty rows to make it look like a full sheet spanning to the bottom bar
+    const minRows = 20; 
+    if (data.length < minRows) {
+      const padCount = minRows - data.length;
+      for (let i = 0; i < padCount; i++) {
+        data.push({
+          id: `empty-row-${i}`,
+          isEmptyPlaceholder: true
+        });
+      }
+    }
+    return data;
+  }, [filteredRows]);
+
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] space-y-4">
+    <div className="flex flex-col h-[calc(100vh-176px)] md:h-[calc(100vh-112px)] space-y-4">
       {/* Workspace Header */}
       <div className="flex items-center justify-between px-2">
         <div className="flex items-center gap-4">
@@ -488,8 +670,8 @@ export default function DataWorkspacePage() {
             </div>
 
             <div className="grid grid-cols-4 gap-4">
-              {importHeaders.map(header => {
-                const mapping = mappings.find(m => m.source === header);
+              {importHeaders.map((header: string) => {
+                const mapping = mappings.find((m: ColumnMapping) => m.source === header);
                 return (
                   <div key={header} className="p-3 rounded-xl bg-white border border-border-subtle flex items-center justify-between">
                     <span className="text-xs font-bold truncate max-w-[100px]">{header}</span>
@@ -499,8 +681,8 @@ export default function DataWorkspacePage() {
                       value={mapping?.target || ""}
                       onChange={(e) => {
                         const newTarget = e.target.value;
-                        setMappings(prev => {
-                          const existing = prev.filter(m => m.source !== header);
+                        setMappings((prev: ColumnMapping[]) => {
+                          const existing = prev.filter((m: ColumnMapping) => m.source !== header);
                           if (newTarget) return [...existing, { source: header, target: newTarget }];
                           return existing;
                         });
@@ -522,17 +704,15 @@ export default function DataWorkspacePage() {
         )}
 
         {/* React Data Grid */}
-        <div className="flex-1 w-full bg-white rdg-light custom-rdg">
+        <div className="flex-1 flex flex-col min-h-0 w-full bg-white rdg-light custom-rdg">
           <DataGrid
             columns={columns}
-            rows={filteredRows}
+            rows={rowsForGrid}
             onRowsChange={onRowsChange}
-            rowKeyGetter={(row) => row.id || row.register_number || row.email || Math.random().toString()}
+            rowKeyGetter={(row: any) => row.id || row.register_number || row.email || Math.random().toString()}
             className="h-full"
             rowHeight={48}
             headerRowHeight={48}
-            selectedRows={selectedRows}
-            onSelectedRowsChange={setSelectedRows}
           />
         </div>
 
@@ -584,7 +764,7 @@ export default function DataWorkspacePage() {
         </div>
       </div>
 
-      <style jsx global>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }
@@ -597,21 +777,61 @@ export default function DataWorkspacePage() {
           --rdg-font-size: 13px;
           --rdg-color: #1a1a1a;
           --rdg-border-color: #f2f2f2;
+          --rdg-background-color: #ffffff;
           --rdg-header-background-color: #fcfcfc;
-          --rdg-row-hover-background-color: rgba(255, 56, 60, 0.02);
+          --rdg-frozen-cell-background-color: #ffffff;
+          --rdg-row-hover-background-color: #fff5f5;
           --rdg-selection-color: var(--color-primary);
+          
+          block-size: 100% !important;
+          height: 100% !important;
         }
 
-        .rdg-header-row .rdg-cell {
+        .custom-rdg > div,
+        .custom-rdg .rdg,
+        .custom-rdg [class*="rdg-"] {
+          block-size: 100% !important;
+          height: 100% !important;
+          scrollbar-width: thin !important;
+          scrollbar-color: #d4d4d8 #f9f9f9 !important;
+        }
+
+        .custom-rdg .rdg::-webkit-scrollbar {
+          height: 6px !important;
+          width: 6px !important;
+        }
+
+        .custom-rdg .rdg::-webkit-scrollbar-track {
+          background: #f9f9f9 !important;
+          border-radius: 4px !important;
+        }
+
+        .custom-rdg .rdg::-webkit-scrollbar-thumb {
+          background: #d4d4d8 !important;
+          border-radius: 4px !important;
+        }
+
+        .custom-rdg .rdg::-webkit-scrollbar-thumb:hover {
+          background: #a1a1aa !important;
+        }
+
+        /* 1. Header Cells styling (supports both classes and ARIA roles) */
+        .rdg-header-row .rdg-cell,
+        [role="row"].rdg-header-row [role="columnheader"],
+        [class*="header"] [role="columnheader"],
+        [role="columnheader"] {
           font-weight: 800 !important;
           text-transform: uppercase !important;
           letter-spacing: 0.05em !important;
           font-size: 11px !important;
           color: #8e8e93 !important;
           border-bottom: 1px solid #e6e6e6 !important;
+          background-color: #fcfcfc !important;
         }
 
-        .rdg-cell {
+        /* 2. Body Cells styling */
+        .rdg-cell,
+        [role="gridcell"] {
           font-weight: 600 !important;
           display: flex !important;
           align-items: center !important;
@@ -619,21 +839,65 @@ export default function DataWorkspacePage() {
           border-bottom: 1px solid #f2f2f2 !important;
         }
 
-        .rdg-cell[aria-selected='true'] {
+        /* 3. Base state: Force sticky frozen column position & solid white background */
+        .rdg-cell-frozen,
+        .rdg-7-0-0-beta-58-17a9a6d4,
+        [role="row"]:not(.rdg-header-row) .rdg-cell-frozen,
+        [role="row"]:not(.rdg-header-row) > *.rdg-cell-frozen,
+        [role="row"]:not(.rdg-header-row) > [role="gridcell"]:nth-child(1) {
+          position: sticky !important;
+          left: 0 !important;
+          background-color: #ffffff !important;
+          z-index: 10 !important;
+          box-shadow: 2px 0 5px -2px rgba(136, 136, 136, 0.3) !important;
+        }
+
+        /* 4. Base state: Force solid light-gray and sticky for all header frozen cells */
+        .rdg-header-row .rdg-cell-frozen,
+        .rdg-header-row .rdg-7-0-0-beta-58-17a9a6d4,
+        [role="row"].rdg-header-row .rdg-cell-frozen,
+        [role="row"].rdg-header-row > *.rdg-cell-frozen,
+        [role="row"].rdg-header-row > [role="columnheader"]:nth-child(1) {
+          position: sticky !important;
+          left: 0 !important;
+          background-color: #fcfcfc !important;
+          z-index: 20 !important;
+          box-shadow: 2px 0 5px -2px rgba(136, 136, 136, 0.3) !important;
+        }
+
+        /* 5. Hover Highlight for ALL cells in body rows */
+        .rdg-row:hover:not(.rdg-header-row) .rdg-cell,
+        [role="row"]:hover:not(.rdg-header-row) .rdg-cell,
+        [role="row"]:hover:not(.rdg-header-row) > * {
+          background-color: #fff5f5 !important;
+        }
+
+        /* 6. Explicit Hover Highlight override for frozen cells */
+        .rdg-row:hover:not(.rdg-header-row) .rdg-cell-frozen,
+        .rdg-row:hover:not(.rdg-header-row) .rdg-7-0-0-beta-58-17a9a6d4,
+        [role="row"]:hover:not(.rdg-header-row) .rdg-cell-frozen,
+        [role="row"]:hover:not(.rdg-header-row) > *.rdg-cell-frozen,
+        [role="row"]:hover:not(.rdg-header-row) > [role="gridcell"]:nth-child(1) {
+          background-color: #fff5f5 !important;
+          z-index: 10 !important;
+        }
+
+        .rdg-cell[aria-selected='true'],
+        [role="gridcell"][aria-selected='true'] {
           outline: 2px solid var(--color-primary) !important;
           outline-offset: -2px;
           z-index: 2;
         }
 
         .rdg-checkbox-label {
-          border-radius: 4px !important;
+          border-radius: 0px !important;
         }
 
         .rdg-checkbox-input:checked + .rdg-checkbox-label {
           background-color: var(--color-primary) !important;
           border-color: var(--color-primary) !important;
         }
-      `}</style>
+      ` }} />
     </div>
   );
 }
