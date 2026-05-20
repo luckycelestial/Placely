@@ -36,7 +36,7 @@ export function DesignToggle() {
     applyDesign(saved);
   }, []);
 
-  const applyDesign = (designId: string) => {
+  function applyDesign(designId: string) {
     const design = DESIGN_THEMES.find(d => d.id === designId);
     if (!design) return;
 

@@ -36,7 +36,7 @@ export default function ApplicationsPage() {
     loadApplications();
   }, []);
 
-  const loadApplications = async () => {
+  async function loadApplications() {
     setLoading(true);
     try {
       // Mock student ID for now

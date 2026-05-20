@@ -19,7 +19,7 @@ export function TypographyToggle() {
     applyTheme(saved);
   }, []);
 
-  const applyTheme = (themeId: string) => {
+  function applyTheme(themeId: string) {
     const theme = THEMES.find(t => t.id === themeId);
     if (!theme) return;
 

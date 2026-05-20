@@ -72,7 +72,7 @@ export default function AdminDashboardPage() {
     loadDashboardData();
   }, [yearFilter]);
 
-  const loadDashboardData = async () => {
+  async function loadDashboardData() {
     setLoading(true);
     try {
       const [allDrives, dashboardStats, approvals, activityData, distinctBatches] = await Promise.all([

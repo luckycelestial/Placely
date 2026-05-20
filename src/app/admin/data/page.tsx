@@ -546,13 +546,13 @@ export default function DataWorkspacePage() {
     }
   };
 
-  const filteredRows = useMemo(() => {
+  const filteredRows = (() => {
     const data = activeTab === "live" ? rows : stagingData;
     if (!searchQuery) return data;
     return data.filter(r => 
       Object.values(r).some(v => String(v).toLowerCase().includes(searchQuery.toLowerCase()))
     );
-  }, [rows, stagingData, activeTab, searchQuery]);
+  })();
 
   const rowsForGrid = useMemo(() => {
     const data = [...filteredRows];

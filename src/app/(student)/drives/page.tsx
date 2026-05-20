@@ -71,7 +71,7 @@ export default function JobDrivesPage() {
     loadDrives();
   }, []);
 
-  const loadDrives = async () => {
+  async function loadDrives() {
     try {
       const data = await db.getDrives();
       const processedDrives = (data || []).map((drive: any) => {
@@ -193,7 +193,7 @@ export default function JobDrivesPage() {
         ) : filteredDrives.map((drive) => {
           const isExpired = new Date(drive.application_end) < new Date();
           const isSaved = savedDrives.includes(drive.id);
-          const deadlineText = isExpired ? "Expired" : `${Math.ceil((new Date(drive.application_end).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days left`;
+          const deadlineText = isExpired ? "Expired" : `${Math.ceil((new Date(drive.application_end).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left`;
 
           return (
             <div
