@@ -46,7 +46,7 @@ export async function getStudents(options: {
       placement_status,
       profile_completion,
       verification_status,
-      users (name),
+      users!students_user_id_fkey (name),
       student_academics (cgpa),
       student_profiles (leetcode_count, specializations),
       offers (
@@ -146,7 +146,7 @@ export async function getAllStudents() {
       placement_status,
       profile_completion,
       verification_status,
-      users (name, email),
+      users!students_user_id_fkey (name, email),
       student_academics (cgpa, tenth_score, twelfth_score, backlog_count),
       student_profiles (leetcode_count, specializations)
     `)
@@ -331,7 +331,7 @@ export async function getPendingApprovals() {
       companies (name),
       students (
         department,
-        users (name)
+        users!students_user_id_fkey (name)
       )
     `)
     .eq('verification_status', 'pending')
@@ -357,7 +357,7 @@ export async function getOffers() {
       students (
         id,
         register_number,
-        users (
+        users!students_user_id_fkey (
           name
         )
       ),
@@ -680,7 +680,7 @@ export async function getApplications(options: { driveId?: string } = {}) {
       *,
       students (
         register_number,
-        users (
+        users!students_user_id_fkey (
           name
         )
       ),
@@ -798,7 +798,7 @@ export async function getStudentProfile(studentId: string) {
     .from('students')
     .select(`
       *,
-      users (id, name, email, avatar_url),
+      users!students_user_id_fkey (id, name, email, avatar_url),
       student_academics (*),
       student_profiles (*)
     `)
@@ -1127,7 +1127,7 @@ export async function generateStudentReport(studentId: string) {
     .from('students')
     .select(`
       *,
-      users (name, email),
+      users!students_user_id_fkey (name, email),
       student_academics (*),
       student_profiles (*)
     `)
