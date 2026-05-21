@@ -1,4 +1,5 @@
 "use client";
+import { Sk } from "@/components/ui/skeleton";
 
 import { useState, useEffect, Suspense } from "react";
 import { 
@@ -205,14 +206,7 @@ function ApplicationsContent() {
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="h-8 w-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                      <p className="text-sm font-bold text-muted">Loading applications...</p>
-                    </div>
-                  </td>
-                </tr>
+                <Sk.TableRows cols={6} rows={6} />
               ) : filteredApps.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-sm font-bold text-muted">

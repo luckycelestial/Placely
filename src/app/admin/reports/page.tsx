@@ -1,5 +1,5 @@
 'use client';
-
+import { Sk } from "@/components/ui/skeleton";
 import { useState, useEffect, useCallback } from 'react';
 import {
   LuTrendingUp, LuDownload, LuTarget, LuAward, LuActivity, LuLoader,
@@ -960,9 +960,38 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <LuLoader className="animate-spin text-primary" size={36}/>
-        <p className="text-sm font-bold text-muted">Loading analytics…</p>
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between no-print">
+          <div className="space-y-2">
+            <Sk.Block className="h-10 w-64" />
+            <Sk.Block className="h-4 w-96" />
+          </div>
+          <Sk.Block className="h-10 w-40 rounded-xl" />
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <Sk.Block className="h-10 w-32 rounded-full" />
+          <Sk.Block className="h-10 w-32 rounded-full" />
+          <Sk.Block className="h-10 w-32 rounded-full" />
+          <Sk.Block className="h-10 w-32 rounded-full" />
+        </div>
+
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Sk.Block className="h-16 rounded-2xl" />
+            <Sk.Block className="h-16 rounded-2xl" />
+            <Sk.Block className="h-16 rounded-2xl" />
+            <Sk.Block className="h-16 rounded-2xl" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <Sk.ChartBlock className="h-[400px]" />
+            </div>
+            <div>
+              <Sk.ChartBlock className="h-[400px]" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

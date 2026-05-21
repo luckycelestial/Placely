@@ -1,4 +1,5 @@
 "use client";
+import { Sk } from "@/components/ui/skeleton";
 
 import { useEffect, useState } from "react";
 import { 
@@ -70,6 +71,20 @@ export default function ApplicationsPage() {
     const matchesTab = activeTab === "All" || app.status === activeTab;
     return matchesSearch && matchesTab;
   });
+
+  if (loading) {
+    return (
+      <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto">
+        <Sk.PageHeader />
+        <Sk.CardGrid count={3} cols={3} />
+        <div className="flex flex-col lg:flex-row gap-6 items-center justify-between">
+          <Sk.Block className="h-12 w-full lg:w-2/3 rounded-full" />
+          <Sk.Block className="h-12 w-full lg:w-1/3 rounded-2xl" />
+        </div>
+        <Sk.CardGrid count={4} cols={2} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto">

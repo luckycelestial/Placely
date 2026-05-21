@@ -1,4 +1,5 @@
 "use client";
+import { Sk } from "@/components/ui/skeleton";
 
 import { useState, useEffect } from "react";
 import { 
@@ -309,11 +310,7 @@ export default function OffersPage() {
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-muted font-bold text-sm">
-                    Loading offers...
-                  </td>
-                </tr>
+                <Sk.TableRows cols={6} rows={6} />
               ) : filteredOffers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-muted font-bold text-sm">

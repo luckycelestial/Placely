@@ -1,4 +1,5 @@
 "use client";
+import { Sk } from "@/components/ui/skeleton";
 
 import { useState, useEffect } from "react";
 import { 
@@ -124,7 +125,7 @@ export default function ATSTrackerPage() {
                 {/* Stage Column */}
                 <div className="flex-1 bg-background/50 rounded-3xl border border-border-subtle/50 p-3 space-y-3 overflow-y-auto no-scrollbar">
                   {loading ? (
-                    <div className="py-8 text-center text-xs font-bold text-muted">Loading...</div>
+                    Array.from({ length: 3 }).map((_, i) => <Sk.Card key={i} />)
                   ) : stageApps.length === 0 ? (
                     <div className="h-32 border-2 border-dashed border-border-subtle rounded-2xl flex flex-col items-center justify-center text-muted opacity-40">
                       <p className="text-[10px] font-black uppercase tracking-widest">No Candidates</p>

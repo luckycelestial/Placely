@@ -1,4 +1,5 @@
 "use client";
+import { Sk } from "@/components/ui/skeleton";
 
 import { useEffect, useState } from "react";
 import {
@@ -188,7 +189,7 @@ export default function JobDrivesPage() {
       <div className="grid gap-8 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
         {loading ? (
           Array(6).fill(0).map((_, i) => (
-            <div key={i} className="h-[400px] rounded-[32px] bg-surface animate-pulse border border-border-subtle" />
+            <Sk.DriveCard key={i} />
           ))
         ) : filteredDrives.map((drive) => {
           const isExpired = new Date(drive.application_end) < new Date();
@@ -267,11 +268,10 @@ export default function JobDrivesPage() {
 
               <div className="p-4 bg-background/30 border-t border-border-subtle group-hover:bg-primary/5 transition-colors">
                 <button
-                  disabled={isExpired || !drive.isEligible}
                   className={cn(
                     "w-full py-4 rounded-xl flex items-center justify-center gap-3 text-xs font-black uppercase tracking-widest transition-all",
                     isExpired || !drive.isEligible
-                      ? "bg-border-subtle text-muted cursor-not-allowed"
+                      ? "bg-border-subtle text-muted"
                       : "bg-surface border border-border-subtle group-hover:bg-primary group-hover:text-white group-hover:border-primary group-hover:shadow-tactile"
                   )}
                 >
@@ -452,7 +452,7 @@ export default function JobDrivesPage() {
                     <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
-                      {new Date(selectedDrive.application_end) < new Date() ? "Closed" : "Start Application"}
+                      {new Date(selectedDrive.application_end) < new Date() ? "Closed" : !selectedDrive.isEligible ? "Ineligible" : "Start Application"}
                       {new Date(selectedDrive.application_end) >= new Date() && selectedDrive.isEligible && <LuArrowRight size={20} />}
                     </>
                   )}

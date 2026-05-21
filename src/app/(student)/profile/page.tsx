@@ -1,4 +1,5 @@
 "use client";
+import { Sk } from "@/components/ui/skeleton";
 
 import { useState } from "react";
 import { 
@@ -96,8 +97,8 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full" />
+      <div className="space-y-12 max-w-7xl py-10 px-4 mx-auto">
+        <Sk.Profile />
       </div>
     );
   }

@@ -1,4 +1,5 @@
 "use client";
+import { Sk } from "@/components/ui/skeleton";
 
 import { useState, useEffect } from "react";
 import { 
@@ -141,6 +142,39 @@ export default function AdminDashboardPage() {
       toast.error("Failed to generate report");
     }
   };
+
+  if (loading) return (
+    <div className="space-y-8">
+      {/* Header Area */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-3">
+          <Sk.Block className="h-8 w-64" />
+          <Sk.Block className="h-4 w-96" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Sk.Block className="h-10 w-32 rounded-xl" />
+          <Sk.Block className="h-10 w-32 rounded-xl" />
+        </div>
+      </div>
+      
+      {/* Stats Grid */}
+      <Sk.StatCardGrid count={5} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex items-center justify-between">
+            <Sk.Block className="h-7 w-48" />
+            <Sk.Block className="h-10 w-32 rounded-2xl" />
+          </div>
+          <Sk.ListItems count={4} />
+        </div>
+        <div className="space-y-6">
+          <Sk.SidebarWidget />
+          <Sk.SidebarWidget />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-8">

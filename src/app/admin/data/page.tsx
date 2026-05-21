@@ -1,4 +1,5 @@
 "use client";
+import { Sk } from "@/components/ui/skeleton";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { DataGrid, renderTextEditor } from "react-data-grid";
@@ -705,15 +706,25 @@ export default function DataWorkspacePage() {
 
         {/* React Data Grid */}
         <div className="flex-1 flex flex-col min-h-0 w-full bg-white rdg-light custom-rdg">
-          <DataGrid
-            columns={columns}
-            rows={rowsForGrid}
-            onRowsChange={onRowsChange}
-            rowKeyGetter={(row: any) => row.id || row.register_number || row.email || Math.random().toString()}
-            className="h-full"
-            rowHeight={48}
-            headerRowHeight={48}
-          />
+          {loading ? (
+            <div className="flex-1 p-4 w-full h-full overflow-hidden">
+              <table className="w-full text-left border-collapse">
+                <tbody className="divide-y divide-border-subtle">
+                  <Sk.TableRows cols={8} rows={10} />
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <DataGrid
+              columns={columns}
+              rows={rowsForGrid}
+              onRowsChange={onRowsChange}
+              rowKeyGetter={(row: any) => row.id || row.register_number || row.email || Math.random().toString()}
+              className="h-full"
+              rowHeight={48}
+              headerRowHeight={48}
+            />
+          )}
         </div>
 
         {/* Bottom Bar — Table Selector */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   LuBell, 
   LuCircleCheck, 
@@ -13,6 +13,8 @@ import {
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { db } from "@/services/database";
+import { DEV_STUDENT_ID } from "@/lib/dev-config";
 
 interface Notification {
   id: string;
@@ -25,63 +27,53 @@ interface Notification {
   category: "applications" | "profile" | "general" | "offers";
 }
 
-const NOTIFICATIONS: Notification[] = [
-  {
-    id: "1",
-    title: "Action Required: Upload 6th Sem Marksheet",
-    description: "Your application for Google SDE role requires 6th semester marksheet verification. Please upload it by tomorrow.",
-    type: "Action Required",
-    priority: "high",
-    timestamp: "2 hours ago",
-    isRead: false,
-    category: "profile"
-  },
-  {
-    id: "2",
-    title: "Offer Received: Microsoft",
-    description: "Congratulations! You have received a placement offer from Microsoft for the Cloud Associate role.",
-    type: "Offer",
-    priority: "high",
-    timestamp: "5 hours ago",
-    isRead: false,
-    category: "offers"
-  },
-  {
-    id: "3",
-    title: "Application Status Update: Meta",
-    description: "Your application for Product Designer at Meta has been moved to 'Shortlisted'. Check the ATS timeline for next steps.",
-    type: "Approval",
-    priority: "medium",
-    timestamp: "1 day ago",
-    isRead: true,
-    category: "applications"
-  },
-  {
-    id: "4",
-    title: "Upcoming Pre-Placement Talk: Google",
-    description: "Google is conducting a pre-placement talk tomorrow at 10:00 AM. Attendance is mandatory for registered students.",
-    type: "Info",
-    priority: "low",
-    timestamp: "1 day ago",
-    isRead: true,
-    category: "general"
-  },
-  {
-    id: "5",
-    title: "Resume Verified",
-    description: "Your latest resume has been successfully verified by the placement office.",
-    type: "Approval",
-    priority: "low",
-    timestamp: "2 days ago",
-    isRead: true,
-    category: "profile"
-  }
-];
+
 
 export default function NotificationsPage() {
   const [filter, setFilter] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [notifications, setNotifications] = useState(NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const [tasks, notices] = await Promise.all([
+          db.getTasks(DEV_STUDENT_ID),
+          db.getNotices()
+        ]);
+
+        const mappedTasks: Notification[] = (tasks || []).map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          type: "Action Required" as const,
+          priority: t.priority as "high" | "medium" | "low",
+          timestamp: t.due_date ? db.formatRelativeTime(t.due_date) : "No Date",
+          isRead: t.status === "completed",
+          category: t.link?.includes('profile') ? 'profile' : t.link?.includes('offer') ? 'offers' : t.link?.includes('application') ? 'applications' : 'general'
+        }));
+
+        const mappedNotices: Notification[] = (notices || []).map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          description: n.body || n.summary || n.title,
+          type: (n.priority === "high" || n.priority === "Urgent" ? "Action Required" : "Info") as "Action Required" | "Info",
+          priority: (n.priority === "high" || n.priority === "Urgent" ? "high" : n.priority === "Reminder" ? "medium" : "low") as "high" | "medium" | "low",
+          timestamp: n.publish_at ? db.formatRelativeTime(n.publish_at) : "Recently",
+          isRead: false,
+          category: "general" as const
+        }));
+
+        setNotifications([...mappedTasks, ...mappedNotices]);
+      } catch (error) {
+        console.error("Failed to load notifications:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadNotifications();
+  }, []);
 
   const filteredNotifications = notifications.filter(notif => {
     const matchesSearch = notif.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -155,8 +147,13 @@ export default function NotificationsPage() {
       </div>
 
       {/* Notifications List */}
-      <div className="app-card overflow-hidden border-none shadow-2xl shadow-black/5">
-        {filteredNotifications.length > 0 ? (
+      <div className="app-card overflow-hidden border-none shadow-2xl shadow-black/5 min-h-[400px]">
+        {loading ? (
+          <div className="py-32 text-center">
+            <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs font-bold text-muted mt-4 uppercase tracking-widest">Loading Inbox...</p>
+          </div>
+        ) : filteredNotifications.length > 0 ? (
           <div className="divide-y border-border-subtle">
             {filteredNotifications.map((notif) => (
               <div 

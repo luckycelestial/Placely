@@ -29,8 +29,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${bricolage.variable} ${signika.variable} ${arya.variable} ${rubik.variable}`} suppressHydrationWarning>
       <head>
-        <Script id="theme-init" strategy="beforeInteractive">
-          {`
+        <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{
+          __html: `
             (function() {
               try {
                 var theme = localStorage.getItem('placely-theme');
@@ -39,8 +39,8 @@ export default function RootLayout({
                 }
               } catch (e) {}
             })();
-          `}
-        </Script>
+          `
+        }} />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         {children}

@@ -1,4 +1,5 @@
 "use client";
+import { Sk } from "@/components/ui/skeleton";
 
 import { useState, useEffect, useCallback } from "react";
 import { 
@@ -321,10 +322,7 @@ export default function DrivesPage() {
       {/* Tab Content */}
       <div className="min-h-[400px]">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-muted gap-4">
-            <div className="h-10 w-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
-            <p className="font-bold">Loading {activeTab.toLowerCase()}...</p>
-          </div>
+          <div className="pt-4"><Sk.CardGrid count={4} cols={2} /></div>
         ) : activeTab === "Drives" ? (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {drives.length === 0 ? (

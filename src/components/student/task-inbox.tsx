@@ -42,14 +42,16 @@ export function TaskInbox() {
   }, []);
 
   const handleToggle = async (taskId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'pending' ? 'completed' : 'pending';
+    // Optimistic update
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as Task['status'] } : t));
     try {
       const updatedTask = await db.toggleTaskStatus(taskId, currentStatus);
-      setTasks(tasks.map(t => t.id === taskId ? { 
-        ...t, 
-        status: updatedTask.status 
-      } : t));
-    } catch (error) {
-      console.error("Failed to toggle task:", error);
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: updatedTask.status } : t));
+    } catch (error: any) {
+      // Revert optimistic update on failure
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: currentStatus as Task['status'] } : t));
+      console.error("Failed to toggle task:", error?.message ?? error?.details ?? JSON.stringify(error));
     }
   };
 

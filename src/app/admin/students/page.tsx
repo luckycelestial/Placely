@@ -1,4 +1,5 @@
 "use client";
+import { Sk } from "@/components/ui/skeleton";
 
 import { useState, useEffect, Suspense } from "react";
 import { 
@@ -309,11 +310,7 @@ function StudentsPageContent() {
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-muted font-bold animate-pulse">
-                    Scanning neural database...
-                  </td>
-                </tr>
+                <Sk.TableRows cols={8} rows={8} />
               ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-muted font-bold">

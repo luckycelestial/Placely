@@ -1,4 +1,5 @@
 "use client";
+import { Sk } from "@/components/ui/skeleton";
 
 import { useState, useEffect } from "react";
 import { 
@@ -95,10 +96,31 @@ export default function DashboardPage() {
   }, []);
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm font-black uppercase tracking-widest text-muted">Syncing with Command...</p>
+    <div className="space-y-8 py-6 px-4 max-w-7xl mx-auto">
+      {/* Welcome skeleton */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-3">
+          <Sk.Block className="h-3 w-32" />
+          <Sk.Block className="h-12 w-80" />
+          <Sk.Block className="h-4 w-96" />
+        </div>
+        <div className="flex gap-2">
+          <Sk.Block className="h-12 w-12 rounded-2xl" />
+          <Sk.Block className="h-12 w-36 rounded-full" />
+        </div>
+      </div>
+      {/* Stats skeleton */}
+      <Sk.StatCardGrid count={4} />
+      {/* Main + sidebar */}
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-8">
+          <Sk.ListItems count={4} />
+          <Sk.ListItems count={3} />
+        </div>
+        <div className="space-y-6">
+          <Sk.SidebarWidget />
+          <Sk.SidebarWidget />
+        </div>
       </div>
     </div>
   );
