@@ -111,11 +111,11 @@ export default function AdminDashboardPage() {
       // Map activity data to our Activity interface
       setActivities(activityData.map((a: any, i: number) => ({
         id: a.id || i.toString(),
-        type: 'drive_created', // Default type
+        type: a.type || 'drive_created',
         title: a.title,
         description: a.time,
-        timestamp: new Date(),
-        status: 'info'
+        timestamp: a.created_at ? new Date(a.created_at) : new Date(),
+        status: a.title?.includes('Created') ? 'success' : 'info'
       })));
 
     } catch (error) {
@@ -403,7 +403,7 @@ export default function AdminDashboardPage() {
               <TaskItem title="Update interview results" count={8} />
             </div>
             <Link 
-              href="/admin/workspace"
+              href="/admin/data"
               className="w-full mt-6 bg-primary text-background py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
             >
               GOTO WORKSPACE

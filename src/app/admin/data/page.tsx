@@ -41,10 +41,16 @@ const STUDENT_FIELDS = [
   { id: "email", label: "Email Address", required: true, validate: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Invalid email format" },
   { id: "department", label: "Department", required: true },
   { id: "year", label: "Year of Study", required: true, validate: (v: any) => [1, 2, 3, 4].includes(Number(v)) || "Must be 1-4" },
+  { id: "roll_number", label: "Roll Number", required: false },
+  { id: "gender", label: "Gender", required: false, validate: (v: string) => ["Male", "Female", "Other", ""].includes(v) || "Must be Male, Female, or Other" },
+  { id: "date_of_birth", label: "Date of Birth (YYYY-MM-DD)", required: false },
   { id: "cgpa", label: "CGPA", required: false, validate: (v: any) => (Number(v) >= 0 && Number(v) <= 10) || "Must be 0-10" },
-  { id: "tenth_score", label: "10th Score", required: false, validate: (v: any) => (Number(v) >= 0 && Number(v) <= 100) || "Must be 0-100" },
-  { id: "twelfth_score", label: "12th Score", required: false, validate: (v: any) => (Number(v) >= 0 && Number(v) <= 100) || "Must be 0-100" },
-  { id: "backlog_count", label: "Backlogs", required: false, validate: (v: any) => Number(v) >= 0 || "Cannot be negative" },
+  { id: "tenth_score", label: "10th Score (%)", required: false, validate: (v: any) => (Number(v) >= 0 && Number(v) <= 100) || "Must be 0-100" },
+  { id: "twelfth_score", label: "12th Score (%)", required: false, validate: (v: any) => (Number(v) >= 0 && Number(v) <= 100) || "Must be 0-100" },
+  { id: "diploma_score", label: "Diploma Score (%)", required: false, validate: (v: any) => !v || (Number(v) >= 0 && Number(v) <= 100) || "Must be 0-100" },
+  { id: "active_arrears", label: "Active Arrears (Current)", required: false, validate: (v: any) => Number(v) >= 0 || "Cannot be negative" },
+  { id: "history_of_arrears", label: "History of Arrears (true/false)", required: false, validate: (v: any) => ["true","false","0","1","yes","no",""].includes(String(v).toLowerCase()) || "Must be true or false" },
+  { id: "backlog_count", label: "Total Backlog Count", required: false, validate: (v: any) => Number(v) >= 0 || "Cannot be negative" },
 ];
 
 const TABLES = [

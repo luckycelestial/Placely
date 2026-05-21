@@ -30,10 +30,20 @@ interface AdminStudent {
   id: string;
   name: string;
   regNo: string;
+  rollNo?: string;
+  gender?: string;
+  dob?: string;
   email?: string;
   dept: string;
   year: string;
   cgpa: number;
+  tenth_score?: number;
+  twelfth_score?: number;
+  diploma_score?: number | null;
+  backlog_count?: number;
+  active_arrears?: number;
+  history_of_arrears?: boolean;
+  semester_cgpa?: Record<string, number>;
   leetcode: number;
   specializations: string[];
   completeness: number;
@@ -491,96 +501,142 @@ function StudentsPageContent() {
         {isEditModalOpen && editingStudent && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)} />
-            <div className="relative w-full max-w-lg bg-surface rounded-3xl shadow-2xl overflow-hidden border border-border-subtle animate-in zoom-in-95 duration-200">
+            <div className="relative w-full max-w-2xl bg-surface rounded-3xl shadow-2xl overflow-hidden border border-border-subtle animate-in zoom-in-95 duration-200">
               <div className="p-8 border-b border-border-subtle bg-background/50">
                 <h3 className="text-xl font-black tracking-tight">Edit Student Profile</h3>
                 <p className="text-xs text-muted font-bold uppercase tracking-widest mt-1">{editingStudent.regNo}</p>
               </div>
-              <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted">Name</label>
-                    <input 
-                      type="text" 
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
-                      value={editingStudent.name}
-                      onChange={e => setEditingStudent({...editingStudent, name: e.target.value})}
-                    />
+              <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+
+                {/* Identity */}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-3">Identity</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Name</label>
+                      <input type="text" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.name} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Email</label>
+                      <input type="email" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.email || ''} onChange={e => setEditingStudent({...editingStudent, email: e.target.value})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Register Number</label>
+                      <input type="text" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.regNo} onChange={e => setEditingStudent({...editingStudent, regNo: e.target.value})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Roll Number</label>
+                      <input type="text" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.rollNo || ''} onChange={e => setEditingStudent({...editingStudent, rollNo: e.target.value})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Gender</label>
+                      <select className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all appearance-none"
+                        value={editingStudent.gender || ''} onChange={e => setEditingStudent({...editingStudent, gender: e.target.value})}>
+                        <option value="">— Select —</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Date of Birth</label>
+                      <input type="date" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.dob || ''} onChange={e => setEditingStudent({...editingStudent, dob: e.target.value})} />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted">Email</label>
-                    <input 
-                      type="email" 
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
-                      value={editingStudent.email}
-                      onChange={e => setEditingStudent({...editingStudent, email: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted">Department</label>
-                    <select 
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all appearance-none"
-                      value={editingStudent.dept}
-                      onChange={e => setEditingStudent({...editingStudent, dept: e.target.value})}
-                    >
-                      {DEPARTMENTS.slice(1).map(d => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted">Year</label>
-                    <select 
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all appearance-none"
-                      value={editingStudent.year}
-                      onChange={e => setEditingStudent({...editingStudent, year: e.target.value})}
-                    >
-                      <option value="1">1st Year</option>
-                      <option value="2">2nd Year</option>
-                      <option value="3">3rd Year</option>
-                      <option value="4">4th Year</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted">CGPA</label>
-                    <input 
-                      type="number" step="0.01" min="0" max="10"
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
-                      value={editingStudent.cgpa}
-                      onChange={e => setEditingStudent({...editingStudent, cgpa: parseFloat(e.target.value)})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted">LeetCode Solved</label>
-                    <input 
-                      type="number"
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
-                      value={editingStudent.leetcode}
-                      onChange={e => setEditingStudent({...editingStudent, leetcode: parseInt(e.target.value)})}
-                    />
+                </div>
+
+                {/* Academic */}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-3">Academic</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Department</label>
+                      <select className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all appearance-none"
+                        value={editingStudent.dept} onChange={e => setEditingStudent({...editingStudent, dept: e.target.value})}>
+                        {DEPARTMENTS.slice(1).map(d => (<option key={d} value={d}>{d}</option>))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Year</label>
+                      <select className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all appearance-none"
+                        value={editingStudent.year} onChange={e => setEditingStudent({...editingStudent, year: e.target.value})}>
+                        <option value="1">1st Year</option>
+                        <option value="2">2nd Year</option>
+                        <option value="3">3rd Year</option>
+                        <option value="4">4th Year</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">CGPA (Aggregate)</label>
+                      <input type="number" step="0.01" min="0" max="10" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.cgpa} onChange={e => setEditingStudent({...editingStudent, cgpa: parseFloat(e.target.value)})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">10th Score (%)</label>
+                      <input type="number" step="0.01" min="0" max="100" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.tenth_score || ''} onChange={e => setEditingStudent({...editingStudent, tenth_score: parseFloat(e.target.value)})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">12th Score (%)</label>
+                      <input type="number" step="0.01" min="0" max="100" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.twelfth_score || ''} onChange={e => setEditingStudent({...editingStudent, twelfth_score: parseFloat(e.target.value)})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Diploma Score (%) <span className="normal-case text-[9px]">optional</span></label>
+                      <input type="number" step="0.01" min="0" max="100" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.diploma_score ?? ''} onChange={e => setEditingStudent({...editingStudent, diploma_score: e.target.value ? parseFloat(e.target.value) : null})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Active Arrears (current)</label>
+                      <input type="number" min="0" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.active_arrears ?? 0} onChange={e => setEditingStudent({...editingStudent, active_arrears: parseInt(e.target.value) || 0})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">History of Arrears</label>
+                      <select className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all appearance-none"
+                        value={editingStudent.history_of_arrears ? 'true' : 'false'} onChange={e => setEditingStudent({...editingStudent, history_of_arrears: e.target.value === 'true'})}>
+                        <option value="false">No (Clean record)</option>
+                        <option value="true">Yes (Previously had backlogs)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">LeetCode Solved</label>
+                      <input type="number" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.leetcode} onChange={e => setEditingStudent({...editingStudent, leetcode: parseInt(e.target.value)})} />
+                    </div>
                   </div>
                 </div>
               </div>
               <div className="p-8 border-t border-border-subtle bg-background/50 flex gap-3">
-                <button 
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="flex-1 py-3 rounded-xl bg-surface border border-border-subtle text-xs font-black uppercase tracking-widest hover:bg-background transition-all"
-                >
+                <button onClick={() => setIsEditModalOpen(false)}
+                  className="flex-1 py-3 rounded-xl bg-surface border border-border-subtle text-xs font-black uppercase tracking-widest hover:bg-background transition-all">
                   Cancel
                 </button>
-                <button 
-                  disabled={isSubmitting}
+                <button disabled={isSubmitting}
                   onClick={() => handleUpdateProfile(editingStudent.id, {
                     name: editingStudent.name,
                     email: editingStudent.email,
+                    regNo: editingStudent.regNo,
+                    rollNo: editingStudent.rollNo,
+                    gender: editingStudent.gender,
+                    dob: editingStudent.dob,
                     dept: editingStudent.dept,
                     year: editingStudent.year,
                     cgpa: editingStudent.cgpa,
+                    tenth_score: editingStudent.tenth_score,
+                    twelfth_score: editingStudent.twelfth_score,
+                    diploma_score: editingStudent.diploma_score,
+                    active_arrears: editingStudent.active_arrears,
+                    history_of_arrears: editingStudent.history_of_arrears,
                     leetcode: editingStudent.leetcode,
                     specializations: editingStudent.specializations
                   })}
-                  className="flex-1 py-3 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest shadow-tactile hover:bg-primary-dark transition-all disabled:opacity-50"
-                >
+                  className="flex-1 py-3 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest shadow-tactile hover:bg-primary-dark transition-all disabled:opacity-50">
                   {isSubmitting ? "Updating..." : "Save Changes"}
                 </button>
               </div>

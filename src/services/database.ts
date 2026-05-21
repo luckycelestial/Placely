@@ -141,38 +141,51 @@ export async function getAllStudents() {
     .select(`
       id,
       register_number,
+      roll_number,
+      gender,
+      date_of_birth,
       department,
       year,
       placement_status,
       profile_completion,
       verification_status,
-      users (name, email),
-      student_academics (cgpa, tenth_score, twelfth_score, backlog_count),
+      users (name, email, phone),
+      student_academics (cgpa, tenth_score, twelfth_score, diploma_score, backlog_count, active_arrears, history_of_arrears, semester_cgpa),
       student_profiles (leetcode_count, specializations)
     `)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
 
-  return (data || []).map(s => ({
-    id: s.id,
-    name: (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
-    email: (s.users as any)?.email || (s.users as any)?.[0]?.email || 'N/A',
-    regNo: s.register_number,
-    dept: s.department,
-    year: s.year,
-    cgpa: (s.student_academics as any)?.[0]?.cgpa || (s.student_academics as any)?.cgpa || 0,
-    tenth_score: (s.student_academics as any)?.[0]?.tenth_score || (s.student_academics as any)?.tenth_score || 0,
-    twelfth_score: (s.student_academics as any)?.[0]?.twelfth_score || (s.student_academics as any)?.twelfth_score || 0,
-    backlog_count: (s.student_academics as any)?.[0]?.backlog_count || (s.student_academics as any)?.backlog_count || 0,
-    leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
-    specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
-    status: s.placement_status === 'placed' ? 'Placed' : 
-            s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
-    completeness: s.profile_completion || 0,
-    verification: s.verification_status === 'verified' ? 'Verified' : 
-                  s.verification_status === 'pending' ? 'Pending' : 'Rejected'
-  }));
+  return (data || []).map(s => {
+    const acad = (s.student_academics as any)?.[0] || (s.student_academics as any) || {};
+    return {
+      id: s.id,
+      name: (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
+      email: (s.users as any)?.email || (s.users as any)?.[0]?.email || 'N/A',
+      regNo: s.register_number,
+      rollNo: s.roll_number,
+      gender: s.gender,
+      dob: s.date_of_birth,
+      dept: s.department,
+      year: s.year,
+      cgpa: acad.cgpa || 0,
+      tenth_score: acad.tenth_score || 0,
+      twelfth_score: acad.twelfth_score || 0,
+      diploma_score: acad.diploma_score || null,
+      backlog_count: acad.backlog_count || 0,
+      active_arrears: acad.active_arrears || 0,
+      history_of_arrears: acad.history_of_arrears || false,
+      semester_cgpa: acad.semester_cgpa || {},
+      leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
+      specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
+      status: s.placement_status === 'placed' ? 'Placed' : 
+              s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
+      completeness: s.profile_completion || 0,
+      verification: s.verification_status === 'verified' ? 'Verified' : 
+                    s.verification_status === 'pending' ? 'Pending' : 'Rejected'
+    };
+  });
 }
 
 export async function updateTableCell(tableName: string, id: string, updatedFields: any) {
@@ -209,15 +222,20 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
   // 3. Update students table
   const studentUpdates: any = {};
   if ('regNo' in updatedFields) studentUpdates.register_number = updatedFields.regNo;
+  if ('rollNo' in updatedFields) studentUpdates.roll_number = updatedFields.rollNo;
+  if ('gender' in updatedFields) studentUpdates.gender = updatedFields.gender;
+  if ('dob' in updatedFields) studentUpdates.date_of_birth = updatedFields.dob || null;
   if ('dept' in updatedFields) studentUpdates.department = updatedFields.dept;
   if ('year' in updatedFields) studentUpdates.year = parseInt(updatedFields.year);
   if ('status' in updatedFields) {
     const statusMap: Record<string, string> = {
       'Placed': 'placed',
-      'Applied': 'applied',
       'Unplaced': 'not_placed',
-      'not_placed': 'not_placed',
+      'Applied': 'applied',
+      'In-Process': 'applied',
       'placed': 'placed',
+      'unplaced': 'not_placed',
+      'not_placed': 'not_placed',
       'applied': 'applied'
     };
     studentUpdates.placement_status = statusMap[updatedFields.status] || updatedFields.status;
@@ -238,7 +256,7 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
   if (Object.keys(studentUpdates).length > 0) {
     const { error: studentError } = await supabase
       .from('students')
-      .update(studentUpdates)
+      .update({ ...studentUpdates, updated_at: new Date().toISOString() })
       .eq('id', studentId);
     if (studentError) throw studentError;
   }
@@ -248,14 +266,30 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
   if ('cgpa' in updatedFields) academicUpdates.cgpa = parseFloat(updatedFields.cgpa);
   if ('tenth_score' in updatedFields) academicUpdates.tenth_score = parseFloat(updatedFields.tenth_score);
   if ('twelfth_score' in updatedFields) academicUpdates.twelfth_score = parseFloat(updatedFields.twelfth_score);
+  if ('diploma_score' in updatedFields) academicUpdates.diploma_score = updatedFields.diploma_score !== '' ? parseFloat(updatedFields.diploma_score) : null;
   if ('backlog_count' in updatedFields) academicUpdates.backlog_count = parseInt(updatedFields.backlog_count);
+  if ('active_arrears' in updatedFields) academicUpdates.active_arrears = parseInt(updatedFields.active_arrears) || 0;
+  if ('history_of_arrears' in updatedFields) academicUpdates.history_of_arrears = Boolean(updatedFields.history_of_arrears);
+  if ('semester_cgpa' in updatedFields) {
+    // Store semester CGPA and auto-compute aggregate
+    const semObj = typeof updatedFields.semester_cgpa === 'string'
+      ? JSON.parse(updatedFields.semester_cgpa)
+      : updatedFields.semester_cgpa;
+    academicUpdates.semester_cgpa = semObj;
+    // Auto-compute aggregate from all non-null semester values
+    const vals = Object.values(semObj).map(Number).filter(v => !isNaN(v) && v > 0);
+    if (vals.length > 0) {
+      academicUpdates.cgpa = parseFloat((vals.reduce((a: number, b: number) => a + b, 0) / vals.length).toFixed(2));
+    }
+  }
 
   if (Object.keys(academicUpdates).length > 0) {
     const { error: academicError } = await supabase
       .from('student_academics')
       .upsert({
         student_id: studentId,
-        ...academicUpdates
+        ...academicUpdates,
+        updated_at: new Date().toISOString()
       }, { onConflict: 'student_id' });
     if (academicError) throw academicError;
   }
@@ -279,6 +313,31 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
         ...profileUpdates
       }, { onConflict: 'student_id' });
     if (profileError) throw profileError;
+  }
+
+  // 6. Update student_contacts (address)
+  const contactUpdates: any = {};
+  if ('address' in updatedFields) contactUpdates.address = updatedFields.address;
+  if ('permanent_address' in updatedFields) contactUpdates.permanent_address = updatedFields.permanent_address;
+  if ('city' in updatedFields) contactUpdates.city = updatedFields.city;
+  if ('state' in updatedFields) contactUpdates.state = updatedFields.state;
+  if ('pincode' in updatedFields) contactUpdates.pincode = updatedFields.pincode;
+  if ('phone' in updatedFields) {
+    // Phone lives on users table
+    if (student?.user_id) {
+      await supabase.from('users').update({ phone: updatedFields.phone }).eq('id', student.user_id);
+    }
+  }
+
+  if (Object.keys(contactUpdates).length > 0) {
+    const { error: contactError } = await supabase
+      .from('student_contacts')
+      .upsert({
+        student_id: studentId,
+        ...contactUpdates,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'student_id' });
+    if (contactError) throw contactError;
   }
 
   return { id: studentId, success: true };
@@ -461,12 +520,22 @@ export async function getRecentActivity() {
     return [];
   }
 
-  return data.map(a => ({
-    id: a.id,
-    title: a.action,
-    time: formatRelativeTime(a.created_at),
-    type: a.entity_type
-  }));
+  return data.map(a => {
+    let actionStr = 'Updated';
+    if (a.action === 'INSERT') actionStr = 'Created';
+    else if (a.action === 'DELETE') actionStr = 'Deleted';
+    
+    let entityStr = (a.entity_type || 'record').replace('_', ' ');
+    entityStr = entityStr.charAt(0).toUpperCase() + entityStr.slice(1);
+
+    return {
+      id: a.id,
+      title: `${actionStr} ${entityStr}`,
+      time: formatRelativeTime(a.created_at),
+      type: a.entity_type,
+      created_at: a.created_at
+    };
+  });
 }
 
 // --- Job Drives & Applications ---
@@ -1074,9 +1143,10 @@ export async function getStudentProfile(studentId: string) {
     .from('students')
     .select(`
       *,
-      users (id, name, email, avatar_url),
+      users (id, name, email, phone, avatar_url),
       student_academics (*),
-      student_profiles (*)
+      student_profiles (*),
+      student_contacts (*)
     `)
     .eq('id', studentId)
     .single();
@@ -1388,8 +1458,11 @@ export async function bulkCreateStudents(studentsData: any[]) {
         .from('students')
         .insert([{
           user_id: userData.id,
-          register_number: student.regNo,
-          department: student.dept,
+          register_number: student.register_number || student.regNo,
+          roll_number: student.roll_number || student.rollNo || null,
+          gender: student.gender || null,
+          date_of_birth: student.date_of_birth || student.dob || null,
+          department: student.department || student.dept,
           year: parseInt(student.year),
           placement_status: 'unplaced',
           profile_completion: 0,
@@ -1399,6 +1472,35 @@ export async function bulkCreateStudents(studentsData: any[]) {
         .single();
 
       if (studentError) throw studentError;
+
+      // Create academics row if any academic data is present
+      const hasAcademics = student.cgpa || student.tenth_score || student.twelfth_score ||
+        student.diploma_score || student.active_arrears !== undefined || student.backlog_count;
+      
+      if (hasAcademics) {
+        const semObj = student.semester_cgpa || {};
+        const semVals = Object.values(semObj).map(Number).filter((v: number) => !isNaN(v) && v > 0);
+        const aggregateCgpa = semVals.length > 0
+          ? parseFloat((semVals.reduce((a: number, b: number) => a + b, 0) / semVals.length).toFixed(2))
+          : student.cgpa ? parseFloat(student.cgpa) : null;
+
+        const historyRaw = String(student.history_of_arrears || '').toLowerCase();
+        const historyVal = ['true','1','yes'].includes(historyRaw) ? true : false;
+
+        await supabase.from('student_academics').upsert([{
+          student_id: studentRecord.id,
+          cgpa: aggregateCgpa,
+          tenth_score: student.tenth_score ? parseFloat(student.tenth_score) : null,
+          twelfth_score: student.twelfth_score ? parseFloat(student.twelfth_score) : null,
+          diploma_score: student.diploma_score ? parseFloat(student.diploma_score) : null,
+          backlog_count: student.backlog_count ? parseInt(student.backlog_count) : 0,
+          active_arrears: student.active_arrears ? parseInt(student.active_arrears) : 0,
+          history_of_arrears: historyVal,
+          semester_cgpa: semObj,
+          updated_at: new Date().toISOString()
+        }], { onConflict: 'student_id' });
+      }
+
       results.push(studentRecord);
     } catch (err) {
       console.error(`Error creating student ${student.email}:`, err);
@@ -1978,36 +2080,77 @@ export const db = {
   },
   async updateStudentProfile(studentId: string, profileData: any) {
     // Update students table
-    const { error: studentError } = await supabase
-      .from('students')
-      .update({
-        department: profileData.dept,
-        year: parseInt(profileData.year),
-      })
-      .eq('id', studentId);
-    
-    if (studentError) throw studentError;
+    const studentUpdates: any = {};
+    if (profileData.dept) studentUpdates.department = profileData.dept;
+    if (profileData.year) studentUpdates.year = parseInt(profileData.year);
+    if (profileData.gender) studentUpdates.gender = profileData.gender;
+    if (profileData.dob !== undefined) studentUpdates.date_of_birth = profileData.dob || null;
+    if (profileData.rollNo !== undefined) studentUpdates.roll_number = profileData.rollNo;
 
-    // Update academics
-    const { error: academicError } = await supabase
-      .from('student_academics')
-      .upsert({
-        student_id: studentId,
-        cgpa: parseFloat(profileData.cgpa),
-      }, { onConflict: 'student_id' });
+    if (Object.keys(studentUpdates).length > 0) {
+      const { error: studentError } = await supabase
+        .from('students')
+        .update({ ...studentUpdates, updated_at: new Date().toISOString() })
+        .eq('id', studentId);
+      if (studentError) throw studentError;
+    }
 
-    if (academicError) throw academicError;
+    // Update academics with auto-aggregate CGPA
+    const academicUpdates: any = {};
+    if (profileData.cgpa !== undefined) academicUpdates.cgpa = parseFloat(profileData.cgpa);
+    if (profileData.tenth_score !== undefined) academicUpdates.tenth_score = parseFloat(profileData.tenth_score) || null;
+    if (profileData.twelfth_score !== undefined) academicUpdates.twelfth_score = parseFloat(profileData.twelfth_score) || null;
+    if (profileData.diploma_score !== undefined) academicUpdates.diploma_score = profileData.diploma_score ? parseFloat(profileData.diploma_score) : null;
+    if (profileData.active_arrears !== undefined) academicUpdates.active_arrears = parseInt(profileData.active_arrears) || 0;
+    if (profileData.history_of_arrears !== undefined) academicUpdates.history_of_arrears = Boolean(profileData.history_of_arrears);
+    if (profileData.semester_cgpa !== undefined) {
+      academicUpdates.semester_cgpa = profileData.semester_cgpa;
+      // Auto-compute aggregate CGPA from semesters
+      const vals = Object.values(profileData.semester_cgpa as Record<string, number>)
+        .map(Number).filter(v => !isNaN(v) && v > 0);
+      if (vals.length > 0) {
+        academicUpdates.cgpa = parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2));
+      }
+    }
 
-    // Update profile (leetcode, specializations)
-    const { error: profileError } = await supabase
-      .from('student_profiles')
-      .upsert({
-        student_id: studentId,
-        leetcode_count: parseInt(profileData.leetcode),
-        specializations: profileData.specializations,
-      }, { onConflict: 'student_id' });
+    if (Object.keys(academicUpdates).length > 0) {
+      const { error: academicError } = await supabase
+        .from('student_academics')
+        .upsert({ student_id: studentId, ...academicUpdates, updated_at: new Date().toISOString() },
+          { onConflict: 'student_id' });
+      if (academicError) throw academicError;
+    }
 
-    if (profileError) throw profileError;
+    // Update profile (leetcode, specializations, links)
+    const profileUpdates: any = {};
+    if (profileData.leetcode !== undefined) profileUpdates.leetcode_count = parseInt(profileData.leetcode) || 0;
+    if (profileData.specializations !== undefined) profileUpdates.specializations = profileData.specializations;
+    if (profileData.linkedin_url !== undefined) profileUpdates.linkedin_url = profileData.linkedin_url;
+    if (profileData.github_url !== undefined) profileUpdates.github_url = profileData.github_url;
+    if (profileData.portfolio_url !== undefined) profileUpdates.portfolio_url = profileData.portfolio_url;
+
+    if (Object.keys(profileUpdates).length > 0) {
+      const { error: profileError } = await supabase
+        .from('student_profiles')
+        .upsert({ student_id: studentId, ...profileUpdates }, { onConflict: 'student_id' });
+      if (profileError) throw profileError;
+    }
+
+    // Update contacts (address)
+    const contactUpdates: any = {};
+    if (profileData.address !== undefined) contactUpdates.address = profileData.address;
+    if (profileData.permanent_address !== undefined) contactUpdates.permanent_address = profileData.permanent_address;
+    if (profileData.city !== undefined) contactUpdates.city = profileData.city;
+    if (profileData.state !== undefined) contactUpdates.state = profileData.state;
+    if (profileData.pincode !== undefined) contactUpdates.pincode = profileData.pincode;
+
+    if (Object.keys(contactUpdates).length > 0) {
+      const { error: contactError } = await supabase
+        .from('student_contacts')
+        .upsert({ student_id: studentId, ...contactUpdates, updated_at: new Date().toISOString() },
+          { onConflict: 'student_id' });
+      if (contactError) throw contactError;
+    }
 
     return { success: true };
   },
