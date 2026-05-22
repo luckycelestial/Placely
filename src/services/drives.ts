@@ -1,0 +1,211 @@
+import { supabase } from '@/lib/supabase';
+
+export async function getDrives(options: { 
+  search?: string; 
+  status?: string;
+  type?: string;
+  batch?: string;
+} = {}) {
+  let query = supabase
+    .from('job_drives')
+    .select(`
+      *,
+      companies (
+        name,
+        logo_url,
+        theme_color
+      ),
+      applications ( count )
+    `);
+
+  if (options.search) {
+    query = query.ilike('role_title', `%${options.search}%`);
+  }
+
+  if (options.status && options.status !== 'All') {
+    query = query.eq('status', options.status.toLowerCase());
+  }
+
+  if (options.type && options.type !== 'All') {
+    query = query.eq('drive_type', options.type);
+  }
+
+  if (options.batch && options.batch !== 'All') {
+    query = query.eq('batch', options.batch);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+export async function getCompanies(options: { search?: string } = {}) {
+  let query = supabase
+    .from('companies')
+    .select('*');
+
+  if (options.search) {
+    query = query.ilike('name', `%${options.search}%`);
+  }
+
+  const { data, error } = await query.order('name');
+  if (error) throw error;
+  return data;
+}
+
+export async function getDistinctBatches(): Promise<string[]> {
+  const currentYear = new Date().getFullYear();
+  const { data, error } = await supabase
+    .from('job_drives')
+    .select('batch');
+  if (error) throw error;
+
+  const years = new Set<string>();
+  // Always include current year + next year as base options
+  years.add(String(currentYear));
+  years.add(String(currentYear + 1));
+
+  // Add any years that actually have drives (treating null as current year)
+  (data || []).forEach((row: any) => {
+    const b = row.batch || String(currentYear);
+    years.add(b);
+  });
+
+  // Sort descending (most recent first)
+  return Array.from(years).sort((a, b) => Number(b) - Number(a));
+}
+
+export async function getDistinctDepartments(): Promise<string[]> {
+  const { data, error } = await supabase.from('students').select('department');
+  if (error) throw error;
+  const depts = Array.from(new Set(data.map(d => d.department).filter(Boolean)));
+  return depts as string[];
+}
+
+export async function createDrive(driveData: any) {
+  const { data, error } = await supabase
+    .from('job_drives')
+    .insert([{
+      company_id: driveData.company_id,
+      role_title: driveData.role_title,
+      drive_type: driveData.drive_type,
+      package_ctc: driveData.package_ctc,
+      location: driveData.location,
+      application_end: driveData.application_end,
+      batch: driveData.batch || null,
+      eligibility_rules: driveData.eligibility_rules,
+      status: driveData.status || 'published',
+      title: driveData.title
+    }])
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message || error.details || 'Failed to create drive');
+  return data;
+}
+
+export async function updateDrive(id: string, driveData: any) {
+  const { data, error } = await supabase
+    .from('job_drives')
+    .update({
+      company_id: driveData.company_id,
+      role_title: driveData.role_title,
+      drive_type: driveData.drive_type,
+      package_ctc: driveData.package_ctc,
+      location: driveData.location,
+      application_end: driveData.application_end,
+      batch: driveData.batch || null,
+      eligibility_rules: driveData.eligibility_rules,
+      status: driveData.status || 'published',
+      title: driveData.title
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message || error.details || 'Failed to update drive');
+  return data;
+}
+
+export async function deleteDrive(id: string) {
+  const { error } = await supabase
+    .from('job_drives')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+  return true;
+}
+
+export async function createCompany(companyData: any) {
+  const { data, error } = await supabase
+    .from('companies')
+    .insert([companyData])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateCompany(id: string, companyData: any) {
+  const { data, error } = await supabase
+    .from('companies')
+    .update(companyData)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteCompany(id: string) {
+  const { error } = await supabase
+    .from('companies')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+  return true;
+}
+
+export async function getTemplates() {
+  const { data, error } = await supabase
+    .from('drive_templates')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createTemplate(templateData: any) {
+  const { data, error } = await supabase
+    .from('drive_templates')
+    .insert([templateData])
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateTemplate(id: string, templateData: any) {
+  const { data, error } = await supabase
+    .from('drive_templates')
+    .update(templateData)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTemplate(id: string) {
+  const { error } = await supabase
+    .from('drive_templates')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+  return true;
+}
+

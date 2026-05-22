@@ -110,7 +110,7 @@ export default function JobDrivesPage() {
   const handleApply = async (driveId: string) => {
     setIsApplying(true);
     try {
-      const STUDENT_ID = "550e8400-e29b-41d4-a716-446655440000"; 
+      const STUDENT_ID = "41851b38-cb29-4d93-9120-213403ffa82c"; 
       await db.applyToDrive(STUDENT_ID, driveId);
       toast.success("Application submitted successfully!");
       router.push("/applications");
@@ -137,8 +137,8 @@ export default function JobDrivesPage() {
   };
 
   return (
-    <div className="space-y-10 py-10 px-4 max-w-7xl mx-auto min-h-screen relative">
-      <section className="flex flex-col gap-4">
+    <div className="py-10 px-4 max-w-7xl mx-auto min-h-screen relative">
+      <section className="flex flex-col gap-4 mb-10">
         <div className="flex items-center gap-2">
           <span className="h-2 w-12 rounded-full bg-primary" />
           <span className="section-label text-primary">Opportunity Hub</span>
@@ -151,7 +151,7 @@ export default function JobDrivesPage() {
         </p>
       </section>
 
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between sticky top-0 z-10 bg-background/80 backdrop-blur-md py-4 -mx-4 px-4">
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between sticky -top-4 md:-top-6 z-10 bg-background/95 backdrop-blur-md py-4 -mx-4 px-4 mb-8 border-b border-border-subtle/50 shadow-sm">
         <div className="relative w-full md:w-96 group">
           <LuSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={20} />
           <input

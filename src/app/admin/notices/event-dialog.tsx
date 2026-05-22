@@ -6,6 +6,7 @@ import {
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 
 export type Event = {
   id: string;
@@ -188,18 +189,15 @@ export default function EventDialog({ isOpen, onClose, onSave, event }: EventDia
                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-2">
                     <LuClock size={12} className="text-primary" /> {idx === 0 ? "Start Time" : "End Time"}
                   </label>
-                  <select
+                  <SearchableSelect
                     value={form[field]}
-                    onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
-                    className="w-full px-4 py-4 rounded-2xl border border-border-subtle bg-background text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all shadow-sm appearance-none"
-                  >
-                    {((): string[] => {
-                      const preset = ["08:00 AM","09:00 AM","10:00 AM","11:00 AM","12:00 PM","01:00 PM","02:00 PM","03:00 PM","03:30 PM","04:00 PM","05:00 PM","06:00 PM"];
-                      return preset.includes(form[field]) ? preset : [...preset, form[field]];
-                    })().map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => setForm((f) => ({ ...f, [field]: val }))}
+                    options={((): { value: string, label: string }[] => {
+                      const preset = ["08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM", "03:30 PM", "04:00 PM", "05:00 PM", "06:00 PM"];
+                      const times = preset.includes(form[field]) ? preset : [...preset, form[field]];
+                      return times.map(t => ({ value: t, label: t }));
+                    })()}
+                  />
                 </div>
               ))}
             </div>
@@ -258,8 +256,8 @@ export default function EventDialog({ isOpen, onClose, onSave, event }: EventDia
                       form.status === s
                         ? s === "Upcoming" ? "bg-emerald-500 text-white border-emerald-500"
                           : s === "Scheduled" ? "bg-blue-500 text-white border-blue-500"
-                          : s === "Completed" ? "bg-gray-500 text-white border-gray-500"
-                          : "bg-red-500 text-white border-red-500"
+                            : s === "Completed" ? "bg-gray-500 text-white border-gray-500"
+                              : "bg-red-500 text-white border-red-500"
                         : "bg-surface border-border-subtle text-muted hover:text-foreground"
                     )}
                   >

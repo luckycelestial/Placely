@@ -6,6 +6,7 @@ import {
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 
 export type Notice = {
   id: string;
@@ -254,18 +255,15 @@ export default function NoticeDialog({ isOpen, onClose, onSave, notice }: Notice
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Time</label>
-                <select
+                <SearchableSelect
                   value={form.time}
-                  onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
-                  className="w-full px-4 py-4 rounded-2xl border border-border-subtle bg-background text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all shadow-sm appearance-none"
-                >
-                  {((): string[] => {
+                  onChange={(val) => setForm((f) => ({ ...f, time: val }))}
+                  options={((): {value: string, label: string}[] => {
                     const preset = ["08:00 AM","09:00 AM","10:00 AM","10:30 AM","11:00 AM","12:00 PM","02:00 PM","03:00 PM","04:00 PM","04:15 PM","05:00 PM","06:00 PM"];
-                    return preset.includes(form.time) ? preset : [...preset, form.time];
-                  })().map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+                    const times = preset.includes(form.time) ? preset : [...preset, form.time];
+                    return times.map(t => ({ value: t, label: t }));
+                  })()}
+                />
               </div>
             </div>
 

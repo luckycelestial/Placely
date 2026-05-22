@@ -20,6 +20,8 @@ import {
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
+import * as XLSX from "xlsx";
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useSearchParams, useRouter } from "next/navigation";
 import { useMemo, useCallback } from "react";
 
@@ -534,13 +536,16 @@ function StudentsPageContent() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted">Gender</label>
-                      <select className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all appearance-none"
-                        value={editingStudent.gender || ''} onChange={e => setEditingStudent({...editingStudent, gender: e.target.value})}>
-                        <option value="">— Select —</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
+                      <SearchableSelect 
+                        options={[
+                          { value: "Male", label: "Male" },
+                          { value: "Female", label: "Female" },
+                          { value: "Other", label: "Other" }
+                        ]}
+                        value={editingStudent.gender || ''}
+                        onChange={value => setEditingStudent({...editingStudent, gender: value})}
+                        placeholder="— Select —"
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted">Date of Birth</label>
@@ -556,20 +561,24 @@ function StudentsPageContent() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted">Department</label>
-                      <select className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all appearance-none"
-                        value={editingStudent.dept} onChange={e => setEditingStudent({...editingStudent, dept: e.target.value})}>
-                        {DEPARTMENTS.slice(1).map(d => (<option key={d} value={d}>{d}</option>))}
-                      </select>
+                      <SearchableSelect 
+                        options={DEPARTMENTS.slice(1).map(d => ({ value: d, label: d }))}
+                        value={editingStudent.dept}
+                        onChange={value => setEditingStudent({...editingStudent, dept: value})}
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted">Year</label>
-                      <select className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all appearance-none"
-                        value={editingStudent.year} onChange={e => setEditingStudent({...editingStudent, year: e.target.value})}>
-                        <option value="1">1st Year</option>
-                        <option value="2">2nd Year</option>
-                        <option value="3">3rd Year</option>
-                        <option value="4">4th Year</option>
-                      </select>
+                      <SearchableSelect 
+                        options={[
+                          { value: "1", label: "1st Year" },
+                          { value: "2", label: "2nd Year" },
+                          { value: "3", label: "3rd Year" },
+                          { value: "4", label: "4th Year" }
+                        ]}
+                        value={editingStudent.year}
+                        onChange={value => setEditingStudent({...editingStudent, year: value})}
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted">CGPA (Aggregate)</label>
@@ -598,11 +607,14 @@ function StudentsPageContent() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted">History of Arrears</label>
-                      <select className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all appearance-none"
-                        value={editingStudent.history_of_arrears ? 'true' : 'false'} onChange={e => setEditingStudent({...editingStudent, history_of_arrears: e.target.value === 'true'})}>
-                        <option value="false">No (Clean record)</option>
-                        <option value="true">Yes (Previously had backlogs)</option>
-                      </select>
+                      <SearchableSelect 
+                        options={[
+                          { value: "false", label: "No (Clean record)" },
+                          { value: "true", label: "Yes (Previously had backlogs)" }
+                        ]}
+                        value={editingStudent.history_of_arrears ? 'true' : 'false'}
+                        onChange={value => setEditingStudent({...editingStudent, history_of_arrears: value === 'true'})}
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted">LeetCode Solved</label>
@@ -741,26 +753,24 @@ function StudentsPageContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-black uppercase tracking-widest text-muted mb-2">Department</label>
-                  <select 
-                    className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background font-bold text-sm focus:outline-none"
+                  <SearchableSelect 
+                    options={DEPARTMENTS.slice(1).map(d => ({ value: d, label: d }))}
                     value={newStudent.dept}
-                    onChange={e => setNewStudent({...newStudent, dept: e.target.value})}
-                  >
-                    {DEPARTMENTS.slice(1).map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                    onChange={value => setNewStudent({...newStudent, dept: value})}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-black uppercase tracking-widest text-muted mb-2">Year</label>
-                  <select 
-                    className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background font-bold text-sm focus:outline-none"
+                  <SearchableSelect 
+                    options={[
+                      { value: "1", label: "1st Year" },
+                      { value: "2", label: "2nd Year" },
+                      { value: "3", label: "3rd Year" },
+                      { value: "4", label: "4th Year" }
+                    ]}
                     value={newStudent.year}
-                    onChange={e => setNewStudent({...newStudent, year: e.target.value})}
-                  >
-                    <option value="1">1st Year</option>
-                    <option value="2">2nd Year</option>
-                    <option value="3">3rd Year</option>
-                    <option value="4">4th Year</option>
-                  </select>
+                    onChange={value => setNewStudent({...newStudent, year: value})}
+                  />
                 </div>
               </div>
               

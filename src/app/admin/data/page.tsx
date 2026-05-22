@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { DataGrid, renderTextEditor } from "react-data-grid";
 import type { Column, RenderCellProps, RenderEditCellProps } from "react-data-grid";
 import * as XLSX from "xlsx";
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import "react-data-grid/lib/styles.css";
 import { 
   LuUpload, 
@@ -592,18 +593,18 @@ export default function DataWorkspacePage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-2 bg-surface border border-border-subtle rounded-xl">
+          <div className="flex items-center gap-2 px-3 py-2 bg-surface border border-border-subtle rounded-xl min-w-[150px]">
             <span className="text-[10px] font-black uppercase text-muted">Year</span>
-            <select 
+            <SearchableSelect 
+              options={[
+                { value: "1", label: "1st Year" },
+                { value: "2", label: "2nd Year" },
+                { value: "3", label: "3rd Year" },
+                { value: "4", label: "4th Year" }
+              ]}
               value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="text-xs font-bold bg-transparent outline-none cursor-pointer"
-            >
-              <option value="1">1st Year</option>
-              <option value="2">2nd Year</option>
-              <option value="3">3rd Year</option>
-              <option value="4">4th Year</option>
-            </select>
+              onChange={setSelectedYear}
+            />
           </div>
 
           <div className="relative">
@@ -683,26 +684,24 @@ export default function DataWorkspacePage() {
                   <div key={header} className="p-3 rounded-xl bg-white border border-border-subtle flex items-center justify-between">
                     <span className="text-xs font-bold truncate max-w-[100px]">{header}</span>
                     <LuArrowRight size={12} className="text-muted" />
-                    <select 
-                      className="text-[10px] font-black bg-transparent outline-none text-primary cursor-pointer"
-                      value={mapping?.target || ""}
-                      onChange={(e) => {
-                        const newTarget = e.target.value;
-                        setMappings((prev: ColumnMapping[]) => {
-                          const existing = prev.filter((m: ColumnMapping) => m.source !== header);
-                          if (newTarget) return [...existing, { source: header, target: newTarget }];
-                          return existing;
-                        });
-                      }}
-                    >
-                      <option value="">Skip Column</option>
-                      {activeTable === "students" && STUDENT_FIELDS.map(f => (
-                        <option key={f.id} value={f.id}>{f.label}</option>
-                      ))}
-                      {activeTable !== "students" && Object.keys(rows[0] || {}).map(k => (
-                        <option key={k} value={k}>{k}</option>
-                      ))}
-                    </select>
+                    <div className="w-[180px]">
+                      <SearchableSelect 
+                        options={[
+                          { value: "", label: "Skip Column" },
+                          ...(activeTable === "students" 
+                            ? STUDENT_FIELDS.map(f => ({ value: f.id, label: f.label }))
+                            : Object.keys(rows[0] || {}).map(k => ({ value: k, label: k })))
+                        ]}
+                        value={mapping?.target || ""}
+                        onChange={(newTarget) => {
+                          setMappings((prev: ColumnMapping[]) => {
+                            const existing = prev.filter((m: ColumnMapping) => m.source !== header);
+                            if (newTarget) return [...existing, { source: header, target: newTarget }];
+                            return existing;
+                          });
+                        }}
+                      />
+                    </div>
                   </div>
                 );
               })}
@@ -844,6 +843,7 @@ export default function DataWorkspacePage() {
           color: #8e8e93 !important;
           border-bottom: 1px solid #e6e6e6 !important;
           background-color: #fcfcfc !important;
+          padding: 0 16px !important;
         }
 
         /* 2. Body Cells styling */
@@ -854,6 +854,7 @@ export default function DataWorkspacePage() {
           align-items: center !important;
           border-inline-end: 1px solid #f2f2f2 !important;
           border-bottom: 1px solid #f2f2f2 !important;
+          padding: 0 16px !important;
         }
 
         /* 3. Base state: Force sticky frozen column position & solid white background */

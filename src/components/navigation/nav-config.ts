@@ -77,19 +77,9 @@ export const ADMIN_NAV_ITEMS = [
     icon: LuBriefcase,
   },
   {
-    title: "Applications",
-    href: "/admin/applications",
-    icon: LuFileText,
-  },
-  {
     title: "ATS Tracker",
     href: "/admin/ats",
     icon: LuLayers,
-  },
-  {
-    title: "Offers & Joinees",
-    href: "/admin/offers",
-    icon: LuAward,
   },
   {
     title: "Reports & Analytics",
