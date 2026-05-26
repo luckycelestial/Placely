@@ -14,10 +14,12 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts';
 
+import { CompanyLogo } from "@/components/ui/CompanyLogo";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ReportStats { placementRate: string; avgCTC: string; totalOffers: string | number; atRisk?: string | number }
 interface TrendPoint  { month: string; placements: number; offers: number; drives?: number }
-interface DeptData    { name: string; total: number; placed: number; unplaced: number; placementRate: number; avgCTC: number }
+interface DeptData    { name: string; total: number; placed: number; unplaced: number; placementRate: number; avgCTC: number; maxCTC?: number }
 interface CompanyData { name: string; industry: string; hires: number; avgCTC: number; departments: string[]; departmentCount: number }
 interface YearData    { year: string; totalOffers: number; avgCTC: number; drives: number; placementRate: number }
 interface CrossItem   { name: string; hires: number; avgCTC: number }
@@ -87,8 +89,8 @@ function DrillDownPanel({
   const leftTitle  = selected.type === 'dept'    ? `Companies that hired from ${selected.value}`
     : selected.type === 'company' ? `Departments hired by ${selected.value}`
     : `Department-wise breakdown · ${selected.value}`;
-  const rightTitle = selected.type === 'dept'    ? `Year-wise trend for ${selected.value}`
-    : selected.type === 'company' ? `Year-wise hiring by ${selected.value}`
+  const rightTitle = selected.type === 'dept'    ? `Batch-wise trend for ${selected.value}`
+    : selected.type === 'company' ? `Batch-wise hiring by ${selected.value}`
     : `Top companies in ${selected.value} batch`;
 
   const leftData  = selected.type === 'dept'    ? (data?.companies ?? [])
@@ -268,7 +270,7 @@ function DepartmentTab({ data, selected, onSelect }: { data:DeptData[]; selected
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-black tracking-tight">Department Performance</h2>
-              <p className="text-xs text-muted font-medium mt-1">Click any department to drill down into company &amp; year-wise data</p>
+              <p className="text-xs text-muted font-medium mt-1">Click any department to drill down into company &amp; batch-wise data</p>
             </div>
             {/* Inline summary pills */}
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
@@ -301,6 +303,9 @@ function DepartmentTab({ data, selected, onSelect }: { data:DeptData[]; selected
           </div>
           <div className="w-24 shrink-0 text-right">
             <span className="text-[10px] font-black text-muted uppercase tracking-widest">Avg CTC</span>
+          </div>
+          <div className="w-24 shrink-0 text-right">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Max CTC</span>
           </div>
           <div className="w-5 shrink-0"/>
         </div>
@@ -399,6 +404,20 @@ function DepartmentTab({ data, selected, onSelect }: { data:DeptData[]; selected
                   </span>
                 </div>
 
+                {/* Max CTC with rupee icon */}
+                <div className="w-24 shrink-0 flex items-center gap-1.5 justify-end">
+                  <LuIndianRupee
+                    size={13}
+                    className={(d.maxCTC || 0) > 0 ? 'text-primary shrink-0' : 'text-muted shrink-0'}
+                  />
+                  <span className={cn(
+                    'text-sm font-black',
+                    (d.maxCTC || 0) > 0 ? 'text-foreground' : 'text-muted'
+                  )}>
+                    {(d.maxCTC || 0) > 0 ? `${d.maxCTC} LPA` : '—'}
+                  </span>
+                </div>
+
                 {/* Expand chevron */}
                 <LuChevronRight
                   size={15}
@@ -439,7 +458,7 @@ function CompanyTab({ data, selected, onSelect }: { data:CompanyData[]; selected
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               <h2 className="text-xl font-black tracking-tight">Company Performance</h2>
-              <p className="text-xs text-muted font-medium mt-1">Click any company to drill down into dept &amp; year-wise data</p>
+              <p className="text-xs text-muted font-medium mt-1">Click any company to drill down into dept &amp; batch-wise data</p>
             </div>
             {/* Summary pills */}
             <div className="flex items-center gap-2 shrink-0 flex-wrap sm:justify-end">
@@ -517,12 +536,7 @@ function CompanyTab({ data, selected, onSelect }: { data:CompanyData[]; selected
                 {/* Company name + industry */}
                 <div className="w-44 shrink-0 flex items-center gap-3 min-w-0">
                   {/* Avatar */}
-                  <div
-                    className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-white text-xs shrink-0"
-                    style={{ backgroundColor: color }}
-                  >
-                    {c.name[0]}
-                  </div>
+                  <CompanyLogo name={c.name} size={32} rounded="rounded-xl shadow-sm shrink-0" />
                   <div className="min-w-0">
                     <span className={cn(
                       'text-sm font-black tracking-tight block truncate',
@@ -632,9 +646,9 @@ function YearTab({ data, selected, onSelect }: { data:YearData[]; selected:Selec
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatChip label="Years Tracked" value={data.length} color="text-foreground"/>
+        <StatChip label="Batches Tracked" value={data.length} color="text-foreground"/>
         <StatChip label="Offer Growth" value={`${offerGrowth}%`} color="text-emerald-600" trend={`+${offerGrowth}%`}/>
-        <StatChip label="Best Year" value={data.reduce((a,b)=>a.placementRate>b.placementRate?a:b).year} color="text-primary"/>
+        <StatChip label="Best Batch" value={data.reduce((a,b)=>a.placementRate>b.placementRate?a:b).year} color="text-primary"/>
         <StatChip label="Latest Avg CTC" value={`${latest?.avgCTC} LPA`} color="text-blue-600" trend="+1.4L"/>
       </div>
 
@@ -642,8 +656,8 @@ function YearTab({ data, selected, onSelect }: { data:YearData[]; selected:Selec
         <div className="lg:col-span-2 app-card p-7">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-black tracking-tight">Year-over-Year Comparison</h3>
-              <p className="text-xs text-muted font-medium mt-0.5">Click a bar to drill-down into that batch year</p>
+              <h3 className="text-lg font-black tracking-tight">Batch-over-Batch Comparison</h3>
+              <p className="text-xs text-muted font-medium mt-0.5">Click a bar to drill-down into that batch</p>
             </div>
             <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest">
               <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-primary"/><span>Offers</span></div>
@@ -671,7 +685,7 @@ function YearTab({ data, selected, onSelect }: { data:YearData[]; selected:Selec
 
         <div className="app-card p-7">
           <h3 className="text-lg font-black tracking-tight mb-1">Placement Rate Trend</h3>
-          <p className="text-xs text-muted font-medium mb-4">% placed year on year</p>
+          <p className="text-xs text-muted font-medium mb-4">% placed batch on batch</p>
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top:4, right:8, left:-20, bottom:0 }}>
@@ -690,14 +704,14 @@ function YearTab({ data, selected, onSelect }: { data:YearData[]; selected:Selec
       {/* Year table — clickable rows */}
       <div className="app-card overflow-hidden">
         <div className="px-7 py-5 border-b border-border-subtle flex items-center justify-between">
-          <h3 className="text-lg font-black tracking-tight">Year-by-Year Summary</h3>
+          <h3 className="text-lg font-black tracking-tight">Batch-by-Batch Summary</h3>
           <p className="text-[10px] font-black text-muted uppercase tracking-widest">Click a row to drill-down</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border-subtle">
-                {['Batch Year','Total Offers','Avg CTC','Drives','Placement Rate','Growth',''].map(h=>(
+                {['Batch','Total Offers','Avg CTC','Drives','Placement Rate','Growth',''].map(h=>(
                   <th key={h} className="px-6 py-3 text-left text-[10px] font-black text-muted uppercase tracking-widest">{h}</th>
                 ))}
               </tr>
@@ -884,7 +898,7 @@ function OverviewTab({ stats, trendData }: { stats:ReportStats|null; trendData:T
           <div className="space-y-4">
             {topCo.map(c=>(
               <div key={c.name} className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-white text-xs shrink-0" style={{ backgroundColor:c.color }}>{c.name[0]}</div>
+                <CompanyLogo name={c.name} size={40} rounded="rounded-2xl shadow-sm shrink-0" />
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-black">{c.name}</span>
@@ -914,6 +928,7 @@ export default function ReportsPage() {
   const [deptData, setDeptData]       = useState<DeptData[]>([]);
   const [companyData, setCompanyData] = useState<CompanyData[]>([]);
   const [yearData, setYearData]       = useState<YearData[]>([]);
+  const [students, setStudents]       = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -926,12 +941,14 @@ export default function ReportsPage() {
   useEffect(()=>{
     async function load() {
       try {
-        const [s, t, d, c, y] = await Promise.all([
+        const [s, t, d, c, y, allStuds] = await Promise.all([
           db.getReportStats(), db.getTrendData(),
           db.getDepartmentAnalytics(), db.getCompanyAnalytics(), db.getYearAnalytics(),
+          db.getAllStudents(),
         ]);
         setStats(s); setTrendData(t);
         setDeptData(d as DeptData[]); setCompanyData(c as CompanyData[]); setYearData(y as YearData[]);
+        setStudents(allStuds);
       } catch(e) { console.error(e); }
       finally { setLoading(false); }
     }
@@ -1000,7 +1017,7 @@ export default function ReportsPage() {
     { id:'overview'   as const, label:'Overview',   icon:LuChartPie },
     { id:'department' as const, label:'Department',  icon:LuGraduationCap },
     { id:'company'    as const, label:'Company',     icon:LuBuilding2 },
-    { id:'year'       as const, label:'Year-wise',   icon:LuCalendar },
+    { id:'year'       as const, label:'Batch-wise',   icon:LuCalendar },
   ];
 
   return (
@@ -1040,27 +1057,326 @@ export default function ReportsPage() {
         {activeTab==='department' && (
           <>
             <DepartmentTab data={deptData} selected={selected} onSelect={v=>handleSelect('dept',v)}/>
-            {selected?.type==='dept' && (
-              <DrillDownPanel selected={selected} data={drillData} loading={drillLoading} onClose={()=>setSelected(null)}/>
-            )}
+            {selected?.type==='dept' && (() => {
+              const selectedDeptData = deptData.find(d => d.name === selected.value);
+              const deptAvg = selectedDeptData?.avgCTC || 0;
+              const deptMax = selectedDeptData?.maxCTC || 0;
+              const placedCount = students.filter(s => s.dept === selected.value && s.status === 'Placed').length;
+              return (
+                <>
+                  <DrillDownPanel selected={selected} data={drillData} loading={drillLoading} onClose={()=>setSelected(null)}/>
+                  
+                  {/* Placed Students Directory */}
+                  <div className="app-card border-emerald-500/20 overflow-hidden animate-in slide-in-from-bottom-3 fade-in duration-300 mt-6">
+                    {/* Section header */}
+                    <div className="flex items-center justify-between px-7 py-5 bg-gradient-to-r from-emerald-500/5 to-transparent border-b border-emerald-500/10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-6 bg-emerald-500 rounded-full"/>
+                        <div>
+                          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Directory</p>
+                          <h3 className="text-base font-black tracking-tight">Placed Students · {selected.value}</h3>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                          <LuAward size={12}/>
+                          <span className="text-[10px] font-black uppercase tracking-wider">
+                            {placedCount} Placed
+                          </span>
+                        </div>
+                        {deptAvg > 0 && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border-subtle">
+                            <LuIndianRupee size={12} className="text-muted"/>
+                            <span className="text-[10px] font-black uppercase tracking-wider">Avg: {deptAvg.toFixed(1)} LPA</span>
+                          </div>
+                        )}
+                        {deptMax > 0 && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary">
+                            <LuIndianRupee size={12} className="text-primary"/>
+                            <span className="text-[10px] font-black uppercase tracking-wider">Max: {deptMax.toFixed(1)} LPA</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-border-subtle bg-background/50">
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Student</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Register Number</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Placed Company</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted text-right">Offered CTC</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border-subtle">
+                          {placedCount === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="px-6 py-12 text-center text-muted font-bold text-sm">
+                                No placed students found in {selected.value} department.
+                              </td>
+                            </tr>
+                          ) : (
+                            students
+                              .filter(s => s.dept === selected.value && s.status === 'Placed')
+                              .map((student) => {
+                                return (
+                                  <tr key={student.id} className="group hover:bg-emerald-500/[0.01] transition-colors">
+                                    <td className="px-6 py-4">
+                                      <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-black text-xs shrink-0">
+                                          {student.name.split(' ').map((n: string) => n[0]).join('')}
+                                        </div>
+                                        <div>
+                                          <p className="font-bold text-sm leading-none mb-1 text-foreground group-hover:text-emerald-600 transition-colors">{student.name}</p>
+                                          <p className="text-muted text-[10px] font-medium uppercase tracking-wider">{student.email}</p>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      <span className="text-sm font-bold text-muted-foreground">{student.regNo}</span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      <div className="flex items-center gap-2.5">
+                                        <CompanyLogo name={student.company || 'Unknown'} size={28} rounded="rounded-lg shadow-sm" />
+                                        <span className="text-sm font-black text-foreground">{student.company}</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                      <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg">
+                                        <LuIndianRupee size={11} />
+                                        {student.package_ctc ? `${student.package_ctc} LPA` : '—'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </>
         )}
 
         {activeTab==='company' && (
           <>
             <CompanyTab data={companyData} selected={selected} onSelect={v=>handleSelect('company',v)}/>
-            {selected?.type==='company' && (
-              <DrillDownPanel selected={selected} data={drillData} loading={drillLoading} onClose={()=>setSelected(null)}/>
-            )}
+            {selected?.type==='company' && (() => {
+              const placedInCompany = students.filter(s => s.company === selected.value && s.status === 'Placed');
+              const companyHires = placedInCompany.length;
+              const companyPackages = placedInCompany.map(s => parseFloat(s.package_ctc)).filter(p => !isNaN(p));
+              const companyAvg = companyPackages.length > 0 ? (companyPackages.reduce((a, b) => a + b, 0) / companyPackages.length) : 0;
+              const companyMax = companyPackages.length > 0 ? Math.max(...companyPackages) : 0;
+              return (
+                <>
+                  <DrillDownPanel selected={selected} data={drillData} loading={drillLoading} onClose={()=>setSelected(null)}/>
+                  
+                  {/* Placed Students Directory */}
+                  <div className="app-card border-emerald-500/20 overflow-hidden animate-in slide-in-from-bottom-3 fade-in duration-300 mt-6">
+                    {/* Section header */}
+                    <div className="flex items-center justify-between px-7 py-5 bg-gradient-to-r from-emerald-500/5 to-transparent border-b border-emerald-500/10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-6 bg-emerald-500 rounded-full"/>
+                        <div>
+                          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Directory</p>
+                          <h3 className="text-base font-black tracking-tight">Placed Students · {selected.value}</h3>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                          <LuAward size={12}/>
+                          <span className="text-[10px] font-black uppercase tracking-wider">
+                            {companyHires} Hire{companyHires !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        {companyAvg > 0 && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border-subtle">
+                            <LuIndianRupee size={12} className="text-muted"/>
+                            <span className="text-[10px] font-black uppercase tracking-wider">Avg: {companyAvg.toFixed(1)} LPA</span>
+                          </div>
+                        )}
+                        {companyMax > 0 && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary">
+                            <LuIndianRupee size={12} className="text-primary"/>
+                            <span className="text-[10px] font-black uppercase tracking-wider">Max: {companyMax.toFixed(1)} LPA</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-border-subtle bg-background/50">
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Student</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Register Number</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Dept &amp; Batch</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted text-right">Offered CTC</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border-subtle">
+                          {companyHires === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="px-6 py-12 text-center text-muted font-bold text-sm">
+                                No placed students found in database for {selected.value}.
+                              </td>
+                            </tr>
+                          ) : (
+                            placedInCompany.map((student) => {
+                              return (
+                                <tr key={student.id} className="group hover:bg-emerald-500/[0.01] transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-black text-xs shrink-0">
+                                        {student.name.split(' ').map((n: string) => n[0]).join('')}
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-sm leading-none mb-1 text-foreground group-hover:text-emerald-600 transition-colors">{student.name}</p>
+                                        <p className="text-muted text-[10px] font-medium uppercase tracking-wider">{student.email}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className="text-sm font-bold text-muted-foreground">{student.regNo}</span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div>
+                                      <p className="text-sm font-bold text-foreground/80">{student.dept}</p>
+                                      <p className="text-[11px] font-medium text-muted uppercase tracking-wider">{student.year}</p>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg">
+                                      <LuIndianRupee size={11} />
+                                      {student.package_ctc ? `${student.package_ctc} LPA` : '—'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </>
         )}
 
         {activeTab==='year' && (
           <>
             <YearTab data={yearData} selected={selected} onSelect={v=>handleSelect('year',v)}/>
-            {selected?.type==='year' && (
-              <DrillDownPanel selected={selected} data={drillData} loading={drillLoading} onClose={()=>setSelected(null)}/>
-            )}
+            {selected?.type==='year' && (() => {
+              const placedInBatch = students.filter(s => s.year?.includes(selected.value) && s.status === 'Placed');
+              const batchHires = placedInBatch.length;
+              const batchPackages = placedInBatch.map(s => parseFloat(s.package_ctc)).filter(p => !isNaN(p));
+              const batchAvg = batchPackages.length > 0 ? (batchPackages.reduce((a, b) => a + b, 0) / batchPackages.length) : 0;
+              const batchMax = batchPackages.length > 0 ? Math.max(...batchPackages) : 0;
+              return (
+                <>
+                  <DrillDownPanel selected={selected} data={drillData} loading={drillLoading} onClose={()=>setSelected(null)}/>
+                  
+                  {/* Placed Students Directory */}
+                  <div className="app-card border-emerald-500/20 overflow-hidden animate-in slide-in-from-bottom-3 fade-in duration-300 mt-6">
+                    {/* Section header */}
+                    <div className="flex items-center justify-between px-7 py-5 bg-gradient-to-r from-emerald-500/5 to-transparent border-b border-emerald-500/10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-6 bg-emerald-500 rounded-full"/>
+                        <div>
+                          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Directory</p>
+                          <h3 className="text-base font-black tracking-tight">Placed Students · Batch of {selected.value}</h3>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                          <LuAward size={12}/>
+                          <span className="text-[10px] font-black uppercase tracking-wider">
+                            {batchHires} Placed
+                          </span>
+                        </div>
+                        {batchAvg > 0 && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border-subtle">
+                            <LuIndianRupee size={12} className="text-muted"/>
+                            <span className="text-[10px] font-black uppercase tracking-wider">Avg: {batchAvg.toFixed(1)} LPA</span>
+                          </div>
+                        )}
+                        {batchMax > 0 && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary">
+                            <LuIndianRupee size={12} className="text-primary"/>
+                            <span className="text-[10px] font-black uppercase tracking-wider">Max: {batchMax.toFixed(1)} LPA</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-border-subtle bg-background/50">
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Student</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Register Number</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Dept</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Placed Company</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted text-right">Offered CTC</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border-subtle">
+                          {batchHires === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-6 py-12 text-center text-muted font-bold text-sm">
+                                No placed students found in database for Batch of {selected.value}.
+                              </td>
+                            </tr>
+                          ) : (
+                            placedInBatch.map((student) => {
+                              return (
+                                <tr key={student.id} className="group hover:bg-emerald-500/[0.01] transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-black text-xs shrink-0">
+                                        {student.name.split(' ').map((n: string) => n[0]).join('')}
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-sm leading-none mb-1 text-foreground group-hover:text-emerald-600 transition-colors">{student.name}</p>
+                                        <p className="text-muted text-[10px] font-medium uppercase tracking-wider">{student.email}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className="text-sm font-bold text-muted-foreground">{student.regNo}</span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className="text-sm font-bold text-foreground/80">{student.dept}</span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2.5">
+                                      <CompanyLogo name={student.company || 'Unknown'} size={28} rounded="rounded-lg shadow-sm" />
+                                      <span className="text-sm font-black text-foreground">{student.company}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg">
+                                      <LuIndianRupee size={11} />
+                                      {student.package_ctc ? `${student.package_ctc} LPA` : '—'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </>
         )}
       </div>

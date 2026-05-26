@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getBatchRangeFromYear } from '@/lib/batch-utils';
 
 function _genYears(base: number, mult = 1) {
   const y = new Date().getFullYear();
@@ -56,11 +57,12 @@ const FALLBACK_COMPANY_DEPTS: Record<string, { name: string; hires: number; avgC
 };
 
 export async function getDashboardStats() {
-  const [students, companies, drives, offers] = await Promise.all([
+  const [students, companies, drives, offers, placedStudents] = await Promise.all([
     supabase.from('students').select('*', { count: 'exact', head: true }),
     supabase.from('companies').select('*', { count: 'exact', head: true }),
     supabase.from('job_drives').select('*', { count: 'exact', head: true }),
     supabase.from('offers').select('*', { count: 'exact', head: true }),
+    supabase.from('students').select('*', { count: 'exact', head: true }).eq('placement_status', 'placed'),
   ]);
 
   return {
@@ -68,6 +70,7 @@ export async function getDashboardStats() {
     totalCompanies: companies.count || 0,
     totalDrives: drives.count || 0,
     totalOffers: offers.count || 0,
+    placedStudents: placedStudents.count || 0,
   };
 }
 
@@ -215,11 +218,11 @@ export async function getDepartmentAnalytics() {
       .from('offers')
       .select('package_ctc, students(department)');
 
-    const deptMap: Record<string, { total: number; placed: number; ctcSum: number; ctcCount: number }> = {};
+    const deptMap: Record<string, { total: number; placed: number; ctcSum: number; ctcCount: number; maxCTC: number }> = {};
 
     (students || []).forEach((s: any) => {
       const dept = s.department || 'Unknown';
-      if (!deptMap[dept]) deptMap[dept] = { total: 0, placed: 0, ctcSum: 0, ctcCount: 0 };
+      if (!deptMap[dept]) deptMap[dept] = { total: 0, placed: 0, ctcSum: 0, ctcCount: 0, maxCTC: 0 };
       deptMap[dept].total++;
       if (s.placement_status === 'placed') deptMap[dept].placed++;
     });
@@ -231,6 +234,9 @@ export async function getDepartmentAnalytics() {
       if (!isNaN(val) && val > 0) {
         deptMap[dept].ctcSum += val;
         deptMap[dept].ctcCount++;
+        if (val > deptMap[dept].maxCTC) {
+          deptMap[dept].maxCTC = val;
+        }
       }
     });
 
@@ -242,20 +248,21 @@ export async function getDepartmentAnalytics() {
         unplaced: d.total - d.placed,
         placementRate: d.total ? Math.round((d.placed / d.total) * 100) : 0,
         avgCTC: d.ctcCount ? parseFloat((d.ctcSum / d.ctcCount).toFixed(1)) : 0,
+        maxCTC: d.maxCTC || 0,
       }))
       .sort((a, b) => b.placementRate - a.placementRate);
   } catch {
     return [
-      { name: 'AI&DS', total: 72, placed: 65, unplaced: 7, placementRate: 90, avgCTC: 14.5 },
-      { name: 'AI&ML', total: 68, placed: 60, unplaced: 8, placementRate: 88, avgCTC: 14.0 },
-      { name: 'CSE',   total: 95, placed: 85, unplaced: 10, placementRate: 89, avgCTC: 12.5 },
-      { name: 'CYS',   total: 62, placed: 55, unplaced: 7, placementRate: 88, avgCTC: 11.8 },
-      { name: 'CSBS',  total: 58, placed: 50, unplaced: 8, placementRate: 86, avgCTC: 11.0 },
-      { name: 'CCE',   total: 55, placed: 48, unplaced: 7, placementRate: 87, avgCTC: 10.5 },
-      { name: 'ECE',   total: 88, placed: 72, unplaced: 16, placementRate: 82, avgCTC: 9.2 },
-      { name: 'EEE',   total: 72, placed: 60, unplaced: 12, placementRate: 83, avgCTC: 8.5 },
-      { name: 'MECH',  total: 60, placed: 45, unplaced: 15, placementRate: 75, avgCTC: 6.8 },
-      { name: 'IT',    total: 90, placed: 80, unplaced: 10, placementRate: 89, avgCTC: 12.0 },
+      { name: 'AI&DS', total: 72, placed: 65, unplaced: 7, placementRate: 90, avgCTC: 14.5, maxCTC: 28.5 },
+      { name: 'AI&ML', total: 68, placed: 60, unplaced: 8, placementRate: 88, avgCTC: 14.0, maxCTC: 26.5 },
+      { name: 'CSE',   total: 95, placed: 85, unplaced: 10, placementRate: 89, avgCTC: 12.5, maxCTC: 32.0 },
+      { name: 'CYS',   total: 62, placed: 55, unplaced: 7, placementRate: 88, avgCTC: 11.8, maxCTC: 22.0 },
+      { name: 'CSBS',  total: 58, placed: 50, unplaced: 8, placementRate: 86, avgCTC: 11.0, maxCTC: 20.0 },
+      { name: 'CCE',   total: 55, placed: 48, unplaced: 7, placementRate: 87, avgCTC: 10.5, maxCTC: 18.0 },
+      { name: 'ECE',   total: 88, placed: 72, unplaced: 16, placementRate: 82, avgCTC: 9.2, maxCTC: 16.0 },
+      { name: 'EEE',   total: 72, placed: 60, unplaced: 12, placementRate: 83, avgCTC: 8.5, maxCTC: 14.0 },
+      { name: 'MECH',  total: 60, placed: 45, unplaced: 15, placementRate: 75, avgCTC: 6.8, maxCTC: 12.0 },
+      { name: 'IT',    total: 90, placed: 80, unplaced: 10, placementRate: 89, avgCTC: 12.0, maxCTC: 24.0 },
     ];
   }
 }
@@ -504,7 +511,7 @@ export async function generateStudentReport(studentId: string) {
       ['Register Number', student.register_number || 'N/A'],
       ['Email Address', student.users?.email || 'N/A'],
       ['Department', student.department || 'N/A'],
-      ['Batch Year', student.year || 'N/A'],
+      ['Batch Year', student.year ? (() => { const r = getBatchRangeFromYear(student.year); return `${r.startYear}-${r.endYear}`; })() : 'N/A'],
     ]
   });
 

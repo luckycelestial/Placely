@@ -1,6 +1,5 @@
 "use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   LuShield, 
   LuBell, 
@@ -9,9 +8,14 @@ import {
   LuSettings, 
   LuSave, 
   LuBriefcase, 
-  LuChevronRight
+  LuChevronRight,
+  LuChevronLeft,
+  LuCalendar,
+  LuCircleCheck
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
+import { getSystemSettings, updateSystemSettings } from "@/services/settings";
+import { getBatchList, getRomanYear } from "@/lib/batch-utils";
 
 const SECTIONS = [
   { id: "general", title: "General", icon: LuSettings, description: "College identity and basic info." },
@@ -24,6 +28,34 @@ const SECTIONS = [
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState("general");
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await getSystemSettings();
+        setIsCompleted(data.isAcademicYearCompleted);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingSettings(false);
+      }
+    }
+    load();
+  }, []);
+
+  const handleToggleCompletion = async () => {
+    const nextVal = !isCompleted;
+    setIsCompleted(nextVal);
+    try {
+      await updateSystemSettings({ isAcademicYearCompleted: nextVal });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const activeBatches = getBatchList(isCompleted);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
@@ -71,44 +103,129 @@ export default function SettingsPage() {
         {/* Settings Content */}
         <div className="flex-1 space-y-6">
           {activeSection === "general" && (
-            <div className="bg-surface rounded-3xl border border-border-subtle shadow-soft overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="p-8 border-b border-border-subtle">
-                <h3 className="text-lg font-black tracking-tight mb-1">General Configuration</h3>
-                <p className="text-sm font-medium text-muted">Basic institutional details and contact information.</p>
+            <div className="space-y-6">
+              <div className="bg-surface rounded-3xl border border-border-subtle shadow-soft overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="p-8 border-b border-border-subtle">
+                  <h3 className="text-lg font-black tracking-tight mb-1">General Configuration</h3>
+                  <p className="text-sm font-medium text-muted">Basic institutional details and contact information.</p>
+                </div>
+                <div className="p-8 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted ml-1">College Name</label>
+                      <input 
+                        type="text" 
+                        defaultValue="National Institute of Technology"
+                        className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted ml-1">College Short Name</label>
+                      <input 
+                        type="text" 
+                        defaultValue="NIT"
+                        className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted ml-1">Primary Email</label>
+                      <input 
+                        type="email" 
+                        defaultValue="placements@college.edu"
+                        className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted ml-1">Website URL</label>
+                      <input 
+                        type="url" 
+                        defaultValue="https://college.edu"
+                        className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="p-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-muted ml-1">College Name</label>
-                    <input 
-                      type="text" 
-                      defaultValue="National Institute of Technology"
-                      className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                    />
+
+              {/* Academic Year Completion Control */}
+              <div className="bg-surface rounded-3xl border border-border-subtle shadow-soft overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="p-8 border-b border-border-subtle">
+                  <h3 className="text-lg font-black tracking-tight mb-1">Academic Year Batch Control</h3>
+                  <p className="text-sm font-medium text-muted">Manage progression of active batches and incoming enrollments.</p>
+                </div>
+                <div className="p-8 space-y-8">
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 rounded-2xl bg-primary/[0.03] border border-primary/10">
+                    <div className="space-y-1 max-w-xl">
+                      <p className="text-sm font-black flex items-center gap-2">
+                        <LuCalendar size={18} className="text-primary" />
+                        Academic Year Completion Status
+                      </p>
+                      <p className="text-xs text-muted-foreground/80 font-medium leading-relaxed mt-1">
+                        Toggling this transitions the college's active year. When enabled, final year students are marked as graduated and the incoming student batch becomes active.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {/* Revert/Backward Button */}
+                      <button
+                        onClick={async () => {
+                          if (isCompleted) {
+                            setIsCompleted(false);
+                            try {
+                              await updateSystemSettings({ isAcademicYearCompleted: false });
+                            } catch (err) {
+                              console.error(err);
+                            }
+                          }
+                        }}
+                        disabled={!isCompleted}
+                        className={cn(
+                          "flex items-center gap-2 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-wider transition-all shadow-sm shrink-0 border",
+                          !isCompleted
+                            ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
+                            : "bg-white text-foreground border-border-subtle hover:bg-slate-50 hover:scale-105 active:scale-95 cursor-pointer"
+                        )}
+                      >
+                        <LuChevronLeft size={16} />
+                        Revert Batch
+                      </button>
+
+                      {/* Advance/Forward Button */}
+                      <button
+                        onClick={async () => {
+                          if (!isCompleted) {
+                            setIsCompleted(true);
+                            try {
+                              await updateSystemSettings({ isAcademicYearCompleted: true });
+                            } catch (err) {
+                              console.error(err);
+                            }
+                          }
+                        }}
+                        disabled={isCompleted}
+                        className={cn(
+                          "flex items-center gap-2 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-wider transition-all shadow-sm shrink-0 border",
+                          isCompleted
+                            ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
+                            : "bg-primary text-white border-primary hover:bg-primary-dark hover:scale-105 active:scale-95 cursor-pointer"
+                        )}
+                      >
+                        Complete Term
+                        <LuChevronRight size={16} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-muted ml-1">College Short Name</label>
-                    <input 
-                      type="text" 
-                      defaultValue="NIT"
-                      className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-muted ml-1">Primary Email</label>
-                    <input 
-                      type="email" 
-                      defaultValue="placements@college.edu"
-                      className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-muted ml-1">Website URL</label>
-                    <input 
-                      type="url" 
-                      defaultValue="https://college.edu"
-                      className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                    />
+
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-primary">Active Batches Live Preview</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                      {activeBatches.map((batch) => (
+                        <div key={batch.value} className="p-4 rounded-2xl border border-border-subtle bg-background hover:shadow-md transition-shadow">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted">{getRomanYear(batch.yearNum)} Year</p>
+                          <p className="text-lg font-black mt-2 text-foreground tracking-tight">{batch.label.split(' ')[0]}</p>
+                          <span className="inline-block mt-2 text-[9px] font-black uppercase tracking-widest bg-primary/5 text-primary px-2 py-0.5 rounded-full">Active</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -145,7 +262,6 @@ export default function SettingsPage() {
                   <div className="space-y-3">
                     {[
                       { label: "One Student One Job Policy", desc: "Allow students to apply for multiple jobs even after receiving one offer.", enabled: false },
-                      { label: "Automatic Resume Verification", desc: "Use AI to verify uploaded resumes against profile data.", enabled: true },
                       { label: "Dream Company Provision", desc: "Allow students to apply for 'Dream' companies after one regular offer.", enabled: true }
                     ].map((pref) => (
                       <div key={pref.label} className="flex items-center justify-between p-4 rounded-2xl border border-border-subtle hover:bg-background transition-colors">

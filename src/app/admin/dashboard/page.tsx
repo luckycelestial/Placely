@@ -103,9 +103,11 @@ export default function AdminDashboardPage() {
         totalCompanies: dashboardStats.totalCompanies,
         activeDrives: dashboardStats.totalDrives,
         totalOffers: dashboardStats.totalOffers,
-        placedStudents: 450, // Mock for now until DB has real placement data
+        placedStudents: (dashboardStats as any).placedStudents || 0,
         averagePackage: 8.5,
-        placedPercentage: Math.round((450 / dashboardStats.totalStudents) * 100) || 0
+        placedPercentage: dashboardStats.totalStudents > 0 
+          ? Math.round((((dashboardStats as any).placedStudents || 0) / dashboardStats.totalStudents) * 100) 
+          : 0
       });
 
       // Map activity data to our Activity interface
@@ -219,8 +221,8 @@ export default function AdminDashboardPage() {
           color="primary"
         />
         <StatCard 
-          title="Placed Ratio" 
-          value={`${stats.placedPercentage}%`} 
+          title="Placed / Total" 
+          value={`${stats.placedStudents} / ${stats.totalStudents}`} 
           icon={LuCircleCheck} 
           trend="+8%" 
           color="green"
@@ -242,23 +244,6 @@ export default function AdminDashboardPage() {
         />
       </div>
 
-      {/* Urgent Alerts */}
-      {pendingApprovals.length > 0 && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5">
-            <LuTriangleAlert size={20} className="text-red-600" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-red-800 font-bold text-sm">Action Required: {pendingApprovals.length} Pending Verifications</h3>
-            <p className="text-red-700/80 text-xs mt-1 leading-relaxed">
-              Students are waiting for profile or offer letter verifications.
-            </p>
-          </div>
-          <Link href="/admin/offers" className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shrink-0 whitespace-nowrap shadow-lg shadow-red-500/20">
-            Review Now
-          </Link>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content: Recent Drives */}

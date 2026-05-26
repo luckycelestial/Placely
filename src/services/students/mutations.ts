@@ -255,6 +255,7 @@ export async function updateStudentProfile(studentId: string, profileData: any) 
     if (profileData.linkedin_url !== undefined) profileUpdates.linkedin_url = profileData.linkedin_url;
     if (profileData.github_url !== undefined) profileUpdates.github_url = profileData.github_url;
     if (profileData.portfolio_url !== undefined) profileUpdates.portfolio_url = profileData.portfolio_url;
+    if (profileData.notes !== undefined) profileUpdates.notes = profileData.notes;
 
     if (Object.keys(profileUpdates).length > 0) {
       const { data: eP } = await supabase.from('student_profiles').select('id').eq('student_id', studentId).single();
@@ -283,6 +284,21 @@ export async function updateStudentProfile(studentId: string, profileData: any) 
       } else {
         const { error: contactError } = await supabase.from('student_contacts').insert([{ student_id: studentId, ...contactUpdates, updated_at: new Date().toISOString() }]);
         if (contactError) throw contactError;
+      }
+    }
+
+    // Update preferences (placement interest)
+    const preferenceUpdates: any = {};
+    if (profileData.placement_interest !== undefined) preferenceUpdates.placement_interest = profileData.placement_interest;
+
+    if (Object.keys(preferenceUpdates).length > 0) {
+      const { data: ePref } = await supabase.from('student_preferences').select('id').eq('student_id', studentId).single();
+      if (ePref) {
+        const { error: prefError } = await supabase.from('student_preferences').update({ ...preferenceUpdates, updated_at: new Date().toISOString() }).eq('id', ePref.id);
+        if (prefError) throw prefError;
+      } else {
+        const { error: prefError } = await supabase.from('student_preferences').insert([{ student_id: studentId, ...preferenceUpdates, updated_at: new Date().toISOString() }]);
+        if (prefError) throw prefError;
       }
     }
 

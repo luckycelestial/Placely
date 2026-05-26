@@ -338,7 +338,7 @@ export default function ATSTrackerPage() {
   );
 
   return (
-    <div className="space-y-6 h-[calc(100vh-140px)] flex flex-col relative">
+    <div className="space-y-6 h-[calc(100vh-184px)] md:h-[calc(100vh-112px)] flex flex-col relative">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between shrink-0">
         <div>
           <h1 className="text-2xl font-black tracking-tight">ATS Tracker</h1>
@@ -529,7 +529,7 @@ export default function ATSTrackerPage() {
                                         db.updateApplicationCtc(candidate.id, e.target.value).then(() => {
                                           toast.success("CTC updated");
                                           setApplications(prev => prev.map(app => app.id === candidate.id ? {...app, ctc: e.target.value} : app));
-                                        }).catch((error) => {
+                                        }).catch((error: any) => {
                                           console.error("CTC Update Error:", error);
                                           toast.error("Failed to update CTC");
                                         });

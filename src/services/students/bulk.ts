@@ -1,7 +1,13 @@
 import { supabase } from '@/lib/supabase';
+import { getSystemSettings } from '@/services/settings';
 
 export async function bulkCreateStudents(studentsData: any[]) {
   const results = [];
+  const settings = await getSystemSettings();
+  const isCompleted = settings.isAcademicYearCompleted;
+  const cy = new Date().getFullYear();
+  const referenceYear = isCompleted ? cy + 1 : cy;
+
   for (const student of studentsData) {
     try {
       const { data: userData, error: userError } = await supabase
@@ -17,6 +23,11 @@ export async function bulkCreateStudents(studentsData: any[]) {
 
       if (userError) throw userError;
 
+      let dbYear = parseInt(student.year);
+      if (!isNaN(dbYear) && dbYear >= 1 && dbYear <= 4) {
+        dbYear = referenceYear + 4 - dbYear;
+      }
+
       const { data: studentRecord, error: studentError } = await supabase
         .from('students')
         .insert([{
@@ -26,7 +37,7 @@ export async function bulkCreateStudents(studentsData: any[]) {
           gender: student.gender || null,
           date_of_birth: student.date_of_birth || student.dob || null,
           department: student.department || student.dept,
-          year: parseInt(student.year),
+          year: dbYear,
           placement_status: 'unplaced',
           profile_completion: 0,
           verification_status: 'pending'

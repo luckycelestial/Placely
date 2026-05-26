@@ -1,18 +1,27 @@
 import { supabase } from '@/lib/supabase';
 
-export async function getApplications(options: { driveId?: string } = {}) {
+export async function getApplications(options: { 
+  driveId?: string; 
+  batch?: string; 
+  department?: string; 
+  startDate?: string; 
+  endDate?: string; 
+} = {}) {
   let query = supabase
     .from('applications')
     .select(`
       *,
       students (
         register_number,
+        department,
+        year,
         users (
           name
         )
       ),
       job_drives (
         role_title,
+        batch,
         companies (
           name
         )
@@ -25,7 +34,38 @@ export async function getApplications(options: { driveId?: string } = {}) {
 
   const { data, error } = await query;
   if (error) throw error;
-  return data;
+
+  let filteredData = data || [];
+
+  if (options.batch && options.batch !== "All Batches") {
+    filteredData = filteredData.filter((app: any) => {
+      const drive = Array.isArray(app.job_drives) ? app.job_drives[0] : app.job_drives;
+      return drive?.batch === options.batch;
+    });
+  }
+
+  if (options.department && options.department !== "All Departments") {
+    filteredData = filteredData.filter((app: any) => {
+      const student = Array.isArray(app.students) ? app.students[0] : app.students;
+      return student?.department === options.department;
+    });
+  }
+
+  if (options.startDate) {
+    const start = new Date(options.startDate).getTime();
+    filteredData = filteredData.filter((app: any) => {
+      return app.applied_at && new Date(app.applied_at).getTime() >= start;
+    });
+  }
+
+  if (options.endDate) {
+    const end = new Date(options.endDate).getTime();
+    filteredData = filteredData.filter((app: any) => {
+      return app.applied_at && new Date(app.applied_at).getTime() <= end;
+    });
+  }
+
+  return filteredData;
 }
 
 export async function getStudentApplications(studentId: string) {
@@ -228,3 +268,11 @@ export async function bulkCreateOffers(offersData: any[]) {
   return results;
 }
 
+export async function updateApplicationCtc(id: string, ctc: string) {
+  const { error } = await supabase
+    .from('applications')
+    .update({ outcome: ctc })
+    .eq('id', id);
+  if (error) throw error;
+  return { success: true };
+}

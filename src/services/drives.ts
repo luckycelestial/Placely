@@ -209,3 +209,52 @@ export async function deleteTemplate(id: string) {
   return true;
 }
 
+export async function updateDriveStages(driveId: string, stages: any[]) {
+  const { data: drive, error: fetchError } = await supabase
+    .from('job_drives')
+    .select('eligibility_rules')
+    .eq('id', driveId)
+    .single();
+    
+  if (fetchError) throw fetchError;
+  
+  const currentRules = (drive?.eligibility_rules as any) || {};
+  const updatedRules = {
+    ...currentRules,
+    stages: stages
+  };
+  
+  const { error: updateError } = await supabase
+    .from('job_drives')
+    .update({ eligibility_rules: updatedRules })
+    .eq('id', driveId);
+    
+  if (updateError) throw updateError;
+  return { success: true };
+}
+
+export async function updateAllDriveStages(stages: any[]) {
+  const { data: drives, error: fetchError } = await supabase
+    .from('job_drives')
+    .select('id, eligibility_rules');
+    
+  if (fetchError) throw fetchError;
+  
+  if (!drives || drives.length === 0) return { success: true };
+  
+  const updates = drives.map(async (drive) => {
+    const currentRules = (drive.eligibility_rules as any) || {};
+    const updatedRules = {
+      ...currentRules,
+      stages: stages
+    };
+    return supabase
+      .from('job_drives')
+      .update({ eligibility_rules: updatedRules })
+      .eq('id', drive.id);
+  });
+  
+  await Promise.all(updates);
+  return { success: true };
+}
+

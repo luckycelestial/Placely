@@ -17,13 +17,18 @@ import {
   LuEllipsis,
   LuCircleCheck,
   LuX,
+  LuCalendar,
+  LuEye
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
 import * as XLSX from "xlsx";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useMemo, useCallback } from "react";
+import { getSystemSettings } from "@/services/settings";
+import { getBatchList, getBatchRangeFromYear } from "@/lib/batch-utils";
 
 const DEPARTMENTS = ["All Departments", "AI&DS", "AI&ML", "CSE", "CYS", "CSBS", "CCE", "ECE", "EEE", "MECH", "IT"];
 const STATUSES = ["All Statuses", "Placed", "Unplaced", "Applied", "In-Process"];
@@ -61,6 +66,8 @@ function StudentsPageContent() {
   const [search, setSearch] = useState("");
   const [totalStudents, setTotalStudents] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [studentApplications, setStudentApplications] = useState<any[]>([]);
+  const [loadingApplications, setLoadingApplications] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
@@ -94,7 +101,9 @@ function StudentsPageContent() {
     minCgpa: 0,
     maxCgpa: 10,
     minLeetcode: 0,
-    specialization: "All Domains"
+    specialization: "All Domains",
+    dept: "All Departments",
+    status: "All Statuses"
   });
   
   // Add Student Modal State
@@ -104,9 +113,33 @@ function StudentsPageContent() {
     email: "",
     regNo: "",
     dept: "CSE",
-    year: "1"
+    year: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const data = await getSystemSettings();
+        setIsCompleted(data.isAcademicYearCompleted);
+        
+        const active = getBatchList(data.isAcademicYearCompleted);
+        const firstYearBatchValue = active[3]?.value || "";
+        setNewStudent(prev => ({ ...prev, year: firstYearBatchValue }));
+      } catch (err) {
+        console.error("Failed to load settings:", err);
+      }
+    }
+    loadSettings();
+  }, [isAddModalOpen]);
+
+  const batchOptions = useMemo(() => {
+    return getBatchList(isCompleted).map(b => ({
+      value: b.value,
+      label: b.label
+    }));
+  }, [isCompleted]);
   
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [bulkType, setBulkType] = useState<"students" | "results">("students");
@@ -199,7 +232,7 @@ function StudentsPageContent() {
     try {
       await db.createStudent(newStudent);
       setIsAddModalOpen(false);
-      setNewStudent({ name: "", email: "", regNo: "", dept: "CSE", year: "1" });
+      setNewStudent({ name: "", email: "", regNo: "", dept: "CSE", year: batchOptions[3]?.value || "" });
       loadStudents(); // Refresh list
     } catch (error) {
       console.error("Failed to add student:", error);
@@ -240,7 +273,7 @@ function StudentsPageContent() {
 
       {/* Filters & Search */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        <div className="md:col-span-5 relative">
+        <div className="md:col-span-10 relative">
           <LuSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
           <input 
             type="text" 
@@ -250,56 +283,31 @@ function StudentsPageContent() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="md:col-span-3">
-          <div className="flex gap-1.5 p-1 bg-surface border border-border-subtle rounded-2xl h-full items-center px-3 overflow-x-auto no-scrollbar">
-            {DEPARTMENTS.map(dept => (
-              <button
-                key={dept}
-                onClick={() => updateFilters({ dept })}
-                className={cn(
-                  "whitespace-nowrap px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all",
-                  deptFilter === dept 
-                    ? "bg-primary text-white shadow-sm" 
-                    : "text-muted hover:bg-background"
-                )}
-              >
-                {dept.split(' ')[0]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="md:col-span-3">
-          <div className="flex gap-1.5 p-1 bg-surface border border-border-subtle rounded-2xl h-full items-center px-3 overflow-x-auto no-scrollbar">
-            {STATUSES.map(status => (
-              <button
-                key={status}
-                onClick={() => updateFilters({ status })}
-                className={cn(
-                  "whitespace-nowrap px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all",
-                  statusFilter === status 
-                    ? "bg-primary text-white shadow-sm" 
-                    : "text-muted hover:bg-background"
-                )}
-              >
-                {status.split(' ')[0]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="md:col-span-1">
+        <div className="md:col-span-2">
           <button 
             onClick={() => {
-              setStagedFilters(advancedFilters);
+              setStagedFilters({
+                minCgpa: advancedFilters.minCgpa,
+                maxCgpa: advancedFilters.maxCgpa,
+                minLeetcode: advancedFilters.minLeetcode,
+                specialization: advancedFilters.specialization,
+                dept: deptFilter,
+                status: statusFilter
+              });
               setIsFilterDrawerOpen(true);
             }}
             className={cn(
-              "w-full h-full flex items-center justify-center rounded-2xl border transition-all shadow-sm",
-              (advancedFilters.minCgpa > 0 || advancedFilters.minLeetcode > 0 || advancedFilters.specialization !== "All Domains")
+              "w-full h-full py-3 flex items-center justify-center rounded-2xl border transition-all shadow-sm text-sm font-bold gap-2",
+              (advancedFilters.minCgpa > 0 || advancedFilters.minLeetcode > 0 || advancedFilters.specialization !== "All Domains" || deptFilter !== "All Departments" || statusFilter !== "All Statuses")
                 ? "bg-primary/5 border-primary text-primary" 
                 : "bg-surface border-border-subtle text-muted hover:bg-background"
             )}
           >
-            <LuFilter size={20} />
+            <LuFilter size={18} />
+            Filters
+            {(advancedFilters.minCgpa > 0 || advancedFilters.minLeetcode > 0 || advancedFilters.specialization !== "All Domains" || deptFilter !== "All Departments" || statusFilter !== "All Statuses") && (
+              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+            )}
           </button>
         </div>
       </div>
@@ -311,18 +319,17 @@ function StudentsPageContent() {
             <thead>
               <tr className="border-b border-border-subtle bg-background/50">
                 <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Student</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Department</th>
+                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Dept & Batch</th>
                 <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted text-center">CGPA</th>
                 <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Technical</th>
                 <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Profile</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Verification</th>
                 <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Status</th>
                 <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {loading ? (
-                <Sk.TableRows cols={8} rows={8} />
+                <Sk.TableRows cols={7} rows={8} />
               ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-muted font-bold">
@@ -366,7 +373,7 @@ function StudentsPageContent() {
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {(student.specializations || []).slice(0, 2).map((spec: string) => (
-                            <span key={spec} className="text-[9px] font-bold bg-black/5 text-muted px-1.5 py-0.5 rounded-md border border-border-subtle/50">
+                             <span key={spec} className="text-[9px] font-bold bg-black/5 text-muted px-1.5 py-0.5 rounded-md border border-border-subtle/50">
                               {spec}
                             </span>
                           ))}
@@ -393,31 +400,18 @@ function StudentsPageContent() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        {student.verification === "Verified" ? (
-                          <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-lg">
-                            <LuCircleCheck size={14} />
-                            Verified
-                          </span>
-                        ) : student.verification === "Pending" ? (
-                          <span className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-500/10 px-2 py-1 rounded-lg">
-                            <LuClock size={14} />
-                            Reviewing
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-500/10 px-2 py-1 rounded-lg">
-                            <LuTriangleAlert size={14} />
-                            Fix Needed
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
                       {student.status === "Placed" ? (
                         <div>
-                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-lg mb-1">
-                            Placed
-                          </span>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-lg">
+                              Placed
+                            </span>
+                            {(student as any).package_ctc && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-md">
+                                {(student as any).package_ctc}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] font-black text-muted uppercase tracking-wider">{student.company}</p>
                         </div>
                       ) : student.eligible ? (
@@ -461,34 +455,29 @@ function StudentsPageContent() {
                                   <LuUser size={14} />
                                   Edit Profile
                                 </button>
-                                <button 
-                                  onClick={() => handleVerify(student.id, 'verified')}
-                                  className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-background flex items-center gap-2 text-emerald-600"
-                                >
-                                  <LuCircleCheck size={14} />
-                                  Verify Status
-                                </button>
-                                <div className="my-1 border-t border-border-subtle" />
-                                <button 
-                                  onClick={() => handleFlag(student.id)}
-                                  className="w-full px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                >
-                                  <LuTriangleAlert size={14} />
-                                  Flag Record
-                                </button>
                               </div>
                             </>
                           )}
                         </div>
 
                         <button 
-                          onClick={() => {
+                          onClick={async () => {
                             setSelectedStudent(student);
                             setIsDetailOpen(true);
+                            setLoadingApplications(true);
+                            try {
+                              const apps = await db.getStudentApplications(student.id);
+                              setStudentApplications(apps);
+                            } catch (err) {
+                              console.error("Failed to load student applications", err);
+                            } finally {
+                              setLoadingApplications(false);
+                            }
                           }}
                           className="h-8 w-8 flex items-center justify-center rounded-lg bg-surface border border-border-subtle shadow-sm hover:text-primary hover:border-primary/30 transition-all"
+                          title="View Profile"
                         >
-                          <LuChevronRight size={18} />
+                          <LuEye size={18} />
                         </button>
                       </div>
                     </td>
@@ -568,15 +557,10 @@ function StudentsPageContent() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Year</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Batch</label>
                       <SearchableSelect 
-                        options={[
-                          { value: "1", label: "1st Year" },
-                          { value: "2", label: "2nd Year" },
-                          { value: "3", label: "3rd Year" },
-                          { value: "4", label: "4th Year" }
-                        ]}
-                        value={editingStudent.year}
+                        options={batchOptions}
+                        value={editingStudent ? String(getBatchRangeFromYear(editingStudent.year).endYear) : ''}
                         onChange={value => setEditingStudent({...editingStudent, year: value})}
                       />
                     </div>
@@ -760,14 +744,9 @@ function StudentsPageContent() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-widest text-muted mb-2">Year</label>
+                  <label className="block text-xs font-black uppercase tracking-widest text-muted mb-2">Batch</label>
                   <SearchableSelect 
-                    options={[
-                      { value: "1", label: "1st Year" },
-                      { value: "2", label: "2nd Year" },
-                      { value: "3", label: "3rd Year" },
-                      { value: "4", label: "4th Year" }
-                    ]}
+                    options={batchOptions}
                     value={newStudent.year}
                     onChange={value => setNewStudent({...newStudent, year: value})}
                   />
@@ -952,6 +931,50 @@ function StudentsPageContent() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              {/* Department */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted block">Department</label>
+                <div className="flex flex-wrap gap-2">
+                  {DEPARTMENTS.map(dept => (
+                    <button
+                      key={dept}
+                      onClick={() => setStagedFilters({...stagedFilters, dept})}
+                      type="button"
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border",
+                        stagedFilters.dept === dept 
+                          ? "bg-primary text-white border-primary shadow-tactile" 
+                          : "bg-background border-border-subtle text-muted hover:border-primary/30"
+                      )}
+                    >
+                      {dept}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Placement Status */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted block">Placement Status</label>
+                <div className="flex flex-wrap gap-2">
+                  {STATUSES.map(status => (
+                    <button
+                      key={status}
+                      onClick={() => setStagedFilters({...stagedFilters, status})}
+                      type="button"
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border",
+                        stagedFilters.status === status 
+                          ? "bg-primary text-white border-primary shadow-tactile" 
+                          : "bg-background border-border-subtle text-muted hover:border-primary/30"
+                      )}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* CGPA Range */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -962,19 +985,25 @@ function StudentsPageContent() {
                   <div className="space-y-1.5">
                     <span className="text-[10px] text-muted font-bold">MIN</span>
                     <input 
-                      type="range" min="0" max="10" step="0.1"
-                      className="w-full accent-primary"
+                      type="number" min="0" max="10" step="0.1"
+                      className="w-full px-4 py-2.5 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
                       value={stagedFilters.minCgpa}
-                      onChange={e => setStagedFilters({...stagedFilters, minCgpa: parseFloat(e.target.value)})}
+                      onChange={e => {
+                        const val = parseFloat(e.target.value);
+                        setStagedFilters({...stagedFilters, minCgpa: isNaN(val) ? 0 : val});
+                      }}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <span className="text-[10px] text-muted font-bold">MAX</span>
                     <input 
-                      type="range" min="0" max="10" step="0.1"
-                      className="w-full accent-primary"
+                      type="number" min="0" max="10" step="0.1"
+                      className="w-full px-4 py-2.5 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
                       value={stagedFilters.maxCgpa}
-                      onChange={e => setStagedFilters({...stagedFilters, maxCgpa: parseFloat(e.target.value)})}
+                      onChange={e => {
+                        const val = parseFloat(e.target.value);
+                        setStagedFilters({...stagedFilters, maxCgpa: isNaN(val) ? 10 : val});
+                      }}
                     />
                   </div>
                 </div>
@@ -984,18 +1013,19 @@ function StudentsPageContent() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted">LeetCode Threshold</label>
-                  <span className="text-xs font-bold text-primary">{stagedFilters.minLeetcode}+ Problems</span>
                 </div>
-                <input 
-                  type="range" min="0" max="1000" step="50"
-                  className="w-full accent-primary"
-                  value={stagedFilters.minLeetcode}
-                  onChange={e => setStagedFilters({...stagedFilters, minLeetcode: parseInt(e.target.value)})}
-                />
-                <div className="flex justify-between text-[10px] font-bold text-muted">
-                  <span>0</span>
-                  <span>500</span>
-                  <span>1000+</span>
+                <div className="relative group">
+                  <input 
+                    type="number" min="0" step="10"
+                    placeholder="Min solved problems"
+                    className="w-full px-4 py-2.5 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all pr-20"
+                    value={stagedFilters.minLeetcode}
+                    onChange={e => {
+                      const val = parseInt(e.target.value);
+                      setStagedFilters({...stagedFilters, minLeetcode: isNaN(val) ? 0 : val});
+                    }}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-black text-primary uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded">Problems</span>
                 </div>
               </div>
 
@@ -1007,6 +1037,7 @@ function StudentsPageContent() {
                     <button
                       key={domain}
                       onClick={() => setStagedFilters({...stagedFilters, specialization: domain})}
+                      type="button"
                       className={cn(
                         "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border",
                         stagedFilters.specialization === domain 
@@ -1027,8 +1058,11 @@ function StudentsPageContent() {
                   minCgpa: 0,
                   maxCgpa: 10,
                   minLeetcode: 0,
-                  specialization: "All Domains"
+                  specialization: "All Domains",
+                  dept: "All Departments",
+                  status: "All Statuses"
                 })}
+                type="button"
                 className="flex-1 py-3 rounded-2xl bg-surface border border-border-subtle text-xs font-black uppercase tracking-widest hover:bg-black/5 transition-all"
               >
                 Reset
@@ -1039,10 +1073,13 @@ function StudentsPageContent() {
                     minCgpa: stagedFilters.minCgpa.toString(),
                     maxCgpa: stagedFilters.maxCgpa.toString(),
                     minLeetcode: stagedFilters.minLeetcode.toString(),
-                    specialization: stagedFilters.specialization
+                    specialization: stagedFilters.specialization,
+                    dept: stagedFilters.dept,
+                    status: stagedFilters.status
                   });
                   setIsFilterDrawerOpen(false);
                 }}
+                type="button"
                 className="flex-1 py-3 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-widest shadow-tactile hover:bg-primary-dark transition-all"
               >
                 Apply
@@ -1107,16 +1144,12 @@ function StudentsPageContent() {
                       <p className="text-sm font-black">{selectedStudent.dept}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Year of Study</p>
+                      <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Batch</p>
                       <p className="text-sm font-black">{selectedStudent.year}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Status</p>
                       <p className="text-sm font-black">{selectedStudent.status}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Verification</p>
-                      <p className="text-sm font-black">{selectedStudent.verification}</p>
                     </div>
                   </div>
                 </section>
@@ -1161,18 +1194,79 @@ function StudentsPageContent() {
                     </div>
                   </div>
                 </section>
+
+                {/* Recruitment Drive History */}
+                <section>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-muted mb-4 flex items-center gap-2">
+                    <LuBriefcase size={14} />
+                    Recruitment Drive History
+                  </h4>
+                  {loadingApplications ? (
+                    <div className="space-y-3">
+                      <Sk.Block className="h-16 w-full rounded-2xl" />
+                      <Sk.Block className="h-16 w-full rounded-2xl" />
+                    </div>
+                  ) : studentApplications.length === 0 ? (
+                    <p className="text-xs font-bold text-muted italic bg-background/50 border border-border-subtle/50 p-4 rounded-2xl text-center">
+                      No drive attendance records found.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {studentApplications.map((app: any) => {
+                        const drive = app.job_drives || {};
+                        const company = drive.companies || {};
+                        const roundTitle = app.current_stage ? (
+                          app.current_stage === 'applied' ? 'Applied' :
+                          app.current_stage === 'shortlisted' ? 'Shortlisted' :
+                          app.current_stage === 'aptitude' ? 'Aptitude Assessment' :
+                          app.current_stage === 'interview1' ? 'Technical Interview 1' :
+                          app.current_stage === 'interview2' ? 'Technical Interview 2' :
+                          app.current_stage === 'selection' ? 'Offer Discussion' :
+                          app.current_stage === 'offered' ? 'Offered' :
+                          app.current_stage === 'rejected' ? 'Rejected' :
+                          app.current_stage.charAt(0).toUpperCase() + app.current_stage.slice(1)
+                        ) : 'Applied';
+
+                        const isOffered = app.status?.toLowerCase() === 'offered' || app.current_stage?.toLowerCase() === 'offered' || app.status?.toLowerCase() === 'selection';
+                        const isRejected = app.status?.toLowerCase() === 'rejected' || app.current_stage?.toLowerCase() === 'rejected';
+
+                        return (
+                          <div key={app.id} className="p-4 rounded-2xl border border-border-subtle bg-background flex items-center justify-between hover:shadow-md transition-all group">
+                            <div className="flex items-center gap-4 min-w-0">
+                              <CompanyLogo name={company.name || 'Unknown'} size={40} rounded="rounded-xl shadow-tactile" />
+                              <div className="min-w-0">
+                                <h5 className="font-bold text-sm leading-tight text-foreground truncate group-hover:text-primary transition-colors">
+                                  {drive.role_title || 'Software Engineer'}
+                                </h5>
+                                <p className="text-[10px] font-black text-muted uppercase tracking-widest mt-0.5">
+                                  {company.name || 'Unknown Company'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                              <span className={cn(
+                                "px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border",
+                                isOffered ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
+                                isRejected ? "bg-red-500/10 text-red-600 border-red-500/20" :
+                                "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                              )}>
+                                {app.status || 'Applied'}
+                              </span>
+                              <p className="text-[10px] font-bold text-muted">
+                                Round: <span className="text-foreground font-black">{roundTitle}</span>
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
               </div>
             </div>
 
             {/* Footer Actions */}
-            <div className="p-8 border-t border-border-subtle bg-background/30 flex items-center gap-3">
-              <button 
-                onClick={() => handleVerify(selectedStudent.id, 'verified')}
-                disabled={selectedStudent.verification === "Verified"}
-                className="flex-1 py-3 rounded-xl bg-primary text-white font-black text-sm shadow-tactile hover:translate-y-[-1px] transition-all disabled:opacity-50 disabled:translate-y-0"
-              >
-                {selectedStudent.verification === "Verified" ? "Verified" : "Verify Profile"}
-              </button>
+            <div className="p-8 border-t border-border-subtle bg-background/30 flex items-center">
               <button 
                 onClick={async () => {
                   try {
@@ -1186,7 +1280,7 @@ function StudentsPageContent() {
                     console.error("Error generating report:", error);
                   }
                 }}
-                className="flex-1 py-3 rounded-xl border border-border-subtle bg-white font-black text-sm hover:bg-background transition-all"
+                className="w-full py-3 rounded-xl bg-primary text-white font-black text-sm shadow-tactile hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
                 Generate Report
               </button>

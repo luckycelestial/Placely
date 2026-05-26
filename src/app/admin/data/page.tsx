@@ -26,6 +26,8 @@ import {
 } from "react-icons/lu";
 import { db } from "@/services/database";
 import { cn } from "@/lib/utils";
+import { getSystemSettings } from "@/services/settings";
+import { getBatchList } from "@/lib/batch-utils";
 
 interface ColumnMapping {
   source: string;
@@ -41,7 +43,7 @@ const STUDENT_FIELDS = [
   { id: "name", label: "Full Name", required: true, validate: (v: string) => v?.length >= 3 || "Name too short" },
   { id: "email", label: "Email Address", required: true, validate: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Invalid email format" },
   { id: "department", label: "Department", required: true },
-  { id: "year", label: "Year of Study", required: true, validate: (v: any) => [1, 2, 3, 4].includes(Number(v)) || "Must be 1-4" },
+  { id: "year", label: "Batch", required: true, validate: (v: any) => [1, 2, 3, 4].includes(Number(v)) || (Number(v) >= 2000 && Number(v) <= 2100) || "Must be 1-4 or a valid Batch end-year (e.g. 2026)" },
   { id: "roll_number", label: "Roll Number", required: false },
   { id: "gender", label: "Gender", required: false, validate: (v: string) => ["Male", "Female", "Other", ""].includes(v) || "Must be Male, Female, or Other" },
   { id: "date_of_birth", label: "Date of Birth (YYYY-MM-DD)", required: false },
@@ -80,8 +82,25 @@ export default function DataWorkspacePage() {
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [isMappingMode, setIsMappingMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedYear, setSelectedYear] = useState("4");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [isCompleted, setIsCompleted] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<number, string[]>>({});
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getSystemSettings();
+        setIsCompleted(settings.isAcademicYearCompleted);
+        const batches = getBatchList(settings.isAcademicYearCompleted);
+        if (batches.length > 0) {
+          setSelectedYear(batches[0].value);
+        }
+      } catch (error) {
+        console.error("Failed to load system settings:", error);
+      }
+    };
+    loadSettings();
+  }, []);
 
   const [studentsMap, setStudentsMap] = useState<Record<string, string>>({});
   const [companiesMap, setCompaniesMap] = useState<Record<string, string>>({});
@@ -177,7 +196,7 @@ export default function DataWorkspacePage() {
     const dataToUse = activeTab === "live" ? rows : stagingData;
     if (dataToUse.length === 0) return [];
 
-    let keys = Object.keys(dataToUse[0]).filter(k => k !== "id");
+    let keys = Object.keys(dataToUse[0]).filter(k => k !== "id" && k !== "verification_status" && k !== "verification");
     
     // Position student_id / studentId first if present, company_id / companyId if student_id is not present
     const studentIdIndex = keys.findIndex(k => k.toLowerCase() === "student_id" || k.toLowerCase() === "studentid");
@@ -555,12 +574,21 @@ export default function DataWorkspacePage() {
   };
 
   const filteredRows = useMemo(() => {
-    const data = activeTab === "live" ? rows : stagingData;
+    let data = activeTab === "live" ? rows : stagingData;
+    
+    if (activeTable === "students" && selectedYear) {
+      data = data.filter(r => {
+        if (!r.year) return false;
+        const valStr = String(r.year);
+        return valStr.includes(selectedYear) || valStr === selectedYear;
+      });
+    }
+
     if (!searchQuery) return data;
     return data.filter(r => 
       Object.values(r).some(v => String(v).toLowerCase().includes(searchQuery.toLowerCase()))
     );
-  }, [rows, stagingData, activeTab, searchQuery]);
+  }, [rows, stagingData, activeTab, searchQuery, activeTable, selectedYear]);
 
   const rowsForGrid = useMemo(() => {
     const data = [...filteredRows];
@@ -593,15 +621,13 @@ export default function DataWorkspacePage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-2 bg-surface border border-border-subtle rounded-xl min-w-[150px]">
-            <span className="text-[10px] font-black uppercase text-muted">Year</span>
+          <div className="flex items-center gap-2 px-3 py-2 bg-surface border border-border-subtle rounded-xl min-w-[180px]">
+            <span className="text-[10px] font-black uppercase text-muted">Batch</span>
             <SearchableSelect 
-              options={[
-                { value: "1", label: "1st Year" },
-                { value: "2", label: "2nd Year" },
-                { value: "3", label: "3rd Year" },
-                { value: "4", label: "4th Year" }
-              ]}
+              options={getBatchList(isCompleted).map(b => ({
+                value: b.value,
+                label: b.label
+              }))}
               value={selectedYear}
               onChange={setSelectedYear}
             />
