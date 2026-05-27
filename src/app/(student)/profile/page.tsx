@@ -388,7 +388,7 @@ export default function ProfilePage() {
             {physicalAddress ? (
               <p className="font-semibold text-foreground leading-relaxed">{physicalAddress}</p>
             ) : (
-              <p className="text-sm text-muted italic">Not set</p>
+              <p className="text-sm text-muted">Not set</p>
             )}
           </div>
           <div className="p-6 rounded-3xl bg-background border border-border-subtle">
@@ -396,7 +396,7 @@ export default function ProfilePage() {
             {permanentAddress ? (
               <p className="font-semibold text-foreground leading-relaxed">{permanentAddress}</p>
             ) : (
-              <p className="text-sm text-muted italic">Not set</p>
+              <p className="text-sm text-muted">Not set</p>
             )}
           </div>
         </div>

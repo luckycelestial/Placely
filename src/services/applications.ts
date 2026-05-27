@@ -78,6 +78,7 @@ export async function getStudentApplications(studentId: string) {
         drive_type,
         package_ctc,
         location,
+        eligibility_rules,
         companies (
           name,
           logo_url,
@@ -87,7 +88,6 @@ export async function getStudentApplications(studentId: string) {
     `)
     .eq('student_id', studentId)
     .order('applied_at', { ascending: false });
-
   if (error) throw error;
   return data || [];
 }
@@ -104,24 +104,49 @@ export async function applyToDrive(studentId: string, driveId: string) {
     }])
     .select()
     .single();
-
   if (error) throw error;
   return data;
 }
 
+export async function getStudentAppliedDriveIds(studentId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('applications')
+    .select('drive_id')
+    .eq('student_id', studentId);
+  if (error) throw error;
+  return (data || []).map((a: any) => a.drive_id);
+}
+export function resolveStatusFromStage(stageId: string): string {
+  const id = stageId.toLowerCase();
+  if (id === 'applied') return 'Applied';
+  if (id === 'shortlisted') return 'Shortlisted';
+  if (id.includes('reject')) return 'Rejected';
+  if (id.includes('offer') || id.includes('select') || id.includes('accept')) return 'Offered';
+  if (id.includes('join') || id.includes('place')) return 'Joined';
+  return 'In Review';
+}
+
 export async function updateApplicationStage(id: string, stageId: string) {
+  const status = resolveStatusFromStage(stageId);
   const { error } = await supabase
     .from('applications')
-    .update({ status: stageId })
+    .update({ 
+      current_stage: stageId,
+      status: status 
+    })
     .eq('id', id);
   if (error) throw error;
   return { success: true };
 }
 
 export async function bulkUpdateApplicationStage(ids: string[], stageId: string) {
+  const status = resolveStatusFromStage(stageId);
   const { error } = await supabase
     .from('applications')
-    .update({ status: stageId })
+    .update({ 
+      current_stage: stageId,
+      status: status 
+    })
     .in('id', ids);
   if (error) throw error;
   return { success: true };
@@ -192,7 +217,6 @@ export async function bulkCreateOffers(offersData: any[]) {
   const results = [];
   for (const item of offersData) {
     try {
-      // 1. Get student ID from register number
       const { data: student, error: studentError } = await supabase
         .from('students')
         .select('id')
@@ -204,7 +228,6 @@ export async function bulkCreateOffers(offersData: any[]) {
         continue;
       }
 
-      // 2. Get or create company ID from name
       let companyId;
       const { data: company, error: companyError } = await supabase
         .from('companies')
@@ -215,7 +238,6 @@ export async function bulkCreateOffers(offersData: any[]) {
       if (company && !companyError) {
         companyId = company.id;
       } else {
-        // Insert new company if not found
         const { data: newCompany, error: createCompanyError } = await supabase
           .from('companies')
           .insert([{ name: item.company, industry: 'Technology' }])
@@ -229,7 +251,6 @@ export async function bulkCreateOffers(offersData: any[]) {
         }
       }
 
-      // 3. Optional: find matching job drive or default to null
       let driveId = null;
       if (item.driveTitle) {
         const { data: drive } = await supabase
@@ -242,7 +263,6 @@ export async function bulkCreateOffers(offersData: any[]) {
         }
       }
 
-      // 4. Insert offer
       const { data: offer, error: offerError } = await supabase
         .from('offers')
         .insert([{

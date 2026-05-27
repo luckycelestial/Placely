@@ -100,14 +100,10 @@ export default function DocumentsCenterPage() {
     <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto min-h-screen">
       {/* Header */}
       <section className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-12 rounded-full bg-primary" />
-          <span className="section-label text-primary">Credential Vault</span>
-        </div>
         <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8">
           <div>
             <h2 className="font-display text-5xl md:text-6xl font-black tracking-tighter text-foreground leading-tight">
-              Documents <span className="text-primary italic">Center.</span>
+              Documents <span className="text-primary">Center.</span>
             </h2>
             <p className="font-sans text-xl font-medium text-muted max-w-2xl leading-relaxed mt-2">
               Manage your placement identity. Keep your certifications, proofs, and resumes updated for verification.
@@ -134,13 +130,13 @@ export default function DocumentsCenterPage() {
       </section>
 
       {/* Tabs and Actions */}
-      <div className="flex flex-col md:flex-row gap-6 items-center justify-between sticky -top-4 md:-top-6 z-10 bg-background/95 backdrop-blur-md py-4 -mx-4 md:-mx-6 px-4 md:px-6 mb-8 border-b border-border-subtle/50 shadow-sm">
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full md:w-auto no-scrollbar">
+      <div className="flex flex-col md:flex-row gap-6 items-center justify-between sticky -top-4 md:-top-6 z-30 bg-background/95 backdrop-blur-md py-2.5 mb-8">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1.5 w-full md:w-auto no-scrollbar">
           {["All", "Required", "Optional"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as "All" | "Required" | "Optional")}
-              className={`px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                 activeTab === tab 
                   ? "bg-foreground text-white shadow-tactile scale-105" 
                   : "bg-surface border border-border-subtle text-muted hover:border-primary hover:text-primary"
@@ -151,7 +147,7 @@ export default function DocumentsCenterPage() {
           ))}
         </div>
 
-        <button className="btn-primary w-full md:w-auto py-4 px-8 h-auto text-[10px] uppercase tracking-widest gap-3">
+        <button className="btn-primary w-full md:w-auto py-2.5 px-6 h-auto text-[10px] uppercase tracking-widest gap-3">
           <LuPlus size={18} />
           Add New Document
         </button>

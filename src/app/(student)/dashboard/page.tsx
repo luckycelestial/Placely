@@ -133,12 +133,8 @@ export default function DashboardPage() {
       <section className="relative">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="h-1.5 w-10 rounded-full bg-primary" />
-              <span className="section-label text-primary">Personnel Command</span>
-            </div>
             <h2 className="font-display text-4xl md:text-5xl font-black tracking-tighter text-foreground leading-tight">
-              Welcome back, <span className="text-primary italic">{firstName}.</span>
+              Welcome back, <span className="text-primary">{firstName}.</span>
             </h2>
             <p className="font-sans text-lg md:text-xl font-medium mt-2 text-muted max-w-2xl leading-relaxed">
               Your placement journey is <span className="highlight font-bold text-foreground">{profile?.profile_completion || 0}% complete.</span> You&apos;re making incredible progress!
@@ -234,7 +230,7 @@ export default function DashboardPage() {
                 </div>
               ))}
               {activities.length === 0 && (
-                <div className="p-12 text-center text-muted italic text-sm">No recent activity found.</div>
+                <div className="p-12 text-center text-muted text-sm">No recent activity found.</div>
               )}
             </div>
           </div>
@@ -279,7 +275,7 @@ export default function DashboardPage() {
                 </div>
               ))}
               {bulletin.events.length === 0 && bulletin.notices.length === 0 && (
-                <div className="p-6 text-center text-muted italic text-xs">No updates at this time.</div>
+                <div className="p-6 text-center text-muted text-xs">No updates at this time.</div>
               )}
             </div>
             <div className="p-6 bg-background/30 border-t border-border-subtle">

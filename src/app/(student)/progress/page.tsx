@@ -85,16 +85,37 @@ export default function ProgressPage() {
           const role = app.job_drives?.role_title || "Software Engineer";
           const companyName = app.job_drives?.companies?.name || "Company";
           
-          // Generate completion percentage
-          let completion = 20;
-          if (app.status === "In Review") completion = 40;
-          else if (app.status === "Shortlisted") completion = 60;
-          else if (app.status === "Offered") completion = 85;
-          else if (app.status === "Accepted" || app.status === "Joined") completion = 100;
-          else if (app.status === "Rejected") completion = 100;
+          // Parse eligibility rules and stages from staff ATS tracker
+          let driveStages = undefined;
+          const rules = app.job_drives?.eligibility_rules;
+          if (rules) {
+            let parsedRules = rules;
+            if (typeof rules === 'string') {
+              try { parsedRules = JSON.parse(rules); } catch (e) {}
+            }
+            if (parsedRules && Array.isArray(parsedRules.stages)) {
+              driveStages = parsedRules.stages;
+            }
+          }
 
-          // Build dynamic timeline stages based on application status
-          const timeline = getTimelineStages(app.status, app.current_stage, app.applied_at);
+          // Generate dynamic completion percentage proportional to real stages
+          let completion = 20;
+          if (driveStages && driveStages.length > 0) {
+            const idx = driveStages.findIndex((s: any) => s.id === app.current_stage);
+            if (app.status === "Offered" || app.status === "Accepted" || app.status === "Joined" || app.status === "Rejected") {
+              completion = 100;
+            } else if (idx !== -1) {
+              completion = Math.round(((idx + 1) / (driveStages.length + 1)) * 100);
+            }
+          } else {
+            if (app.status === "In Review") completion = 40;
+            else if (app.status === "Shortlisted") completion = 60;
+            else if (app.status === "Offered") completion = 85;
+            else if (app.status === "Accepted" || app.status === "Joined" || app.status === "Rejected") completion = 100;
+          }
+
+          // Build dynamic timeline stages based on application status and drive's stages
+          const timeline = getTimelineStages(app.status, app.current_stage, app.applied_at, driveStages);
 
           // Populate mock offer details if status is Offered, Accepted, or Joined
           let offer = undefined;
@@ -136,57 +157,80 @@ export default function ProgressPage() {
     loadAllProgress();
   }, []);
 
-  // Utility to generate stages timeline
-  function getTimelineStages(status: string, nextStep?: string, appliedDate?: string) {
+  // Utility to generate stages timeline dynamically mapped to staff ATS parameters
+  function getTimelineStages(
+    status: string, 
+    currentStageId: string, 
+    appliedDate?: string, 
+    driveStages?: any[]
+  ) {
     const formattedDate = appliedDate 
       ? new Date(appliedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : "Oct 15";
     
-    const baseStages: TimelineEvent[] = [
-      { id: "s1", title: "Applied", status: "Completed", date: formattedDate, description: "Resume successfully submitted through Placely." },
-      { id: "s2", title: "Resume Screening", status: "Completed", date: formattedDate, description: "Awaiting shortlist review from company HR." },
-      { id: "s3", title: "Online Assessment", status: "Upcoming", date: "TBD", description: "Coding challenge covering DSA and algorithms." },
-      { id: "s4", title: "Technical Interviews", status: "Upcoming", date: "TBD", description: "Problem solving rounds and system architecture review." },
-      { id: "s5", title: "Managerial & Fit", status: "Upcoming", date: "TBD", description: "Core leadership fit and soft skills check." },
-      { id: "s6", title: "Final Status", status: "Upcoming", date: "TBD", description: "Job offer package and day-one details." }
-    ];
+    // Fall back to default stages if none are specified for this placement drive
+    const rawStages = (driveStages && Array.isArray(driveStages) && driveStages.length > 0)
+      ? driveStages
+      : [
+          { id: "applied", name: "Applied" },
+          { id: "shortlisted", name: "Shortlisted" },
+          { id: "interview1", name: "Tech Round 1" },
+          { id: "interview2", name: "Tech Round 2" },
+          { id: "selection", name: "Selection" }
+        ];
 
-    if (status === "Rejected") {
-      baseStages[1].status = "Completed";
-      baseStages[2].status = "Completed";
-      baseStages[2].date = "Oct 20";
-      baseStages[3].status = "Rejected";
-      baseStages[3].title = "Technical Interviews (Failed)";
-      baseStages[3].date = "Oct 28";
-      baseStages[3].description = "Did not meet evaluation criteria in interview stage.";
-    } else if (status === "Shortlisted") {
-      baseStages[1].status = "Completed";
-      baseStages[2].status = "Completed";
-      baseStages[2].date = "Oct 20";
-      baseStages[3].status = "Current";
-      baseStages[3].date = "Nov 02";
-      baseStages[3].description = "Technical interview scheduled. Prepare DSA questions.";
-    } else if (status === "In Review") {
-      baseStages[1].status = "Completed";
-      baseStages[2].status = "Current";
-      baseStages[2].date = "Nov 05";
-      baseStages[2].description = "Application package submitted and in active HR review.";
-    } else if (status === "Offered" || status === "Accepted" || status === "Joined") {
-      baseStages[1].status = "Completed";
-      baseStages[2].status = "Completed";
-      baseStages[2].date = "Oct 20";
-      baseStages[3].status = "Completed";
-      baseStages[3].date = "Oct 25";
-      baseStages[4].status = "Completed";
-      baseStages[4].date = "Oct 27";
-      baseStages[5].status = "Completed";
-      baseStages[5].title = "Offered Release";
-      baseStages[5].date = "Oct 28";
-      baseStages[5].description = "Official job offer released! Open the panel below to accept.";
-    } else {
-      // Applied
-      baseStages[1].status = "Current";
-      baseStages[1].description = "Placely evaluation in progress.";
+    const currentIdx = rawStages.findIndex((s: any) => s.id === currentStageId);
+    
+    const baseStages: TimelineEvent[] = rawStages.map((stage: any, idx: number) => {
+      let stageStatus: "Completed" | "Current" | "Upcoming" | "Rejected" = "Upcoming";
+      let date = "TBD";
+      let description = `Process round: ${stage.name}.`;
+
+      if (status === "Rejected") {
+        if (stage.id === currentStageId || (currentIdx === -1 && idx === 1)) {
+          stageStatus = "Rejected";
+          date = formattedDate;
+          description = `Evaluation stopped at ${stage.name} stage.`;
+        } else if (idx < currentIdx || (currentIdx === -1 && idx < 1)) {
+          stageStatus = "Completed";
+          date = formattedDate;
+          description = `${stage.name} round successfully cleared.`;
+        }
+      } else if (status === "Offered" || status === "Accepted" || status === "Joined") {
+        stageStatus = "Completed";
+        date = formattedDate;
+        description = `${stage.name} round completed.`;
+      } else {
+        // Active candidate status mapping
+        if (stage.id === currentStageId || (currentIdx === -1 && idx === 0)) {
+          stageStatus = "Current";
+          date = formattedDate;
+          description = `Currently in ${stage.name} round. Awaiting evaluation results.`;
+        } else if (idx < currentIdx) {
+          stageStatus = "Completed";
+          date = formattedDate;
+          description = `${stage.name} round successfully completed.`;
+        }
+      }
+
+      return {
+        id: stage.id,
+        title: stage.name,
+        status: stageStatus,
+        date: date,
+        description: description
+      };
+    });
+
+    // Append offered milestones dynamically for completed offer releases
+    if ((status === "Offered" || status === "Accepted" || status === "Joined") && !baseStages.some(s => s.id === "final-offer")) {
+      baseStages.push({
+        id: "final-offer",
+        title: "Offer Released",
+        status: "Completed",
+        date: formattedDate,
+        description: "Official job offer released!"
+      });
     }
 
     return baseStages;
@@ -237,14 +281,10 @@ export default function ProgressPage() {
     <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto min-h-screen">
       {/* Header */}
       <section className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-12 rounded-full bg-primary" />
-          <span className="section-label text-primary">All-in-one Pipeline</span>
-        </div>
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
           <div>
             <h2 className="font-display text-5xl md:text-6xl font-black tracking-tighter text-foreground leading-tight">
-              My <span className="text-primary italic">Progress.</span>
+              My <span className="text-primary">Progress.</span>
             </h2>
             <p className="font-sans text-xl font-medium text-muted max-w-2xl leading-relaxed mt-2">
               Your entire placement ecosystem in one view. Track application status, review horizontal timelines, and complete offer onboarding tasks.
@@ -276,13 +316,13 @@ export default function ProgressPage() {
       </section>
 
       {/* Control Bar */}
-      <div className="flex flex-col lg:flex-row gap-6 items-center justify-between sticky -top-4 md:-top-6 z-10 bg-background/95 backdrop-blur-md py-4 -mx-4 md:-mx-6 px-4 md:px-6 mb-8 border-b border-border-subtle/50 shadow-sm">
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full lg:w-auto no-scrollbar">
+      <div className="flex flex-col lg:flex-row gap-6 items-center justify-between sticky -top-4 md:-top-6 z-30 bg-background/95 backdrop-blur-md py-2.5 mb-8">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1.5 w-full lg:w-auto no-scrollbar">
           {["All", "Applied", "In Review", "Shortlisted", "Offered", "Accepted", "Rejected"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                 activeTab === tab 
                   ? "bg-foreground text-white shadow-tactile scale-105" 
                   : "bg-surface border border-border-subtle text-muted hover:border-primary hover:text-primary"
@@ -294,11 +334,11 @@ export default function ProgressPage() {
         </div>
 
         <div className="relative w-full lg:w-96 group">
-          <LuSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={20} />
+          <LuSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
           <input 
             type="text" 
             placeholder="Search company or job role..." 
-            className="w-full pl-12 pr-4 py-4 rounded-2xl border border-border-subtle bg-surface shadow-soft focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-medium text-foreground"
+            className="w-full pl-12 pr-4 py-2.5 rounded-2xl border border-border-subtle bg-surface shadow-soft focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-medium text-sm text-foreground"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -458,7 +498,7 @@ export default function ProgressPage() {
                         </div>
                         
                         <h4 className="font-display text-3xl font-black tracking-tighter">
-                          Official Offer & <span className="text-primary italic">Roadmap.</span>
+                          Official Offer & <span className="text-primary">Roadmap.</span>
                         </h4>
                         
                         <p className="font-sans text-base text-white/60 leading-relaxed max-w-xl">

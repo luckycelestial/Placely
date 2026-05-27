@@ -94,14 +94,10 @@ export default function NotificationsPage() {
     <div className="space-y-10 py-10 px-4 max-w-7xl mx-auto min-h-screen">
       {/* Header */}
       <section className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-12 rounded-full bg-primary" />
-          <span className="section-label text-primary">Mission Control</span>
-        </div>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <h2 className="font-display text-5xl md:text-6xl font-black tracking-tighter text-foreground leading-tight">
-              Task <span className="text-primary italic">Inbox.</span>
+              Task <span className="text-primary">Inbox.</span>
             </h2>
             <p className="font-sans text-xl font-medium text-muted max-w-2xl leading-relaxed mt-2">
               Stay ahead of your placement journey. Act on urgent requirements and track your progress in real-time.
@@ -117,13 +113,13 @@ export default function NotificationsPage() {
       </section>
 
       {/* Control Bar */}
-      <div className="flex flex-col lg:flex-row gap-6 items-center justify-between sticky -top-4 md:-top-6 z-10 bg-background/95 backdrop-blur-md py-4 -mx-4 md:-mx-6 px-4 md:px-6 mb-8 border-b border-border-subtle/50 shadow-sm">
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full lg:w-auto no-scrollbar">
+      <div className="flex flex-col lg:flex-row gap-6 items-center justify-between sticky -top-4 md:-top-6 z-30 bg-background/95 backdrop-blur-md py-2.5 mb-8">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1.5 w-full lg:w-auto no-scrollbar">
           {["All", "Action Required", "Offer", "Approval", "Info"].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                 filter === f 
                   ? "bg-foreground text-white shadow-tactile scale-105" 
                   : "bg-surface border border-border-subtle text-muted hover:border-primary hover:text-primary"
@@ -135,11 +131,11 @@ export default function NotificationsPage() {
         </div>
 
         <div className="relative w-full lg:w-96 group">
-          <LuSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={20} />
+          <LuSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
           <input 
             type="text" 
             placeholder="Search notifications..." 
-            className="w-full pl-12 pr-4 py-4 rounded-2xl border border-border-subtle bg-surface shadow-soft focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-medium"
+            className="w-full pl-12 pr-4 py-2.5 rounded-2xl border border-border-subtle bg-surface shadow-soft focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-medium text-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />

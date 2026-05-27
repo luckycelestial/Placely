@@ -44,12 +44,8 @@ export default function SettingsPage() {
     <div className="space-y-10 py-10 px-4 max-w-[1000px] mx-auto">
       {/* Header Section */}
       <section className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-12 rounded-full bg-primary" />
-          <span className="section-label text-primary">System Parameters</span>
-        </div>
         <h2 className="font-display text-5xl md:text-6xl font-black tracking-tighter text-foreground leading-tight">
-          System <span className="text-primary italic">Settings.</span>
+          System <span className="text-primary">Settings.</span>
         </h2>
         <p className="font-sans text-xl font-medium text-muted max-w-2xl leading-relaxed">
           Customize your experience, manage your account security, and configure notification protocols.
