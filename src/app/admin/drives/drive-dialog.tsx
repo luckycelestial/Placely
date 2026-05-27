@@ -18,6 +18,7 @@ const driveSchema = z.object({
   driveType: z.enum(["Full-time", "Internship", "Contract"]),
   package: z.string().min(1, "Package details are required"),
   location: z.string().min(1, "Location is required"),
+  applicationStart: z.string().min(1, "Start date is required"),
   deadline: z.string().min(1, "Deadline is required"),
   batch: z.string().min(1, "Batch year is required"),
   branches: z.array(z.string()).min(1, "Select at least one branch"),
@@ -48,6 +49,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
       driveType: "Full-time",
       package: "",
       location: "",
+      applicationStart: "",
       deadline: "",
       batch: String(CURRENT_YEAR),
       branches: ["CSE", "ECE", "MECH"],
@@ -80,6 +82,9 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
         // drive can come from the drives page (remapped UI names)
         // or from the dashboard (raw DB names) — handle both
         const rules = drive.eligibility_rules || drive.eligibility || {};
+        const startRaw = drive.application_start
+          ? new Date(drive.application_start).toISOString().split('T')[0]
+          : "";
         const deadlineRaw =
           drive.application_end
             ? new Date(drive.application_end).toISOString().split('T')[0]
@@ -90,6 +95,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
           driveType: (drive.drive_type || drive.type || "Full-time") as any,
           package: drive.package_ctc || drive.package || "",
           location: drive.location || "",
+          applicationStart: startRaw,
           deadline: deadlineRaw,
           batch: drive.batch || "2025",
           branches: rules.branches || ["CSE", "ECE", "MECH"],
@@ -105,6 +111,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
           driveType: "Full-time",
           package: "",
           location: "",
+          applicationStart: "",
           deadline: "",
           batch: String(CURRENT_YEAR),
           branches: ["CSE", "ECE", "MECH"],
@@ -135,6 +142,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
         drive_type: data.driveType,
         package_ctc: data.package,
         location: data.location,
+        application_start: data.applicationStart ? new Date(data.applicationStart).toISOString() : null,
         application_end: new Date(data.deadline).toISOString(),
         batch: data.batch,
         eligibility_rules: {
@@ -382,6 +390,23 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
                   )}
                 />
                 {errors.location && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.location.message}</p>}
+              </div>
+
+              {/* Application Start Date */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted ml-1 flex items-center gap-2">
+                  <LuCalendar size={12} className="text-primary" />
+                  Application Start Date
+                </label>
+                <input 
+                  {...register("applicationStart")}
+                  type="date" 
+                  className={cn(
+                    "w-full px-5 py-5 rounded-[24px] border bg-background text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all hover:border-primary/30 shadow-sm",
+                    errors.applicationStart ? "border-red-500 focus:ring-red-500/20" : "border-border-subtle"
+                  )}
+                />
+                {errors.applicationStart && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.applicationStart.message}</p>}
               </div>
 
               {/* Application Deadline */}

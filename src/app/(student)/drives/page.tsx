@@ -642,6 +642,31 @@ export default function JobDrivesPage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-6 rounded-[24px] bg-background border border-border-subtle shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-1 flex items-center gap-2">
+                      <LuCalendar size={12} className="text-primary" />
+                      Application Starts
+                    </p>
+                    <p className="font-display text-base font-black">
+                      {selectedDrive.application_start
+                        ? new Date(selectedDrive.application_start).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+                        : "Immediate"}
+                    </p>
+                  </div>
+                  <div className="p-6 rounded-[24px] bg-background border border-border-subtle shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-1 flex items-center gap-2">
+                      <LuCalendar size={12} className="text-primary" />
+                      Application Deadline
+                    </p>
+                    <p className="font-display text-base font-black text-red-500">
+                      {selectedDrive.application_end
+                        ? new Date(selectedDrive.application_end).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+                        : "N/A"}
+                    </p>
+                  </div>
+                </div>
+
                 <div>
                   <h5 className="text-[10px] font-black uppercase tracking-widest text-muted mb-4">Mandatory Academic Standards</h5>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

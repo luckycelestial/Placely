@@ -85,6 +85,53 @@ export async function getDistinctDepartments(): Promise<string[]> {
   return depts as string[];
 }
 
+async function triggerNoticeOnPublication(drive: any) {
+  try {
+    const { data: company } = await supabase
+      .from('companies')
+      .select('name')
+      .eq('id', drive.company_id)
+      .single();
+    
+    const companyName = company?.name || 'Partner Company';
+    const noticeTitle = `New Placement Drive: ${companyName} is hiring for ${drive.role_title}!`;
+    
+    // Check if notice already exists to avoid duplication
+    const { data: existing } = await supabase
+      .from('notices')
+      .select('id')
+      .eq('title', noticeTitle)
+      .limit(1);
+      
+    if (existing && existing.length > 0) {
+      return; // Notice already posted!
+    }
+    
+    const startDateFormatted = drive.application_start 
+      ? new Date(drive.application_start).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+      : "Immediate";
+    const deadlineFormatted = drive.application_end
+      ? new Date(drive.application_end).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+      : "N/A";
+      
+    await supabase
+      .from('notices')
+      .insert([{
+        title: noticeTitle,
+        body: `${companyName} has launched a new recruitment drive for the position of ${drive.role_title}.\n\nPackage: ${drive.package_ctc} | Location: ${drive.location}\nApplication Window: ${startDateFormatted} to ${deadlineFormatted}\n\nHead over to the Job Opportunities hub to check eligibility and apply now!`,
+        audience: 'All Students',
+        priority: 'high',
+        status: 'published',
+        publish_at: new Date().toISOString(),
+        pinned: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }]);
+  } catch (err) {
+    console.error("Failed to automatically post notice for drive publication:", err);
+  }
+}
+
 export async function createDrive(driveData: any) {
   const { data, error } = await supabase
     .from('job_drives')
@@ -94,6 +141,7 @@ export async function createDrive(driveData: any) {
       drive_type: driveData.drive_type,
       package_ctc: driveData.package_ctc,
       location: driveData.location,
+      application_start: driveData.application_start,
       application_end: driveData.application_end,
       batch: driveData.batch || null,
       eligibility_rules: driveData.eligibility_rules,
@@ -104,6 +152,11 @@ export async function createDrive(driveData: any) {
     .single();
 
   if (error) throw new Error(error.message || error.details || 'Failed to create drive');
+  
+  if (data && data.status === 'published') {
+    await triggerNoticeOnPublication(data);
+  }
+  
   return data;
 }
 
@@ -116,6 +169,7 @@ export async function updateDrive(id: string, driveData: any) {
       drive_type: driveData.drive_type,
       package_ctc: driveData.package_ctc,
       location: driveData.location,
+      application_start: driveData.application_start,
       application_end: driveData.application_end,
       batch: driveData.batch || null,
       eligibility_rules: driveData.eligibility_rules,
@@ -127,8 +181,14 @@ export async function updateDrive(id: string, driveData: any) {
     .single();
 
   if (error) throw new Error(error.message || error.details || 'Failed to update drive');
+  
+  if (data && data.status === 'published') {
+    await triggerNoticeOnPublication(data);
+  }
+  
   return data;
 }
+
 
 export async function deleteDrive(id: string) {
   const { error } = await supabase
