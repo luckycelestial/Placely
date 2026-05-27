@@ -1,4 +1,5 @@
 "use client";
+import { Suspense } from "react";
 import { Sk } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
@@ -84,7 +85,7 @@ interface Application {
   ctc?: string;
 }
 
-export default function ATSTrackerPage() {
+function ATSTrackerContent() {
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [applications, setApplications] = useState<Application[]>([]);
@@ -838,5 +839,13 @@ export default function ATSTrackerPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ATSTrackerPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64 text-muted text-sm font-bold">Loading ATS Tracker...</div>}>
+      <ATSTrackerContent />
+    </Suspense>
   );
 }
