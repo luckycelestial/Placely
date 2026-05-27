@@ -162,7 +162,7 @@ export default function DashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <Link href="/applications" className="block transition-transform hover:scale-[1.02]">
+        <Link href="/progress" className="block transition-transform hover:scale-[1.02]">
           <StatCard 
             title="Applications" 
             value={stats.applicationsCount} 
@@ -186,7 +186,7 @@ export default function DashboardPage() {
             description="Across stages"
           />
         </Link>
-        <Link href="/offers" className="block transition-transform hover:scale-[1.02]">
+        <Link href="/progress" className="block transition-transform hover:scale-[1.02]">
           <StatCard 
             title="Offers" 
             value={stats.offersCount} 
@@ -228,7 +228,7 @@ export default function DashboardPage() {
                       {db.formatRelativeTime(activity.applied_at)} • Status: {activity.status}
                     </p>
                   </div>
-                  <Link href="/applications" className="h-10 w-10 rounded-full border border-border-subtle flex items-center justify-center text-muted group-hover:text-primary group-hover:border-primary transition-all flex-shrink-0">
+                  <Link href="/progress" className="h-10 w-10 rounded-full border border-border-subtle flex items-center justify-center text-muted group-hover:text-primary group-hover:border-primary transition-all flex-shrink-0">
                     <LuArrowRight size={20} />
                   </Link>
                 </div>

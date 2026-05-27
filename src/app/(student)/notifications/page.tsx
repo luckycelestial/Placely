@@ -117,7 +117,7 @@ export default function NotificationsPage() {
       </section>
 
       {/* Control Bar */}
-      <div className="flex flex-col lg:flex-row gap-6 items-center justify-between sticky top-0 z-10 bg-background/80 backdrop-blur-md py-4 -mx-4 px-4">
+      <div className="flex flex-col lg:flex-row gap-6 items-center justify-between sticky -top-4 md:-top-6 z-10 bg-background/95 backdrop-blur-md py-4 -mx-4 md:-mx-6 px-4 md:px-6 mb-8 border-b border-border-subtle/50 shadow-sm">
         <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full lg:w-auto no-scrollbar">
           {["All", "Action Required", "Offer", "Approval", "Info"].map((f) => (
             <button
@@ -198,7 +198,7 @@ export default function NotificationsPage() {
                   {notif.type === "Action Required" && (
                     <Link href={
                       notif.category === "profile" ? "/profile" : 
-                      notif.category === "offers" ? "/offers" : 
+                      notif.category === "offers" ? "/progress" : 
                       notif.category === "applications" ? "/progress" : "/dashboard"
                     }>
                       <button className="btn-primary py-3 px-6 h-auto text-[9px] uppercase tracking-widest">
@@ -216,7 +216,7 @@ export default function NotificationsPage() {
                     </button>
                     <Link href={
                       notif.category === "profile" ? "/profile" : 
-                      notif.category === "offers" ? "/offers" : 
+                      notif.category === "offers" ? "/progress" : 
                       notif.category === "applications" ? "/progress" : "/dashboard"
                     }>
                       <button className="h-12 w-12 rounded-2xl bg-foreground text-white flex items-center justify-center hover:bg-primary transition-all shadow-tactile">

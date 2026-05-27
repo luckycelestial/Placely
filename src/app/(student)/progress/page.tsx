@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Sk } from "@/components/ui/skeleton";
+import { useEffect, useState } from "react";
 import { 
   LuCircle, 
   LuChevronRight,
@@ -8,18 +9,43 @@ import {
   LuTarget,
   LuCircleCheck,
   LuX,
-  LuInfo
+  LuInfo,
+  LuIndianRupee,
+  LuShieldCheck,
+  LuCalendar,
+  LuClock,
+  LuPartyPopper,
+  LuTimer,
+  LuSparkles,
+  LuArrowRight,
+  LuSearch,
+  LuMapPin,
+  LuAward
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { db } from "@/services/database";
+import { DEV_STUDENT_ID } from "@/lib/dev-config";
+import { CompanyLogo } from "@/components/ui/CompanyLogo";
+import { toast } from "sonner";
 
 interface TimelineEvent {
   id: string;
   title: string;
-  company: string;
+  company?: string;
   status: "Completed" | "Current" | "Upcoming" | "Rejected";
   date: string;
   description: string;
+}
+
+interface OfferDetails {
+  status: "Offered" | "Accepted" | "Verified" | "Joining Soon" | "Joined";
+  type: "Full Time" | "Internship" | "PPO";
+  ctc: string;
+  offerDate: string;
+  joiningDate: string;
+  description: string;
+  actionsRequired: string[];
 }
 
 interface ApplicationProgress {
@@ -29,43 +55,183 @@ interface ApplicationProgress {
   overallStatus: string;
   currentStage: string;
   completion: number;
+  location: string;
+  ctc: string;
   events: TimelineEvent[];
+  offer?: OfferDetails;
 }
 
-const PROGRESS_DATA: ApplicationProgress[] = [
-  {
-    id: "1",
-    company: "Amazon",
-    role: "SDE-1",
-    overallStatus: "In Progress",
-    currentStage: "Technical Interview II",
-    completion: 65,
-    events: [
-      { id: "e1", title: "Application Submitted", company: "Amazon", status: "Completed", date: "Oct 15", description: "Applied through college portal" },
-      { id: "e2", title: "Online Assessment", company: "Amazon", status: "Completed", date: "Oct 20", description: "Cleared with 100% score" },
-      { id: "e3", title: "Technical Interview I", company: "Amazon", status: "Completed", date: "Oct 28", description: "Focused on DSA and Problem Solving" },
-      { id: "e4", title: "Technical Interview II", company: "Amazon", status: "Current", date: "Nov 05", description: "System Design and Coding" },
-      { id: "e5", title: "Bar Raiser Round", company: "Amazon", status: "Upcoming", date: "TBD", description: "Leadership principles and cultural fit" },
-    ]
-  },
-  {
-    id: "2",
-    company: "Meta",
-    role: "Product Designer",
-    overallStatus: "Shortlisted",
-    currentStage: "Portfolio Review",
-    completion: 40,
-    events: [
-      { id: "m1", title: "Application Submitted", company: "Meta", status: "Completed", date: "Oct 12", description: "Resume and Portfolio link sent" },
-      { id: "m2", title: "Initial Screening", company: "Meta", status: "Completed", date: "Oct 18", description: "HR screening call successful" },
-      { id: "m3", title: "Portfolio Review", company: "Meta", status: "Current", date: "Nov 02", description: "Deep dive into case studies" },
-      { id: "m4", title: "Design Challenge", company: "Meta", status: "Upcoming", date: "TBD", description: "48-hour take-home assignment" },
-    ]
-  }
-];
-
 export default function ProgressPage() {
-  const [selectedApp, setSelectedApp] = useState<ApplicationProgress>(PROGRESS_DATA[0]);
+  const [activeTab, setActiveTab] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pipelines, setPipelines] = useState<ApplicationProgress[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
+  
+  // Local state to manage offer acceptances and action item checklist triggers dynamically
+  const [acceptedOffers, setAcceptedOffers] = useState<Record<string, boolean>>({});
+  const [completedActions, setCompletedActions] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    async function loadAllProgress() {
+      setLoading(true);
+      try {
+        const studentId = DEV_STUDENT_ID;
+        const data = await db.getStudentApplications(studentId);
+        
+        const formatted = data.map((app: any) => {
+          const ctc = app.job_drives?.package_ctc || "12 - 18 LPA";
+          const location = app.job_drives?.location || "Bangalore, India";
+          const role = app.job_drives?.role_title || "Software Engineer";
+          const companyName = app.job_drives?.companies?.name || "Company";
+          
+          // Generate completion percentage
+          let completion = 20;
+          if (app.status === "In Review") completion = 40;
+          else if (app.status === "Shortlisted") completion = 60;
+          else if (app.status === "Offered") completion = 85;
+          else if (app.status === "Accepted" || app.status === "Joined") completion = 100;
+          else if (app.status === "Rejected") completion = 100;
+
+          // Build dynamic timeline stages based on application status
+          const timeline = getTimelineStages(app.status, app.current_stage, app.applied_at);
+
+          // Populate mock offer details if status is Offered, Accepted, or Joined
+          let offer = undefined;
+          if (app.status === "Offered" || app.status === "Accepted" || app.status === "Joined") {
+            offer = {
+              status: app.status as any,
+              type: (app.job_drives?.drive_type || "Full Time") as any,
+              ctc: ctc,
+              offerDate: new Date(app.applied_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              joiningDate: "July 15, 2026",
+              description: `Congratulations! We are thrilled to offer you the position of ${role} on the engineering team at ${companyName}.`,
+              actionsRequired: app.status === "Offered" 
+                ? ["Accept Offer", "Choose Joining Date Slot"]
+                : ["Upload Medical Certificate", "Verify ID Proofs"]
+            };
+          }
+
+          return {
+            id: app.id,
+            company: companyName,
+            role: role,
+            overallStatus: app.status || "Applied",
+            currentStage: app.current_stage || "Applied",
+            completion: completion,
+            location: location,
+            ctc: ctc,
+            events: timeline,
+            offer: offer
+          };
+        });
+        
+        setPipelines(formatted);
+      } catch (err) {
+        console.error("Failed to load progress data", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadAllProgress();
+  }, []);
+
+  // Utility to generate stages timeline
+  function getTimelineStages(status: string, nextStep?: string, appliedDate?: string) {
+    const formattedDate = appliedDate 
+      ? new Date(appliedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : "Oct 15";
+    
+    const baseStages: TimelineEvent[] = [
+      { id: "s1", title: "Applied", status: "Completed", date: formattedDate, description: "Resume successfully submitted through Placely." },
+      { id: "s2", title: "Resume Screening", status: "Completed", date: formattedDate, description: "Awaiting shortlist review from company HR." },
+      { id: "s3", title: "Online Assessment", status: "Upcoming", date: "TBD", description: "Coding challenge covering DSA and algorithms." },
+      { id: "s4", title: "Technical Interviews", status: "Upcoming", date: "TBD", description: "Problem solving rounds and system architecture review." },
+      { id: "s5", title: "Managerial & Fit", status: "Upcoming", date: "TBD", description: "Core leadership fit and soft skills check." },
+      { id: "s6", title: "Final Status", status: "Upcoming", date: "TBD", description: "Job offer package and day-one details." }
+    ];
+
+    if (status === "Rejected") {
+      baseStages[1].status = "Completed";
+      baseStages[2].status = "Completed";
+      baseStages[2].date = "Oct 20";
+      baseStages[3].status = "Rejected";
+      baseStages[3].title = "Technical Interviews (Failed)";
+      baseStages[3].date = "Oct 28";
+      baseStages[3].description = "Did not meet evaluation criteria in interview stage.";
+    } else if (status === "Shortlisted") {
+      baseStages[1].status = "Completed";
+      baseStages[2].status = "Completed";
+      baseStages[2].date = "Oct 20";
+      baseStages[3].status = "Current";
+      baseStages[3].date = "Nov 02";
+      baseStages[3].description = "Technical interview scheduled. Prepare DSA questions.";
+    } else if (status === "In Review") {
+      baseStages[1].status = "Completed";
+      baseStages[2].status = "Current";
+      baseStages[2].date = "Nov 05";
+      baseStages[2].description = "Application package submitted and in active HR review.";
+    } else if (status === "Offered" || status === "Accepted" || status === "Joined") {
+      baseStages[1].status = "Completed";
+      baseStages[2].status = "Completed";
+      baseStages[2].date = "Oct 20";
+      baseStages[3].status = "Completed";
+      baseStages[3].date = "Oct 25";
+      baseStages[4].status = "Completed";
+      baseStages[4].date = "Oct 27";
+      baseStages[5].status = "Completed";
+      baseStages[5].title = "Offered Release";
+      baseStages[5].date = "Oct 28";
+      baseStages[5].description = "Official job offer released! Open the panel below to accept.";
+    } else {
+      // Applied
+      baseStages[1].status = "Current";
+      baseStages[1].description = "Placely evaluation in progress.";
+    }
+
+    return baseStages;
+  }
+
+  // Handle Offer Acceptance dynamic action
+  const handleAcceptOffer = (appId: string) => {
+    setAcceptedOffers(prev => ({ ...prev, [appId]: true }));
+    toast.success("Offer Accepted Successfully! Preparing your day-one onboarding dashboard.");
+  };
+
+  // Toggle action item checklists
+  const toggleActionItem = (actionKey: string) => {
+    setCompletedActions(prev => ({ ...prev, [actionKey]: !prev[actionKey] }));
+  };
+
+  // Filter application pipelines
+  const filteredApps = pipelines.filter(app => {
+    const matchesSearch = app.company.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          app.role.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Support filtering by tab state
+    let matchesTab = activeTab === "All" || app.overallStatus === activeTab;
+    if (activeTab === "Accepted") {
+      matchesTab = app.overallStatus === "Accepted" || acceptedOffers[app.id];
+    }
+    
+    return matchesSearch && matchesTab;
+  });
+
+  // Calculate high-fidelity stats banner metrics
+  const activeCount = pipelines.filter(p => p.overallStatus !== "Rejected" && p.overallStatus !== "Accepted" && p.overallStatus !== "Joined").length;
+  const placedCount = pipelines.filter(p => p.overallStatus === "Accepted" || p.overallStatus === "Joined" || acceptedOffers[p.id]).length;
+  const offeredCount = pipelines.filter(p => p.overallStatus === "Offered" && !acceptedOffers[p.id]).length;
+
+  if (loading) return (
+    <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto min-h-screen">
+      <Sk.PageHeader />
+      <div className="flex flex-col lg:flex-row gap-6 items-center justify-between">
+        <Sk.Block className="h-12 w-full lg:w-2/3 rounded-full" />
+        <Sk.Block className="h-12 w-full lg:w-1/3 rounded-2xl" />
+      </div>
+      <Sk.CardGrid count={3} cols={1} />
+    </div>
+  );
 
   return (
     <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto min-h-screen">
@@ -73,160 +239,373 @@ export default function ProgressPage() {
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <span className="h-2 w-12 rounded-full bg-primary" />
-          <span className="section-label text-primary">ATS Timeline</span>
+          <span className="section-label text-primary">All-in-one Pipeline</span>
         </div>
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
           <div>
             <h2 className="font-display text-5xl md:text-6xl font-black tracking-tighter text-foreground leading-tight">
               My <span className="text-primary italic">Progress.</span>
             </h2>
             <p className="font-sans text-xl font-medium text-muted max-w-2xl leading-relaxed mt-2">
-              Track your journey through various placement stages. See exactly where you stand in each application pipeline.
+              Your entire placement ecosystem in one view. Track application status, review horizontal timelines, and complete offer onboarding tasks.
             </p>
           </div>
           
+          {/* Stats Bar */}
           <div className="flex items-center gap-6 bg-surface border border-border-subtle p-6 rounded-3xl shadow-xl shadow-black/5">
-             <div className="flex flex-col items-center">
-                <span className="text-3xl font-black text-primary">08</span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted">Active Stages</span>
+             <div className="flex flex-col items-center px-2">
+                <span className="text-3xl font-black text-primary">{String(activeCount).padStart(2, '0')}</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-muted mt-1">Active Streams</span>
              </div>
              <div className="h-10 w-px bg-border-subtle" />
-             <div className="flex flex-col items-center">
-                <span className="text-3xl font-black text-foreground">02</span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted">Interviews</span>
+             <div className="flex flex-col items-center px-2">
+                <span className="text-3xl font-black text-emerald-500">{String(placedCount).padStart(2, '0')}</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-muted mt-1">Placed / Joined</span>
              </div>
+             {offeredCount > 0 && (
+               <>
+                 <div className="h-10 w-px bg-border-subtle" />
+                 <div className="flex flex-col items-center px-2 animate-pulse">
+                    <span className="text-3xl font-black text-purple-500">{String(offeredCount).padStart(2, '0')}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-muted mt-1">Action Needed</span>
+                 </div>
+               </>
+             )}
           </div>
         </div>
       </section>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-        
-        {/* Sidebar: Applications List */}
-        <div className="xl:col-span-4 space-y-4">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted px-2">Pipelines</h3>
-          {PROGRESS_DATA.map((app) => (
-            <div 
-              key={app.id}
-              onClick={() => setSelectedApp(app)}
-              className={cn(
-                "app-card group cursor-pointer transition-all p-6",
-                selectedApp.id === app.id ? "border-primary bg-primary/[0.02]" : "hover:border-primary/40"
-              )}
+      {/* Control Bar */}
+      <div className="flex flex-col lg:flex-row gap-6 items-center justify-between sticky -top-4 md:-top-6 z-10 bg-background/95 backdrop-blur-md py-4 -mx-4 md:-mx-6 px-4 md:px-6 mb-8 border-b border-border-subtle/50 shadow-sm">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full lg:w-auto no-scrollbar">
+          {["All", "Applied", "In Review", "Shortlisted", "Offered", "Accepted", "Rejected"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                activeTab === tab 
+                  ? "bg-foreground text-white shadow-tactile scale-105" 
+                  : "bg-surface border border-border-subtle text-muted hover:border-primary hover:text-primary"
+              }`}
             >
-               <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-foreground text-white flex items-center justify-center">
-                      <LuBuilding2 size={20} />
-                    </div>
-                    <div>
-                      <h4 className="font-display font-black text-lg leading-none">{app.company}</h4>
-                      <p className="text-xs font-bold text-muted mt-1">{app.role}</p>
-                    </div>
-                  </div>
-                  <LuChevronRight size={18} className={cn("transition-transform", selectedApp.id === app.id ? "text-primary translate-x-1" : "text-muted")} />
-               </div>
-               
-               <div className="space-y-2">
-                 <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                   <span className="text-muted">Completion</span>
-                   <span className="text-primary">{app.completion}%</span>
-                 </div>
-                 <div className="h-1.5 w-full bg-border-subtle rounded-full overflow-hidden">
-                   <div 
-                     className="h-full bg-primary transition-all duration-1000" 
-                     style={{ width: `${app.completion}%` }}
-                   />
-                 </div>
-                 <p className="text-[10px] font-bold text-muted mt-2 italic truncate">Current: {app.currentStage}</p>
-               </div>
-            </div>
+              {tab}
+            </button>
           ))}
         </div>
 
-        {/* Content: Detailed Timeline */}
-        <div className="xl:col-span-8">
-           <div className="app-card p-10 border-none shadow-2xl shadow-black/5 min-h-[600px] flex flex-col">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-                 <div>
-                    <h3 className="font-display text-4xl font-black tracking-tighter">
-                      {selectedApp.company} <span className="text-primary italic">Timeline.</span>
-                    </h3>
-                    <p className="font-sans text-muted font-medium mt-1">{selectedApp.role} • Application Tracking System</p>
-                 </div>
-                 <div className="flex items-center gap-3">
-                    <Link href="/applications">
-                      <button className="btn-secondary px-6 py-3 h-auto text-[9px] uppercase tracking-widest">View App Details</button>
-                    </Link>
-                    <button className="btn-primary px-6 py-3 h-auto text-[9px] uppercase tracking-widest">Prepare Now</button>
-                 </div>
-              </div>
-
-              <div className="relative flex-1">
-                 {/* Vertical Line */}
-                 <div className="absolute left-6 top-0 bottom-0 w-1 bg-border-subtle rounded-full" />
-                 
-                 <div className="space-y-12">
-                    {selectedApp.events.map((event) => (
-                      <div key={event.id} className="relative pl-16 group/item">
-                         {/* Circle Indicator */}
-                         <div className={cn(
-                           "absolute left-2.5 top-0 h-8 w-8 rounded-full border-4 border-background flex items-center justify-center z-10 transition-all group-hover/item:scale-110",
-                           event.status === "Completed" ? "bg-emerald-500 text-white" :
-                           event.status === "Current" ? "bg-primary text-white shadow-tactile animate-pulse" :
-                           event.status === "Rejected" ? "bg-red-500 text-white" :
-                           "bg-surface border-border-subtle text-muted"
-                         )}>
-                            {event.status === "Completed" ? <LuCircleCheck size={16} /> :
-                             event.status === "Current" ? <LuTarget size={16} /> :
-                             event.status === "Rejected" ? <LuX size={16} /> :
-                             <LuCircle size={14} />}
-                         </div>
-
-                         <div className={cn(
-                           "p-8 rounded-3xl border transition-all",
-                           event.status === "Current" ? "bg-primary/[0.03] border-primary/30 shadow-xl shadow-primary/5" : "bg-surface border-border-subtle group-hover/item:border-primary/20"
-                         )}>
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                               <div>
-                                  <div className="flex items-center gap-3 mb-1">
-                                     <span className={cn(
-                                       "text-[10px] font-black uppercase tracking-widest",
-                                       event.status === "Completed" ? "text-emerald-500" :
-                                       event.status === "Current" ? "text-primary" : "text-muted"
-                                     )}>
-                                       {event.status}
-                                     </span>
-                                     <span className="h-1 w-1 rounded-full bg-muted/30" />
-                                     <span className="text-[10px] font-black text-muted/60 uppercase tracking-widest">{event.date}</span>
-                                  </div>
-                                  <h4 className="font-display text-2xl font-bold tracking-tight text-foreground">{event.title}</h4>
-                               </div>
-                               {event.status === "Current" && (
-                                 <div className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-tactile animate-bounce">
-                                   Action Needed
-                                 </div>
-                               )}
-                            </div>
-                            <p className="font-sans text-base font-medium text-muted leading-relaxed max-w-2xl">
-                               {event.description}
-                            </p>
-                         </div>
-                      </div>
-                    ))}
-                 </div>
-              </div>
-
-              {/* Bottom Info */}
-              <div className="mt-12 p-6 bg-background rounded-2xl border border-border-subtle flex items-center gap-4">
-                 <LuInfo className="text-primary shrink-0" size={24} />
-                 <p className="font-sans text-sm font-medium text-muted">
-                   This timeline is synced with the official company ATS. Dates and status updates may have a short delay.
-                 </p>
-              </div>
-           </div>
+        <div className="relative w-full lg:w-96 group">
+          <LuSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={20} />
+          <input 
+            type="text" 
+            placeholder="Search company or job role..." 
+            className="w-full pl-12 pr-4 py-4 rounded-2xl border border-border-subtle bg-surface shadow-soft focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-medium text-foreground"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
+
+      {/* Pipeline Cards Grid */}
+      <div className="space-y-8">
+        {filteredApps.map((app) => {
+          const isOfferOpen = expandedOfferId === app.id;
+          const hasOffer = app.offer !== undefined;
+          const isPlacedLocally = acceptedOffers[app.id] || app.overallStatus === "Accepted" || app.overallStatus === "Joined";
+          
+          return (
+            <div 
+              key={app.id} 
+              className={cn(
+                "app-card p-8 transition-all relative overflow-hidden group border",
+                isOfferOpen ? "border-primary shadow-2xl shadow-primary/5 ring-4 ring-primary/5 bg-primary/[0.01]" : "hover:border-primary/20",
+                isPlacedLocally && "border-emerald-500/30 bg-emerald-500/[0.005]"
+              )}
+            >
+              {/* Placement success badge floating glow */}
+              {isPlacedLocally && (
+                <div className="absolute top-0 right-0 p-6 flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[9px] font-black uppercase text-emerald-600 tracking-widest">Secured</span>
+                </div>
+              )}
+
+              {/* Header Container */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-border-subtle/50">
+                <div className="flex items-center gap-6">
+                  <div className="shrink-0 transition-transform group-hover:scale-105">
+                    <CompanyLogo name={app.company} size={64} rounded="rounded-2xl" />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-2xl font-black tracking-tight">{app.company}</h3>
+                    <p className="font-sans text-sm font-bold text-muted uppercase tracking-widest mt-1 flex items-center gap-1.5">
+                      {app.role}
+                      <span className="h-1 w-1 rounded-full bg-muted/40" />
+                      <span className="text-primary tracking-normal font-black flex items-center gap-0.5">
+                        <LuIndianRupee size={12} />
+                        {app.ctc}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right side buttons & badges */}
+                <div className="flex items-center gap-4 self-start md:self-center">
+                  <div className="text-left md:text-right">
+                    <span className={cn(
+                      "px-3 py-1.5 rounded-full flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest",
+                      isPlacedLocally ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/15" :
+                      app.overallStatus === "Rejected" ? "bg-red-500/10 text-red-500 border border-red-500/15" :
+                      app.overallStatus === "Offered" ? "bg-purple-500/15 text-purple-600 border border-purple-500/20 animate-pulse" :
+                      "bg-primary/10 text-primary border border-primary/15"
+                    )}>
+                      {isPlacedLocally ? (
+                        <>
+                          <LuShieldCheck size={12} />
+                          Accepted Offer
+                        </>
+                      ) : (
+                        <>
+                          <LuClock size={12} />
+                          {app.overallStatus}
+                        </>
+                      )}
+                    </span>
+                  </div>
+
+                  {hasOffer && (
+                    <button 
+                      onClick={() => setExpandedOfferId(isOfferOpen ? null : app.id)}
+                      className={cn(
+                        "btn px-5 py-3 h-auto text-[9px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-1.5 shadow-sm",
+                        isOfferOpen 
+                          ? "bg-foreground text-white hover:bg-foreground/95" 
+                          : "bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white"
+                      )}
+                    >
+                      <LuAward size={14} />
+                      {isOfferOpen ? "Close Details" : "View Offer & Onboarding"}
+                    </button>
+                  )}
+                  
+                  {!hasOffer && app.overallStatus !== "Rejected" && (
+                    <button className="btn-secondary px-5 py-3 h-auto text-[9px] font-black uppercase tracking-widest rounded-xl">
+                      Prepare Now
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Horizontal Scrollable Timeline */}
+              <div className="pt-6">
+                <p className="text-[10px] font-black text-muted/50 uppercase tracking-[0.2em] mb-4">Recruitment Stages Log</p>
+                
+                <div className="relative overflow-x-auto pb-4 pt-2 no-scrollbar scroll-smooth flex items-center gap-0 w-full select-none">
+                  {app.events.map((event, idx) => {
+                    const isCompleted = event.status === "Completed" || (isPlacedLocally && idx === app.events.length - 1);
+                    const isCurrent = event.status === "Current" && !isPlacedLocally;
+                    const isRejected = event.status === "Rejected";
+
+                    return (
+                      <div key={event.id} className="flex items-center shrink-0">
+                        <div className="flex flex-col items-center text-center relative z-10 w-32 px-2">
+                          <div className={cn(
+                            "h-12 w-12 rounded-full border-4 border-background flex items-center justify-center relative transition-all duration-300 shadow-sm",
+                            isCompleted ? "bg-emerald-500 text-white" :
+                            isCurrent ? "bg-primary text-white shadow-tactile animate-pulse scale-105" :
+                            isRejected ? "bg-red-500 text-white" :
+                            "bg-surface border-border-subtle text-muted"
+                          )}>
+                            {isCompleted ? <LuCircleCheck size={18} /> :
+                             isCurrent ? <LuTarget size={18} /> :
+                             isRejected ? <LuX size={18} /> :
+                             <LuCircle size={14} />}
+                          </div>
+                          
+                          <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest mt-2 leading-none">{event.date}</span>
+                          <span className={cn(
+                            "font-display text-xs font-black tracking-tight mt-1 truncate max-w-[110px] block leading-snug",
+                            isCurrent ? "text-primary font-black" : "text-foreground"
+                          )}>
+                            {isPlacedLocally && idx === app.events.length - 1 ? "Offer Secured" : event.title}
+                          </span>
+                        </div>
+                        
+                        {idx < app.events.length - 1 && (
+                          <div className={cn(
+                            "h-[2px] w-20 mx-1 self-center rounded-full mt-[-24px] shrink-0",
+                            isCompleted ? "bg-emerald-500" : "bg-border-subtle"
+                          )} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Expanding Offer & Onboarding Panel */}
+              {isOfferOpen && app.offer && (
+                <div className="mt-8 border-t border-border-subtle/80 pt-8 animate-in fade-in slide-in-from-top-4 duration-500 space-y-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    
+                    {/* Left Panel: Description & Roadmap Track */}
+                    <div className="lg:col-span-7 bg-foreground text-white rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden">
+                      <div className="relative z-10 space-y-6">
+                        <div className="flex items-center gap-3">
+                          <span className="px-3 py-1 rounded-full bg-primary/20 text-primary-light border border-primary/30 text-[10px] font-black uppercase tracking-widest">
+                            {app.offer.type}
+                          </span>
+                          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Issued {app.offer.offerDate}</span>
+                        </div>
+                        
+                        <h4 className="font-display text-3xl font-black tracking-tighter">
+                          Official Offer & <span className="text-primary italic">Roadmap.</span>
+                        </h4>
+                        
+                        <p className="font-sans text-base text-white/60 leading-relaxed max-w-xl">
+                          {app.offer.description}
+                        </p>
+
+                        {/* Milestones Vertical Track */}
+                        <div className="pt-8 border-t border-white/10 space-y-6">
+                          <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
+                            <LuTimer className="text-primary" />
+                            Onboarding Milestones
+                          </h5>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                             <Milestone icon={<LuPartyPopper />} label="Offer Released" date={app.offer.offerDate} completed />
+                             <Milestone 
+                               icon={<LuCircleCheck />} 
+                               label="Acceptance" 
+                               date={isPlacedLocally ? "Accepted" : "Pending"} 
+                               active={!isPlacedLocally} 
+                               completed={isPlacedLocally} 
+                             />
+                             <Milestone 
+                               icon={<LuShieldCheck />} 
+                               label="Verification" 
+                               date={isPlacedLocally ? "Complete" : "Awaiting Sign"} 
+                               completed={isPlacedLocally} 
+                             />
+                             <Milestone icon={<LuMapPin />} label="Joining Day" date={app.offer.joiningDate} />
+                          </div>
+                        </div>
+                      </div>
+                      {/* Premium Backdrop Glow */}
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+                    </div>
+
+                    {/* Right Panel: Onboarding checklist */}
+                    <div className="lg:col-span-5 space-y-6 h-full">
+                      <div className="bg-surface border border-border-subtle p-8 rounded-3xl flex flex-col justify-between min-h-[320px]">
+                        <div>
+                          <h5 className="text-[10px] font-black uppercase tracking-widest text-muted mb-6 flex items-center gap-2">
+                            <LuSparkles className="text-primary" />
+                            Required Onboarding Actions
+                          </h5>
+                          
+                          <div className="space-y-3">
+                            {app.offer.actionsRequired.map((action, i) => {
+                              const actionKey = `${app.id}-${action}`;
+                              const isItemChecked = completedActions[actionKey] || (action === "Accept Offer" && isPlacedLocally);
+                              
+                              return (
+                                <div 
+                                  key={i} 
+                                  onClick={() => toggleActionItem(actionKey)}
+                                  className={cn(
+                                    "flex items-center justify-between p-4 rounded-xl border transition-all group/action cursor-pointer select-none",
+                                    isItemChecked 
+                                      ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-600" 
+                                      : "border-border-subtle bg-background/50 hover:bg-background"
+                                  )}
+                                >
+                                  <span className={cn(
+                                    "font-sans text-xs font-bold transition-all",
+                                    isItemChecked ? "line-through opacity-70" : "text-foreground"
+                                  )}>
+                                    {action}
+                                  </span>
+                                  {isItemChecked ? (
+                                    <LuCircleCheck size={18} className="text-emerald-500" />
+                                  ) : (
+                                    <LuChevronRight size={18} className="text-muted/40 group-hover/action:text-primary transition-all translate-x-0 group-hover/action:translate-x-1" />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Sign Actions */}
+                        {!isPlacedLocally ? (
+                          <button 
+                            onClick={() => handleAcceptOffer(app.id)}
+                            className="btn-primary w-full py-4 rounded-2xl mt-6 shadow-xl shadow-primary/20 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest"
+                          >
+                            Sign & Accept Offer
+                            <LuArrowRight size={16} />
+                          </button>
+                        ) : (
+                          <div className="mt-6 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-600 text-center font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+                            <LuCircleCheck size={16} />
+                            Offer Fully Secured
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Discrepancy Query Section */}
+                  <div className="bg-surface border border-border-subtle p-6 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-6">
+                    <div className="flex gap-4 items-center">
+                      <div className="h-12 w-12 rounded-xl bg-primary/5 text-primary flex items-center justify-center shrink-0">
+                        <LuInfo size={24} />
+                      </div>
+                      <div>
+                        <h6 className="font-display text-base font-black leading-tight">Offer Discrepancy?</h6>
+                        <p className="font-sans text-xs font-medium text-muted mt-1">If the terms don&apos;t match what you discussed during your rounds, raise a query with our placement office.</p>
+                      </div>
+                    </div>
+                    
+                    <button className="btn-secondary whitespace-nowrap px-6 py-3 h-auto text-[9px] uppercase tracking-widest self-stretch sm:self-auto rounded-xl">
+                      Raise Ticket
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {filteredApps.length === 0 && (
+          <div className="py-24 text-center app-card">
+            <div className="h-16 w-16 rounded-2xl bg-primary/5 flex items-center justify-center text-primary mx-auto mb-6">
+              <LuBuilding2 size={28} />
+            </div>
+            <h3 className="font-display text-2xl font-black tracking-tight text-foreground">No Pipelines Found</h3>
+            <p className="text-muted mt-2 font-medium text-base">We couldn&apos;t find any applications in the {activeTab !== "All" ? `"${activeTab}"` : ""} stream.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Sub-component for Milestone card
+function Milestone({ icon, label, date, completed = false, active = false }: { icon: React.ReactNode, label: string, date: string, completed?: boolean, active?: boolean }) {
+  return (
+    <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white/[0.02] border border-white/5 shrink-0 w-full min-w-[100px]">
+      <div className={cn(
+        "h-9 w-9 rounded-xl flex items-center justify-center border transition-all shadow-sm",
+        completed ? "bg-primary border-primary text-white" : 
+        active ? "bg-primary/20 border-primary text-primary animate-pulse" :
+        "bg-white/5 border-white/10 text-white/20"
+      )}>
+        {icon}
+      </div>
+      <p className={cn("text-[10px] font-black tracking-tight mt-3 leading-none", completed || active ? "text-white" : "text-white/20")}>{label}</p>
+      <p className={cn("text-[9px] font-semibold mt-1", completed ? "text-primary-light" : "text-white/40")}>{date}</p>
     </div>
   );
 }

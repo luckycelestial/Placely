@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 export async function getDrives(options: { 
   search?: string; 
   status?: string;
+  excludeCompleted?: boolean;
   type?: string;
   batch?: string;
 } = {}) {
@@ -19,11 +20,13 @@ export async function getDrives(options: {
     `);
 
   if (options.search) {
-    query = query.ilike('role_title', `%${options.search}%`);
+    query = query.or(`role_title.ilike.%${options.search}%,companies.name.ilike.%${options.search}%`);
   }
 
   if (options.status && options.status !== 'All') {
     query = query.eq('status', options.status.toLowerCase());
+  } else if (options.excludeCompleted) {
+    query = query.neq('status', 'completed');
   }
 
   if (options.type && options.type !== 'All') {

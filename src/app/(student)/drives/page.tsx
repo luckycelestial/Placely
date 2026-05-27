@@ -151,7 +151,7 @@ export default function JobDrivesPage() {
         </p>
       </section>
 
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between sticky -top-4 md:-top-6 z-10 bg-background/95 backdrop-blur-md py-4 -mx-4 px-4 mb-8 border-b border-border-subtle/50 shadow-sm">
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between sticky -top-4 md:-top-6 z-10 bg-background/95 backdrop-blur-md py-4 -mx-4 md:-mx-6 px-4 md:px-6 mb-8 border-b border-border-subtle/50 shadow-sm">
         <div className="relative w-full md:w-96 group">
           <LuSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={20} />
           <input

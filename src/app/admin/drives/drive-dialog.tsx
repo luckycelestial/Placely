@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LuX, LuPlus, LuSave, LuBuilding2, LuMapPin, LuDollarSign, LuCalendar, LuFileText, LuSearch, LuGraduationCap, LuCircleAlert } from "react-icons/lu";
+import { LuX, LuPlus, LuSave, LuBuilding2, LuMapPin, LuIndianRupee, LuCalendar, LuFileText, LuSearch, LuGraduationCap, LuCircleAlert } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
 import { useForm } from "react-hook-form";
@@ -351,7 +351,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
               {/* Package */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted ml-1 flex items-center gap-2">
-                  <LuDollarSign size={12} className="text-primary" />
+                  <LuIndianRupee size={12} className="text-primary" />
                   Package (CTC)
                 </label>
                 <input 

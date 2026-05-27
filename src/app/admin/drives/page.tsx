@@ -9,7 +9,7 @@ import {
   LuBuilding2, 
   LuCalendar, 
   LuMapPin, 
-  LuDollarSign,
+  LuIndianRupee,
   LuHistory,
   LuFileText,
   LuArrowUpRight,
@@ -74,7 +74,8 @@ export default function DrivesPage() {
         const [drivesData, distinctBatches] = await Promise.all([
           db.getDrives({ 
             search, 
-            status: showPastDrives ? 'completed' : 'published',
+            status: showPastDrives ? 'completed' : undefined,
+            excludeCompleted: !showPastDrives,
             type: filterType === 'All' ? undefined : filterType,
             batch: filterBatch === 'All' ? undefined : filterBatch
           }),
@@ -184,7 +185,7 @@ export default function DrivesPage() {
   };
 
   const handleManageApplications = (driveId: string) => {
-    router.push(`/admin/applications?driveId=${driveId}`);
+    router.push(`/admin/ats?driveId=${driveId}`);
   };
 
   const handleUseTemplate = (template: any) => {
@@ -375,7 +376,7 @@ export default function DrivesPage() {
                     <div className="grid grid-cols-2 gap-x-8 gap-y-6 mb-8">
                       <div className="flex items-center gap-3.5">
                         <div className="h-10 w-10 rounded-xl bg-background border border-border-subtle flex items-center justify-center text-muted shrink-0 shadow-sm">
-                          <LuDollarSign size={18} className="text-primary" />
+                          <LuIndianRupee size={18} className="text-primary" />
                         </div>
                         <div>
                           <p className="text-[10px] font-black text-muted uppercase tracking-[0.1em]">Package</p>

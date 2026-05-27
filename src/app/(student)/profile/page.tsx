@@ -5,7 +5,7 @@ import {
   LuUser, LuMail, LuPhone, LuMapPin, LuGraduationCap, 
   LuBook, LuCalendar, LuFileText, LuUpload, LuExternalLink,
   LuCircleCheck, LuArrowRight, LuGlobe, LuBriefcase, 
-  LuDollarSign, LuFolderOpen, LuTriangleAlert, LuBadgeCheck,
+  LuIndianRupee, LuFolderOpen, LuTriangleAlert, LuBadgeCheck,
   LuHash, LuX
 } from "react-icons/lu";
 import { SiGithub, SiLeetcode } from "react-icons/si";
@@ -407,7 +407,7 @@ export default function ProfilePage() {
         <div className="space-y-8 mt-4">
           <div className="grid gap-6 md:grid-cols-3">
             <DetailItem value="SDE / Full Stack" icon={LuBriefcase} />
-            <DetailItem value="12 - 18 LPA" icon={LuDollarSign} />
+            <DetailItem value="12 - 18 LPA" icon={LuIndianRupee} />
             <DetailItem value="Bangalore, Hyderabad, Remote" icon={LuMapPin} />
           </div>
 

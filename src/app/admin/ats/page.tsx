@@ -1,6 +1,7 @@
 "use client";
 import { Sk } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { 
   LuGripVertical, 
   LuMessageSquare, 
@@ -29,6 +30,46 @@ const DEFAULT_STAGES = [
   { id: "selection", name: "Selection", color: "bg-emerald-500" }
 ];
 
+const GLOBAL_META_STAGES = [
+  { id: "applied", name: "Applied", color: "bg-slate-500 animate-fade-in" },
+  { id: "screening", name: "Screening", color: "bg-blue-500 animate-fade-in" },
+  { id: "interview", name: "Interviews", color: "bg-purple-500 animate-fade-in" },
+  { id: "offered", name: "Offered", color: "bg-emerald-500 animate-fade-in" },
+  { id: "joined", name: "Joined", color: "bg-indigo-500 animate-fade-in" }
+];
+
+function getMetaStageId(stageId: string): string {
+  const id = stageId.toLowerCase();
+  if (id === 'applied' || id.includes('apply') || id.includes('appli')) return 'applied';
+  if (id.includes('screen') || id.includes('short') || id.includes('gd') || id.includes('group') || id.includes('test')) return 'screening';
+  if (id.includes('interview') || id.includes('tech') || id.includes('round') || id.includes('oa') || id.includes('assess') || id.includes('coding')) return 'interview';
+  if (id.includes('offer') || id.includes('select') || id.includes('accept')) return 'offered';
+  if (id.includes('join') || id.includes('place')) return 'joined';
+  return 'interview'; // default fallback
+}
+
+// Resolves the global meta-stage for a candidate, checking explicit mapping first
+function getCandidateMetaStage(candidateStage: string, driveStages: any[]): string {
+  const stageObj = driveStages.find((s: any) => s.id === candidateStage);
+  if (stageObj?.metaStage) return stageObj.metaStage;
+  return getMetaStageId(candidateStage);
+}
+
+// Helper to get drive stages from raw drive object
+function parseDriveStages(driveObj: any): any[] {
+  if (!driveObj) return [];
+  let rules = driveObj.eligibility_rules;
+  if (typeof rules === 'string') { try { rules = JSON.parse(rules); } catch (e) {} }
+  return (rules?.stages && Array.isArray(rules.stages) && rules.stages.length > 0) ? rules.stages : [];
+}
+
+interface Stage {
+  id: string;
+  name: string;
+  color: string;
+  metaStage?: string;
+}
+
 interface Application {
   id: string;
   name: string;
@@ -44,16 +85,17 @@ interface Application {
 }
 
 export default function ATSTrackerPage() {
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [applications, setApplications] = useState<Application[]>([]);
-  const [drives, setDrives] = useState<{ id: string; companies: { name: string }; role_title: string }[]>([]);
+  const [drives, setDrives] = useState<any[]>([]);
   const [batches, setBatches] = useState<string[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCtcId, setEditingCtcId] = useState<string | null>(null);
 
   // Filters State
-  const [activeDrive, setActiveDrive] = useState("All Drives");
+  const [activeDrive, setActiveDrive] = useState(() => searchParams.get("driveId") ?? "All Drives");
   const [activeBatch, setActiveBatch] = useState("All Batches");
   const [activeDept, setActiveDept] = useState("All Departments");
   const [startDate, setStartDate] = useState("");
@@ -64,10 +106,11 @@ export default function ATSTrackerPage() {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [targetStage, setTargetStage] = useState("shortlisted");
 
-  const [stages, setStages] = useState(DEFAULT_STAGES);
+  const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES);
   const [showAddStageModal, setShowAddStageModal] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const [stageToRemove, setStageToRemove] = useState<string | null>(null);
+  const [openMappingDropdown, setOpenMappingDropdown] = useState<string | null>(null);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -144,38 +187,7 @@ export default function ATSTrackerPage() {
           setStages(merged);
         }
       } else {
-        // Collect all stages from all drives
-        let merged = [...DEFAULT_STAGES];
-        
-        drivesData.forEach((drive: any) => {
-          let savedStages = null;
-          try {
-            if (typeof drive?.eligibility_rules === 'string') {
-              const parsed = JSON.parse(drive.eligibility_rules);
-              savedStages = parsed?.stages;
-            } else if (typeof drive?.eligibility_rules === 'object' && drive?.eligibility_rules !== null) {
-              savedStages = drive.eligibility_rules.stages;
-            }
-          } catch (e) {}
-
-          if (savedStages && Array.isArray(savedStages)) {
-            savedStages.forEach(st => {
-              if (!merged.find(m => m.id === st.id)) {
-                merged.push(st);
-              }
-            });
-          }
-        });
-
-        // Also add any stages found in applications to ensure consistency
-        const appStages = new Set(appsData.map((a: any) => a.current_stage || 'applied'));
-        appStages.forEach(st => {
-          if (!merged.find(m => m.id === st)) {
-            merged.push({ id: st as string, name: st as string, color: "bg-gray-500" });
-          }
-        });
-
-        setStages(merged);
+        setStages(GLOBAL_META_STAGES);
       }
     } catch (error) {
       console.error("Failed to load ATS data:", error);
@@ -188,6 +200,13 @@ export default function ATSTrackerPage() {
     loadInitialData();
   }, [activeDrive, activeBatch, activeDept, startDate, endDate]);
 
+  useEffect(() => {
+    if (!openMappingDropdown) return;
+    const handler = () => setOpenMappingDropdown(null);
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, [openMappingDropdown]);
+
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData("applicationId", id);
   };
@@ -197,12 +216,34 @@ export default function ATSTrackerPage() {
     const id = e.dataTransfer.getData("applicationId");
     if (!id) return;
 
+    let resolvedStageId = targetStageId;
+    if (activeDrive === "All Drives") {
+      const candidate = applications.find(a => a.id === id);
+      if (candidate) {
+        const driveObj = drives.find(d => `${d.companies?.name} - ${d.role_title}` === `${candidate.company} - ${candidate.role}`);
+        let driveStages = DEFAULT_STAGES;
+        if (driveObj) {
+          let rules = driveObj.eligibility_rules;
+          if (rules) {
+            if (typeof rules === 'string') {
+              try { rules = JSON.parse(rules); } catch (e) {}
+            }
+            if (rules.stages && Array.isArray(rules.stages) && rules.stages.length > 0) {
+              driveStages = rules.stages;
+            }
+          }
+        }
+        const matchingStage = driveStages.find(s => getMetaStageId(s.id) === targetStageId);
+        if (matchingStage) resolvedStageId = matchingStage.id;
+      }
+    }
+
     setApplications(prev => prev.map(app => 
-      app.id === id ? { ...app, stage: targetStageId } : app
+      app.id === id ? { ...app, stage: resolvedStageId } : app
     ));
 
     try {
-      await db.updateApplicationStage(id, targetStageId);
+      await db.updateApplicationStage(id, resolvedStageId);
     } catch (error) {
       console.error("Failed to update stage:", error);
       loadInitialData();
@@ -228,7 +269,30 @@ export default function ATSTrackerPage() {
     setLoading(true);
     try {
       await Promise.all(
-        Array.from(selectedApps).map(id => db.updateApplicationStage(id, targetStage))
+        Array.from(selectedApps).map(async (id) => {
+          let resolvedStageId = targetStage;
+          if (activeDrive === "All Drives") {
+            const candidate = applications.find(a => a.id === id);
+            if (candidate) {
+              const driveObj = drives.find(d => `${d.companies?.name} - ${d.role_title}` === `${candidate.company} - ${candidate.role}`);
+              let driveStages = DEFAULT_STAGES;
+              if (driveObj) {
+                let rules = driveObj.eligibility_rules;
+                if (rules) {
+                  if (typeof rules === 'string') {
+                    try { rules = JSON.parse(rules); } catch (e) {}
+                  }
+                  if (rules.stages && Array.isArray(rules.stages) && rules.stages.length > 0) {
+                    driveStages = rules.stages;
+                  }
+                }
+              }
+              const matchingStage = driveStages.find(s => getMetaStageId(s.id) === targetStage);
+              if (matchingStage) resolvedStageId = matchingStage.id;
+            }
+          }
+          return db.updateApplicationStage(id, resolvedStageId);
+        })
       );
       await loadInitialData();
       setSelectedApps(new Set());
@@ -309,6 +373,20 @@ export default function ATSTrackerPage() {
     }
   };
 
+  const handleUpdateStageMapping = async (stageId: string, metaStage: string) => {
+    const newStages = stages.map(s => s.id === stageId ? { ...s, metaStage } : s);
+    setStages(newStages);
+    if (activeDrive !== "All Drives") {
+      try {
+        await db.updateDriveStages(activeDrive, newStages);
+        toast.success("Stage mapping saved");
+      } catch (err) {
+        console.error("Failed to update stage mapping:", err);
+        toast.error("Failed to save mapping");
+      }
+    }
+  };
+
   const handleExportData = () => {
     try {
       const exportData = filteredApps.map((app) => ({
@@ -318,7 +396,7 @@ export default function ATSTrackerPage() {
         "Batch": app.batch,
         "Company": app.company,
         "Role": app.role,
-        "Stage": stages.find(s => s.id === app.stage)?.name || app.stage || "Applied",
+        "Stage": (activeDrive === "All Drives" ? stages.find(s => s.id === getMetaStageId(app.stage))?.name : stages.find(s => s.id === app.stage)?.name) || app.stage || "Applied",
         "Last Updated": app.updated
       }));
 
@@ -420,7 +498,19 @@ export default function ATSTrackerPage() {
       <div className="flex-1 overflow-x-auto pb-4 no-scrollbar">
         <div className="flex gap-4 h-full min-w-max">
           {stages.map((stage) => {
-            const stageApps = filteredApps.filter(c => c.stage === stage.id);
+            const stageApps = filteredApps.filter(c => {
+              if (activeDrive === "All Drives") {
+                // Find candidate's drive and check for explicit metaStage mapping first
+                const driveObj = drives.find(d =>
+                  `${d.companies?.name} - ${d.role_title}` === `${c.company} - ${c.role}`
+                );
+                const driveStages = parseDriveStages(driveObj);
+                return getCandidateMetaStage(c.stage, driveStages) === stage.id;
+              } else {
+                return c.stage === stage.id;
+              }
+            });
+
             return (
               <div 
                 key={stage.id} 
@@ -428,36 +518,77 @@ export default function ATSTrackerPage() {
                 onDrop={(e) => handleDrop(e, stage.id)}
                 onDragOver={handleDragOver}
               >
-                <div className="flex items-center justify-between px-2 group">
-                  <div className="flex items-center gap-2">
-                    <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
-                    <h3 className="font-black text-sm uppercase tracking-widest text-foreground/80">{stage.name}</h3>
-                    <span className="bg-background px-2 py-0.5 rounded-md text-[10px] font-black text-muted border border-border-subtle">
-                      {stageApps.length}
-                    </span>
+                <div className="flex flex-col gap-1 px-2">
+                  <div className="flex items-center justify-between group">
+                    <div className="flex items-center gap-2">
+                      <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
+                      <h3 className="font-black text-sm uppercase tracking-widest text-foreground/80">{stage.name}</h3>
+                      <span className="bg-background px-2 py-0.5 rounded-md text-[10px] font-black text-muted border border-border-subtle">
+                        {stageApps.length}
+                      </span>
+                    </div>
+                    {activeDrive !== "All Drives" && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => handleMoveStageColumn(stage.id, 'left')}
+                          className="p-1 hover:bg-black/5 rounded text-muted hover:text-foreground transition-colors"
+                          disabled={stages.indexOf(stage) === 0}
+                        >
+                          <LuChevronLeft size={12} />
+                        </button>
+                        <button 
+                          onClick={() => handleMoveStageColumn(stage.id, 'right')}
+                          className="p-1 hover:bg-black/5 rounded text-muted hover:text-foreground transition-colors"
+                          disabled={stages.indexOf(stage) === stages.length - 1}
+                        >
+                          <LuChevronRight size={12} />
+                        </button>
+                        <button 
+                          onClick={() => setStageToRemove(stage.id)}
+                          className="p-1 hover:bg-red-500/10 rounded text-muted hover:text-red-500 transition-colors ml-1"
+                        >
+                          <LuTrash2 size={12} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => handleMoveStageColumn(stage.id, 'left')}
-                      className="p-1 hover:bg-black/5 rounded text-muted hover:text-foreground transition-colors"
-                      disabled={stages.indexOf(stage) === 0}
-                    >
-                      <LuChevronLeft size={12} />
-                    </button>
-                    <button 
-                      onClick={() => handleMoveStageColumn(stage.id, 'right')}
-                      className="p-1 hover:bg-black/5 rounded text-muted hover:text-foreground transition-colors"
-                      disabled={stages.indexOf(stage) === stages.length - 1}
-                    >
-                      <LuChevronRight size={12} />
-                    </button>
-                    <button 
-                      onClick={() => setStageToRemove(stage.id)}
-                      className="p-1 hover:bg-red-500/10 rounded text-muted hover:text-red-500 transition-colors ml-1"
-                    >
-                      <LuTrash2 size={12} />
-                    </button>
-                  </div>
+                  {activeDrive !== "All Drives" && (
+                    <div className="flex items-center gap-1.5 px-0.5 relative">
+                      <span className="text-[8px] font-black text-muted/50 uppercase tracking-widest">Maps to</span>
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenMappingDropdown(openMappingDropdown === stage.id ? null : stage.id)}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface border border-border-subtle text-[9px] font-black text-foreground/70 hover:text-foreground hover:border-foreground/20 transition-colors"
+                        >
+                          {GLOBAL_META_STAGES.find(m => m.id === (stage.metaStage || getMetaStageId(stage.id)))?.name ?? 'Interviews'}
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className={cn("transition-transform", openMappingDropdown === stage.id && "rotate-180")}>
+                            <path d="M1.5 3L4 5.5L6.5 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                        {openMappingDropdown === stage.id && (
+                          <div className="absolute top-full left-0 mt-1.5 w-32 bg-surface border border-border-subtle rounded-xl shadow-lg z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                            {GLOBAL_META_STAGES.map(m => (
+                              <button
+                                key={m.id}
+                                onClick={() => {
+                                  handleUpdateStageMapping(stage.id, m.id);
+                                  setOpenMappingDropdown(null);
+                                }}
+                                className={cn(
+                                  "w-full text-left px-3 py-2 text-[10px] font-bold transition-colors",
+                                  (stage.metaStage || getMetaStageId(stage.id)) === m.id
+                                    ? "bg-foreground/8 text-foreground font-black"
+                                    : "text-foreground/60 hover:text-foreground hover:bg-foreground/5"
+                                )}
+                              >
+                                {m.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 bg-background/50 rounded-3xl border border-border-subtle/50 p-3 space-y-3 overflow-y-auto no-scrollbar min-h-[200px]">
@@ -468,119 +599,143 @@ export default function ATSTrackerPage() {
                       <p className="text-[10px] font-black uppercase tracking-widest">No Candidates</p>
                     </div>
                   ) : (
-                    stageApps.map((candidate) => (
-                      <div 
-                        key={candidate.id} 
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, candidate.id)}
-                        className="bg-surface p-4 rounded-2xl border border-border-subtle shadow-sm hover:shadow-md hover:border-primary/20 transition-all cursor-grab active:cursor-grabbing group relative"
-                      >
-                        <div className="absolute top-4 right-4">
-                          <input 
-                            type="checkbox"
-                            checked={selectedApps.has(candidate.id)}
-                            onChange={() => handleToggleSelect(candidate.id)}
-                            className="w-4 h-4 rounded border-border-subtle text-primary focus:ring-primary/20 cursor-pointer"
-                          />
-                        </div>
+                    stageApps.map((candidate) => {
+                      const driveObj = drives.find(d => d.id === activeDrive || (`${d.companies?.name} - ${d.role_title}` === `${candidate.company} - ${candidate.role}`));
+                      let driveStages = DEFAULT_STAGES;
+                      if (driveObj) {
+                        let rules = driveObj.eligibility_rules;
+                        if (rules) {
+                          if (typeof rules === 'string') {
+                            try { rules = JSON.parse(rules); } catch (e) {}
+                          }
+                          if (rules.stages && Array.isArray(rules.stages) && rules.stages.length > 0) {
+                            driveStages = rules.stages;
+                          }
+                        }
+                      }
+                      const actualStageName = driveStages.find(s => s.id === candidate.stage)?.name || candidate.stage;
 
-                        <div className="flex items-start justify-between mb-3 pr-6">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-[10px]">
-                              {candidate.avatar}
-                            </div>
-                            <div>
-                              <p className="font-bold text-xs leading-none mb-1 group-hover:text-primary transition-colors">{candidate.name}</p>
-                              <p className="text-[9px] font-black text-muted uppercase tracking-tighter">{candidate.regNo}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2 mb-4">
-                          <div className="flex items-center gap-1.5 text-foreground/70">
-                            <LuBuilding2 size={12} className="text-muted flex-shrink-0" />
-                            <span className="text-[10px] font-bold truncate max-w-[100px]">{candidate.company}</span>
-                            <span className="h-0.5 w-0.5 rounded-full bg-muted flex-shrink-0"></span>
-                            <span className="text-[10px] font-bold truncate max-w-[150px]">{candidate.role}</span>
-                          </div>
-                        </div>
-
-
-
-                        <div className="flex items-center justify-between pt-3 border-t border-border-subtle/50">
-                          <div className="flex items-center gap-1.5">
-                            <LuClock size={10} className="text-muted" />
-                            <span className="text-[9px] font-bold text-muted uppercase tracking-tighter">{candidate.updated}</span>
+                      return (
+                        <div 
+                          key={candidate.id} 
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, candidate.id)}
+                          className="bg-surface p-4 rounded-2xl border border-border-subtle shadow-sm hover:shadow-md hover:border-primary/20 transition-all cursor-grab active:cursor-grabbing group relative"
+                        >
+                          <div className="absolute top-4 right-4">
+                            <input 
+                              type="checkbox"
+                              checked={selectedApps.has(candidate.id)}
+                              onChange={() => handleToggleSelect(candidate.id)}
+                              className="w-4 h-4 rounded border-border-subtle text-primary focus:ring-primary/20 cursor-pointer"
+                            />
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            {(stage.name.toLowerCase() === 'offered' || stage.name.toLowerCase() === 'joined') && (
-                              <div onClick={(e) => e.stopPropagation()}>
-                                {editingCtcId === candidate.id ? (
-                                  <input 
-                                    autoFocus
-                                    type="text" 
-                                    defaultValue={candidate.ctc || ""}
-                                    placeholder="12 LPA"
-                                    className="w-16 bg-background border border-emerald-500 text-emerald-600 dark:text-emerald-400 rounded px-1.5 py-0.5 text-[9px] font-bold focus:outline-none"
-                                    onBlur={(e) => {
-                                      setEditingCtcId(null);
-                                      if (e.target.value !== candidate.ctc) {
-                                        db.updateApplicationCtc(candidate.id, e.target.value).then(() => {
-                                          toast.success("CTC updated");
-                                          setApplications(prev => prev.map(app => app.id === candidate.id ? {...app, ctc: e.target.value} : app));
-                                        }).catch((error: any) => {
-                                          console.error("CTC Update Error:", error);
-                                          toast.error("Failed to update CTC");
-                                        });
-                                      }
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') e.currentTarget.blur();
-                                    }}
-                                  />
-                                ) : (
-                                  <div 
-                                    onClick={() => setEditingCtcId(candidate.id)}
-                                    className={cn(
-                                      "px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-colors border",
-                                      candidate.ctc 
-                                        ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/20" 
-                                        : "bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/50"
-                                    )}
-                                  >
-                                    {candidate.ctc || "+ CTC"}
-                                  </div>
-                                )}
+                          <div className="flex items-start justify-between mb-3 pr-6">
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-[10px]">
+                                {candidate.avatar}
                               </div>
-                            )}
-                            
-                            <div className="flex items-center gap-1">
-                            <button className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-black/5 transition-colors">
-                              <LuMessageSquare size={12} className="text-muted" />
-                            </button>
-                              <LuGripVertical size={12} className="text-muted cursor-grab" />
+                              <div>
+                                <p className="font-bold text-xs leading-none mb-1 group-hover:text-primary transition-colors">{candidate.name}</p>
+                                <p className="text-[9px] font-black text-muted uppercase tracking-tighter">{candidate.regNo}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 mb-3">
+                            <div className="flex items-center gap-1.5 text-foreground/70">
+                              <LuBuilding2 size={12} className="text-muted flex-shrink-0" />
+                              <span className="text-[10px] font-bold truncate max-w-[100px]">{candidate.company}</span>
+                              <span className="h-0.5 w-0.5 rounded-full bg-muted flex-shrink-0"></span>
+                              <span className="text-[10px] font-bold truncate max-w-[150px]">{candidate.role}</span>
+                            </div>
+                          </div>
+
+                          {activeDrive === "All Drives" && (
+                            <div className="mb-4">
+                              <span className="inline-block px-2 py-0.5 rounded-md bg-primary/5 text-primary text-[8px] font-black uppercase tracking-widest border border-primary/10">
+                                Round: {actualStageName}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-3 border-t border-border-subtle/50">
+                            <div className="flex items-center gap-1.5">
+                              <LuClock size={10} className="text-muted" />
+                              <span className="text-[9px] font-bold text-muted uppercase tracking-tighter">{candidate.updated}</span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {(actualStageName.toLowerCase().includes('offer') || actualStageName.toLowerCase().includes('select') || actualStageName.toLowerCase().includes('join')) && (
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  {editingCtcId === candidate.id ? (
+                                    <input 
+                                      autoFocus
+                                      type="text" 
+                                      defaultValue={candidate.ctc || ""}
+                                      placeholder="12 LPA"
+                                      className="w-16 bg-background border border-emerald-500 text-emerald-600 dark:text-emerald-400 rounded px-1.5 py-0.5 text-[9px] font-bold focus:outline-none"
+                                      onBlur={(e) => {
+                                        setEditingCtcId(null);
+                                        if (e.target.value !== candidate.ctc) {
+                                          db.updateApplicationCtc(candidate.id, e.target.value).then(() => {
+                                            toast.success("CTC updated");
+                                            setApplications(prev => prev.map(app => app.id === candidate.id ? {...app, ctc: e.target.value} : app));
+                                          }).catch((error: any) => {
+                                            console.error("CTC Update Error:", error);
+                                            toast.error("Failed to update CTC");
+                                          });
+                                        }
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') e.currentTarget.blur();
+                                      }}
+                                    />
+                                  ) : (
+                                    <div 
+                                      onClick={() => setEditingCtcId(candidate.id)}
+                                      className={cn(
+                                        "px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-colors border",
+                                        candidate.ctc 
+                                          ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/20" 
+                                          : "bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/50"
+                                      )}
+                                    >
+                                      {candidate.ctc || "+ CTC"}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              <div className="flex items-center gap-1">
+                                <button className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-black/5 transition-colors">
+                                  <LuMessageSquare size={12} className="text-muted" />
+                                </button>
+                                <LuGripVertical size={12} className="text-muted cursor-grab" />
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
             );
           })}
           
-          <div className="w-[300px] flex flex-col gap-4">
-             <button 
-                onClick={() => setShowAddStageModal(true)}
-                className="h-full min-h-[100px] border-2 border-dashed border-border-subtle rounded-3xl flex flex-col items-center justify-center text-muted hover:text-foreground hover:border-primary/50 transition-colors opacity-70 hover:opacity-100"
-              >
-                <LuPlus size={24} className="mb-2" />
-                <span className="text-xs font-black uppercase tracking-widest">Add Stage</span>
-              </button>
-          </div>
-
+          {activeDrive !== "All Drives" && (
+            <div className="w-[300px] flex flex-col gap-4">
+               <button 
+                  onClick={() => setShowAddStageModal(true)}
+                  className="h-full min-h-[100px] border-2 border-dashed border-border-subtle rounded-3xl flex flex-col items-center justify-center text-muted hover:text-foreground hover:border-primary/50 transition-colors opacity-70 hover:opacity-100"
+                >
+                  <LuPlus size={24} className="mb-2" />
+                  <span className="text-xs font-black uppercase tracking-widest">Add Stage</span>
+                </button>
+            </div>
+          )}
         </div>
       </div>
 

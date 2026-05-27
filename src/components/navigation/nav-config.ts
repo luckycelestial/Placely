@@ -29,19 +29,9 @@ export const STUDENT_NAV_ITEMS = [
     icon: LuBriefcase,
   },
   {
-    title: "My Applications",
-    href: "/applications",
-    icon: LuFileText,
-  },
-  {
     title: "My Progress",
     href: "/progress",
     icon: LuActivity,
-  },
-  {
-    title: "Offers & Joining",
-    href: "/offers",
-    icon: LuAward,
   },
   {
     title: "Notifications",
