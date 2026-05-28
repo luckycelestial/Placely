@@ -459,7 +459,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
                   Target Departments
                 </label>
                 <div className="grid grid-cols-3 md:grid-cols-5 gap-3 p-4 bg-background rounded-[24px] border border-border-subtle shadow-sm">
-                  {["AI&DS", "AI&ML", "CSE", "CYS", "CSBS", "CCE", "ECE", "EEE", "MECH"].map(branch => (
+                  {["AI&DS", "AI&ML", "CSE", "IT", "CYS", "CSBS", "CCE", "ECE", "EEE", "MECH"].map(branch => (
                     <button
                       key={branch}
                       type="button"

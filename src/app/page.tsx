@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   LuBuilding2, 
@@ -14,14 +14,41 @@ import {
   LuMoveRight
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
+import { db } from "@/services/database";
+import { setLoggedStudentId } from "@/lib/dev-config";
 
 export default function TenantEntryPage() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [students, setStudents] = useState<any[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    async function loadProfiles() {
+      try {
+        const { data } = await db.getStudents({ pageSize: 15 });
+        setStudents(data || []);
+      } catch (err) {
+        console.error("Failed to load profiles:", err);
+      } finally {
+        setLoadingStudents(false);
+      }
+    }
+    loadProfiles();
+  }, []);
 
   const handleGoogleSignIn = () => {
     setIsLoggingIn(true);
-    // Simulate premium SSO callback validation
+    // Simulate premium SSO callback validation using default student (Aarav Sharma)
+    setLoggedStudentId("fd6d99a3-41d9-488d-9e98-b50b649233a8");
+    setTimeout(() => {
+      router.push("/dashboard");
+    }, 800);
+  };
+
+  const handleProfileSignIn = (studentId: string) => {
+    setIsLoggingIn(true);
+    setLoggedStudentId(studentId);
     setTimeout(() => {
       router.push("/dashboard");
     }, 800);
@@ -121,6 +148,55 @@ export default function TenantEntryPage() {
                 )}
                 {isLoggingIn ? "Redirecting..." : "Sign in with Google"}
               </button>
+            </div>
+            
+            {/* Student Profiles Selector */}
+            <div className="space-y-4 pt-6 border-t border-border-subtle/50">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center gap-2">
+                  <LuUser size={14} className="text-primary" />
+                  Select Student Profile to Enter
+                </h3>
+                <p className="text-[10px] text-muted mt-1 font-medium">Click on any profile card to instantly login as that student.</p>
+              </div>
+
+              {loadingStudents ? (
+                <div className="space-y-3">
+                  <div className="h-14 rounded-2xl bg-surface animate-pulse" />
+                  <div className="h-14 rounded-2xl bg-surface animate-pulse" />
+                </div>
+              ) : students.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3 max-h-[220px] overflow-y-auto pr-1.5 no-scrollbar">
+                  {students.map((student) => {
+                    const avatar = (student.name || "U").split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+                    return (
+                      <button
+                        key={student.id}
+                        onClick={() => handleProfileSignIn(student.id)}
+                        disabled={isLoggingIn}
+                        className="w-full p-4 rounded-2xl border border-border-subtle bg-surface/50 text-left hover:border-primary/40 hover:bg-surface transition-all flex items-center justify-between group active:scale-[0.99] disabled:opacity-70 disabled:pointer-events-none cursor-pointer shadow-sm hover:shadow-md"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-xs shrink-0 group-hover:scale-105 transition-transform">
+                            {avatar}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm text-foreground leading-none mb-1 group-hover:text-primary transition-colors truncate">{student.name}</p>
+                            <p className="text-[9px] font-black text-muted uppercase tracking-tighter flex items-center gap-1">
+                              {student.regNo}
+                              <span className="h-1 w-1 rounded-full bg-muted/40" />
+                              <span className="text-primary">{student.dept}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <LuMoveRight size={16} className="text-muted/40 group-hover:text-primary transition-all translate-x-0 group-hover:translate-x-1" />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-[10px] font-semibold text-muted text-center py-4">No student profiles registered in system.</p>
+              )}
             </div>
           </div>
 

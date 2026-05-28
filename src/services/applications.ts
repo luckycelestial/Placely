@@ -7,65 +7,49 @@ export async function getApplications(options: {
   startDate?: string; 
   endDate?: string; 
 } = {}) {
+  const hasDeptFilter = options.department && options.department !== "All Departments";
+  const hasBatchFilter = options.batch && options.batch !== "All Batches";
+
+  const studentsSelect = hasDeptFilter
+    ? `students!inner(register_number, department, year, users(name))`
+    : `students(register_number, department, year, users(name))`;
+
+  const drivesSelect = hasBatchFilter
+    ? `job_drives!inner(role_title, batch, companies(name))`
+    : `job_drives(role_title, batch, companies(name))`;
+
   let query = supabase
     .from('applications')
     .select(`
       *,
-      students (
-        register_number,
-        department,
-        year,
-        users (
-          name
-        )
-      ),
-      job_drives (
-        role_title,
-        batch,
-        companies (
-          name
-        )
-      )
+      ${studentsSelect},
+      ${drivesSelect}
     `);
-  
+
   if (options.driveId && options.driveId !== "All Drives") {
     query = query.eq('drive_id', options.driveId);
+  }
+
+  if (hasDeptFilter) {
+    query = query.eq('students.department', options.department);
+  }
+
+  if (hasBatchFilter) {
+    query = query.eq('job_drives.batch', options.batch);
+  }
+
+  if (options.startDate) {
+    query = query.gte('applied_at', options.startDate);
+  }
+
+  if (options.endDate) {
+    query = query.lte('applied_at', options.endDate);
   }
 
   const { data, error } = await query;
   if (error) throw error;
 
-  let filteredData = data || [];
-
-  if (options.batch && options.batch !== "All Batches") {
-    filteredData = filteredData.filter((app: any) => {
-      const drive = Array.isArray(app.job_drives) ? app.job_drives[0] : app.job_drives;
-      return drive?.batch === options.batch;
-    });
-  }
-
-  if (options.department && options.department !== "All Departments") {
-    filteredData = filteredData.filter((app: any) => {
-      const student = Array.isArray(app.students) ? app.students[0] : app.students;
-      return student?.department === options.department;
-    });
-  }
-
-  if (options.startDate) {
-    const start = new Date(options.startDate).getTime();
-    filteredData = filteredData.filter((app: any) => {
-      return app.applied_at && new Date(app.applied_at).getTime() >= start;
-    });
-  }
-
-  if (options.endDate) {
-    const end = new Date(options.endDate).getTime();
-    filteredData = filteredData.filter((app: any) => {
-      return app.applied_at && new Date(app.applied_at).getTime() <= end;
-    });
-  }
-
-  return filteredData;
+  return data || [];
 }
 
 export async function getStudentApplications(studentId: string) {
@@ -214,78 +198,89 @@ export async function updateOfferVerification(id: string, status: string) {
 }
 
 export async function bulkCreateOffers(offersData: any[]) {
-  const results = [];
-  for (const item of offersData) {
-    try {
-      const { data: student, error: studentError } = await supabase
-        .from('students')
-        .select('id')
-        .eq('register_number', item.regNo)
-        .single();
+  if (!offersData || offersData.length === 0) return [];
 
-      if (studentError || !student) {
-        console.error(`Student not found for regNo: ${item.regNo}`);
-        continue;
-      }
+  // 1. Gather all unique register numbers, company names, and drive titles
+  const regNos = Array.from(new Set(offersData.map(o => o.regNo).filter(Boolean)));
+  const companyNames = Array.from(new Set(offersData.map(o => o.company).filter(Boolean)));
+  const driveTitles = Array.from(new Set(offersData.map(o => o.driveTitle).filter(Boolean)));
 
-      let companyId;
-      const { data: company, error: companyError } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('name', item.company)
-        .maybeSingle();
+  // 2. Batch fetch students
+  const { data: students } = await supabase
+    .from('students')
+    .select('id, register_number')
+    .in('register_number', regNos);
+  const studentMap = new Map<string, string>();
+  (students || []).forEach(s => studentMap.set(s.register_number, s.id));
 
-      if (company && !companyError) {
-        companyId = company.id;
-      } else {
-        const { data: newCompany, error: createCompanyError } = await supabase
-          .from('companies')
-          .insert([{ name: item.company, industry: 'Technology' }])
-          .select()
-          .single();
-        if (!createCompanyError && newCompany) {
-          companyId = newCompany.id;
-        } else {
-          console.error(`Failed to get/create company: ${item.company}`);
-          continue;
-        }
-      }
+  // 3. Batch fetch companies
+  const { data: companies } = await supabase
+    .from('companies')
+    .select('id, name')
+    .in('name', companyNames);
+  const companyMap = new Map<string, string>();
+  (companies || []).forEach(c => companyMap.set(c.name, c.id));
 
-      let driveId = null;
-      if (item.driveTitle) {
-        const { data: drive } = await supabase
-          .from('job_drives')
-          .select('id')
-          .eq('title', item.driveTitle)
-          .maybeSingle();
-        if (drive) {
-          driveId = drive.id;
-        }
-      }
-
-      const { data: offer, error: offerError } = await supabase
-        .from('offers')
-        .insert([{
-          student_id: student.id,
-          company_id: companyId,
-          job_drive_id: driveId,
-          role_title: item.role || 'Software Engineer',
-          package_ctc: item.package || '6 LPA',
-          acceptance_status: item.status || 'accepted',
-          joining_date: item.joiningDate || new Date().toISOString().split('T')[0],
-          offer_status: item.outcome || 'accepted',
-          verification_status: item.verification || 'pending'
-        }])
-        .select()
-        .single();
-
-      if (offerError) throw offerError;
-      results.push(offer);
-    } catch (err) {
-      console.error(`Error uploading offer for ${item.regNo}:`, err);
+  // 4. Identify and batch insert any missing companies
+  const missingCompanyNames = companyNames.filter(name => !companyMap.has(name));
+  if (missingCompanyNames.length > 0) {
+    const { data: newCos, error: createCosError } = await supabase
+      .from('companies')
+      .insert(missingCompanyNames.map(name => ({ name, industry: 'Technology' })))
+      .select();
+    
+    if (!createCosError && newCos) {
+      newCos.forEach(c => companyMap.set(c.name, c.id));
     }
   }
-  return results;
+
+  // 5. Batch fetch job drives
+  const driveMap = new Map<string, string>();
+  if (driveTitles.length > 0) {
+    const { data: drives } = await supabase
+      .from('job_drives')
+      .select('id, title')
+      .in('title', driveTitles);
+    (drives || []).forEach(d => driveMap.set(d.title, d.id));
+  }
+
+  // 6. Construct batch offers payload
+  const offersPayload = offersData.map(item => {
+    const studentId = studentMap.get(item.regNo);
+    if (!studentId) {
+      console.error(`Student not found for regNo: ${item.regNo}`);
+      return null;
+    }
+    const companyId = companyMap.get(item.company);
+    if (!companyId) {
+      console.error(`Failed to get/create company: ${item.company}`);
+      return null;
+    }
+    const driveId = item.driveTitle ? (driveMap.get(item.driveTitle) || null) : null;
+
+    return {
+      student_id: studentId,
+      company_id: companyId,
+      drive_id: driveId,
+      role_title: item.role || 'Software Engineer',
+      package_ctc: item.package || '6 LPA',
+      acceptance_status: item.status || 'accepted',
+      joining_date: item.joiningDate || new Date().toISOString().split('T')[0],
+      offer_status: item.outcome || 'accepted',
+      verification_status: item.verification || 'pending'
+    };
+  }).filter(Boolean);
+
+  if (offersPayload.length === 0) return [];
+
+  // 7. Batch insert offers
+  const { data: createdOffers, error: offerError } = await supabase
+    .from('offers')
+    .insert(offersPayload)
+    .select();
+
+  if (offerError) throw offerError;
+  return createdOffers || [];
 }
 
 export async function updateApplicationCtc(id: string, ctc: string) {

@@ -79,10 +79,9 @@ export async function getDistinctBatches(): Promise<string[]> {
 }
 
 export async function getDistinctDepartments(): Promise<string[]> {
-  const { data, error } = await supabase.from('students').select('department');
+  const { data, error } = await supabase.rpc('get_distinct_departments');
   if (error) throw error;
-  const depts = Array.from(new Set(data.map(d => d.department).filter(Boolean)));
-  return depts as string[];
+  return (data || []) as string[];
 }
 
 async function triggerNoticeOnPublication(drive: any) {
@@ -96,17 +95,6 @@ async function triggerNoticeOnPublication(drive: any) {
     const companyName = company?.name || 'Partner Company';
     const noticeTitle = `New Placement Drive: ${companyName} is hiring for ${drive.role_title}!`;
     
-    // Check if notice already exists to avoid duplication
-    const { data: existing } = await supabase
-      .from('notices')
-      .select('id')
-      .eq('title', noticeTitle)
-      .limit(1);
-      
-    if (existing && existing.length > 0) {
-      return; // Notice already posted!
-    }
-    
     const startDateFormatted = drive.application_start 
       ? new Date(drive.application_start).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
       : "Immediate";
@@ -116,7 +104,7 @@ async function triggerNoticeOnPublication(drive: any) {
       
     await supabase
       .from('notices')
-      .insert([{
+      .upsert([{
         title: noticeTitle,
         body: `${companyName} has launched a new recruitment drive for the position of ${drive.role_title}.\n\nPackage: ${drive.package_ctc} | Location: ${drive.location}\nApplication Window: ${startDateFormatted} to ${deadlineFormatted}\n\nHead over to the Job Opportunities hub to check eligibility and apply now!`,
         audience: 'All Students',
@@ -126,7 +114,10 @@ async function triggerNoticeOnPublication(drive: any) {
         pinned: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      }]);
+      }], {
+        onConflict: 'title',
+        ignoreDuplicates: true
+      });
   } catch (err) {
     console.error("Failed to automatically post notice for drive publication:", err);
   }
@@ -273,51 +264,19 @@ export async function deleteTemplate(id: string) {
 }
 
 export async function updateDriveStages(driveId: string, stages: any[]) {
-  const { data: drive, error: fetchError } = await supabase
-    .from('job_drives')
-    .select('eligibility_rules')
-    .eq('id', driveId)
-    .single();
-    
-  if (fetchError) throw fetchError;
-  
-  const currentRules = (drive?.eligibility_rules as any) || {};
-  const updatedRules = {
-    ...currentRules,
-    stages: stages
-  };
-  
-  const { error: updateError } = await supabase
-    .from('job_drives')
-    .update({ eligibility_rules: updatedRules })
-    .eq('id', driveId);
-    
-  if (updateError) throw updateError;
+  const { error } = await supabase.rpc('update_drive_stages', { 
+    drive_id: driveId, 
+    new_stages: stages 
+  });
+  if (error) throw error;
   return { success: true };
 }
 
 export async function updateAllDriveStages(stages: any[]) {
-  const { data: drives, error: fetchError } = await supabase
-    .from('job_drives')
-    .select('id, eligibility_rules');
-    
-  if (fetchError) throw fetchError;
-  
-  if (!drives || drives.length === 0) return { success: true };
-  
-  const updates = drives.map(async (drive) => {
-    const currentRules = (drive.eligibility_rules as any) || {};
-    const updatedRules = {
-      ...currentRules,
-      stages: stages
-    };
-    return supabase
-      .from('job_drives')
-      .update({ eligibility_rules: updatedRules })
-      .eq('id', drive.id);
+  const { error } = await supabase.rpc('update_all_drive_stages', { 
+    new_stages: stages 
   });
-  
-  await Promise.all(updates);
+  if (error) throw error;
   return { success: true };
 }
 

@@ -29,7 +29,7 @@ export function Header() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between bg-background/80 backdrop-blur-md px-6 md:px-12 border-b border-border-subtle/50">
+    <header suppressHydrationWarning className="sticky top-0 z-40 flex h-16 w-full items-center justify-between bg-background/80 backdrop-blur-md px-6 md:px-12 border-b border-border-subtle/50">
       {/* Mobile Logo */}
       <div className="flex items-center gap-1 md:hidden">
         <Link href="/dashboard" className="flex items-center gap-2">

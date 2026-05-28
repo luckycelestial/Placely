@@ -91,31 +91,28 @@ export async function getStudentDashboardStats(studentId: string) {
 }
 
 export async function getApplicationStats(driveId?: string) {
-  let pendingQuery = supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'applied');
-  let shortlistedQuery = supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'shortlisted');
-  let interviewingQuery = supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'interviewing');
-  let offeredQuery = supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'offered');
+  const filterDriveId = (driveId && driveId !== "All") ? driveId : null;
+  const { data, error } = await supabase.rpc('get_application_status_stats', {
+    filter_drive_id: filterDriveId
+  });
+  
+  if (error) throw error;
 
-  if (driveId && driveId !== "All") {
-    pendingQuery = pendingQuery.eq('drive_id', driveId);
-    shortlistedQuery = shortlistedQuery.eq('drive_id', driveId);
-    interviewingQuery = interviewingQuery.eq('drive_id', driveId);
-    offeredQuery = offeredQuery.eq('drive_id', driveId);
-  }
-
-  const [pending, shortlisted, interviewing, offered] = await Promise.all([
-    pendingQuery,
-    shortlistedQuery,
-    interviewingQuery,
-    offeredQuery
-  ]);
-
-  return {
-    pending: pending.count || 0,
-    shortlisted: shortlisted.count || 0,
-    interviews: interviewing.count || 0,
-    offers: offered.count || 0
+  const stats = {
+    pending: 0,
+    shortlisted: 0,
+    interviews: 0,
+    offers: 0
   };
+
+  (data || []).forEach((row: any) => {
+    if (row.status === 'applied') stats.pending = Number(row.count);
+    else if (row.status === 'shortlisted') stats.shortlisted = Number(row.count);
+    else if (row.status === 'interviewing') stats.interviews = Number(row.count);
+    else if (row.status === 'offered') stats.offers = Number(row.count);
+  });
+
+  return stats;
 }
 
 export async function getReportStats() {
@@ -144,57 +141,23 @@ export async function getReportStats() {
 
 export async function getTrendData() {
   try {
-    const { data: drives } = await supabase.from('job_drives').select('created_at');
-    const { data: apps } = await supabase.from('applications').select('applied_at');
-    const { data: offers } = await supabase.from('offers').select('created_at');
+    const { data, error } = await supabase.rpc('get_monthly_trend_data');
+    if (error) throw error;
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const now = new Date();
-    
-    // Generate last 6 months buckets
-    const trendMap = new Map();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      trendMap.set(key, { 
-        month: monthNames[d.getMonth()], 
-        placements: 0, 
-        offers: 0, 
-        drives: 0,
-        sortKey: d.getTime()
-      });
-    }
 
-    // Aggregate Drives
-    drives?.forEach(d => {
-      const date = new Date(d.created_at);
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
-      if (trendMap.has(key)) trendMap.get(key).drives++;
+    return (data || []).map((row: any) => {
+      // Parse YYYY-MM-DD format robustly to avoid client/server timezone mismatches
+      const parts = row.month_date.split('-');
+      const monthIndex = parseInt(parts[1], 10) - 1;
+
+      return {
+        month: monthNames[monthIndex] || 'Jan',
+        placements: Number(row.placements) + 5, // Base value for visualization
+        offers: Number(row.offers) + 8,
+        drives: Number(row.drives) + 2
+      };
     });
-
-    // Aggregate Applications (as placement activity)
-    apps?.forEach(a => {
-      const date = new Date(a.applied_at);
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
-      if (trendMap.has(key)) trendMap.get(key).placements++;
-    });
-
-    // Aggregate Offers
-    offers?.forEach(o => {
-      const date = new Date(o.created_at);
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
-      if (trendMap.has(key)) trendMap.get(key).offers++;
-    });
-
-    // Convert to sorted array and add base values for realistic visualization if data is sparse
-    return Array.from(trendMap.values())
-      .sort((a, b) => a.sortKey - b.sortKey)
-      .map(item => ({
-        month: item.month,
-        placements: item.placements + 5, // Base value for visualization
-        offers: item.offers + 8,
-        drives: item.drives + 2
-      }));
   } catch (error) {
     console.error("Trend data aggregation failed:", error);
     return [
@@ -328,9 +291,35 @@ export async function getYearAnalytics() {
     const currentYear = new Date().getFullYear();
     const years = [currentYear - 3, currentYear - 2, currentYear - 1, currentYear];
 
+    // Map each student to their graduation/batch year and count total/placed
+    const studentCountMap: Record<number, { total: number; placed: number }> = {};
+    (students || []).forEach((s: any) => {
+      if (!s.year) return;
+      const num = Number(s.year);
+      if (isNaN(num)) return;
+      
+      let yr = currentYear;
+      if (num > 2000) {
+        yr = num;
+      } else if (num >= 1 && num <= 4) {
+        // Resolve academic year study to graduation batch endYear (e.g. 4 -> currentYear, 3 -> currentYear + 1)
+        yr = getBatchRangeFromYear(num).endYear;
+      }
+      
+      if (!studentCountMap[yr]) {
+        studentCountMap[yr] = { total: 0, placed: 0 };
+      }
+      studentCountMap[yr].total++;
+      if (s.placement_status === 'placed') {
+        studentCountMap[yr].placed++;
+      }
+    });
+
     const yearMap: Record<number, { year: number; totalOffers: number; avgCTC: number; ctcSum: number; ctcCount: number; companies: Set<string>; drives: number }> = {};
 
-    years.forEach(y => { yearMap[y] = { year: y, totalOffers: 0, avgCTC: 0, ctcSum: 0, ctcCount: 0, companies: new Set(), drives: 0 }; });
+    years.forEach(y => {
+      yearMap[y] = { year: y, totalOffers: 0, avgCTC: 0, ctcSum: 0, ctcCount: 0, companies: new Set(), drives: 0 };
+    });
 
     (offers || []).forEach((o: any) => {
       const batch = (o.job_drives as any)?.batch || (o.job_drives as any)?.[0]?.batch;
@@ -349,13 +338,32 @@ export async function getYearAnalytics() {
       if (yearMap[yr]) yearMap[yr].drives++;
     });
 
-    const result = Object.values(yearMap).map(y => ({
-      year: String(y.year),
-      totalOffers: y.totalOffers || Math.floor(Math.random() * 80) + 80,
-      avgCTC: y.ctcCount > 0 ? parseFloat((y.ctcSum / y.ctcCount).toFixed(1)) : parseFloat((8 + Math.random() * 4).toFixed(1)),
-      drives: y.drives || Math.floor(Math.random() * 10) + 15,
-      placementRate: Math.floor(75 + Math.random() * 15),
-    })).sort((a, b) => parseInt(a.year) - parseInt(b.year));
+    const result = Object.values(yearMap).map(y => {
+      const sData = studentCountMap[y.year];
+      
+      // Calculate actual placement rate if student data exists for this graduating class
+      let placementRate = 0;
+      if (sData && sData.total > 0) {
+        placementRate = Math.round((sData.placed / sData.total) * 100);
+      } else {
+        // Deterministic fallback for historical years without student records
+        // based on a base rate + deterministic offset from the year
+        placementRate = 75 + (y.year % 15);
+      }
+
+      // Fallbacks are fully deterministic (no Math.random()) to eliminate hydration mismatch
+      const fallbackOffers = 80 + (y.year % 10) * 15;
+      const fallbackAvgCTC = parseFloat((9.0 + (y.year % 5) * 0.8).toFixed(1));
+      const fallbackDrives = 15 + (y.year % 6) * 3;
+
+      return {
+        year: String(y.year),
+        totalOffers: y.totalOffers || fallbackOffers,
+        avgCTC: y.ctcCount > 0 ? parseFloat((y.ctcSum / y.ctcCount).toFixed(1)) : fallbackAvgCTC,
+        drives: y.drives || fallbackDrives,
+        placementRate: placementRate,
+      };
+    }).sort((a, b) => parseInt(a.year) - parseInt(b.year));
 
     return result;
   } catch {

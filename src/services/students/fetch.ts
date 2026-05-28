@@ -115,35 +115,57 @@ export async function getStudents(options: {
 }
 
 export async function getAllStudents() {
-  const { data, error } = await supabase
-    .from('students')
-    .select(`
-      id,
-      register_number,
-      roll_number,
-      gender,
-      date_of_birth,
-      department,
-      year,
-      placement_status,
-      profile_completion,
-      verification_status,
-      users (name, email, phone),
-      student_academics (cgpa, tenth_score, twelfth_score, diploma_score, backlog_count, active_arrears, history_of_arrears, semester_cgpa),
-      student_profiles (leetcode_count, specializations),
-      offers (
-        package_ctc,
-        company:companies (name)
-      )
-    `)
-    .order('created_at', { ascending: false });
+  const allData: any[] = [];
+  let pageNum = 0;
+  const pageSize = 1000;
+  let hasMore = true;
 
-  if (error) throw error;
+  while (hasMore) {
+    const from = pageNum * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error } = await supabase
+      .from('students')
+      .select(`
+        id,
+        register_number,
+        roll_number,
+        gender,
+        date_of_birth,
+        department,
+        year,
+        placement_status,
+        profile_completion,
+        verification_status,
+        users (name, email, phone),
+        student_academics (cgpa, tenth_score, twelfth_score, diploma_score, backlog_count, active_arrears, history_of_arrears, semester_cgpa),
+        student_profiles (leetcode_count, specializations),
+        offers (
+          package_ctc,
+          company:companies (name)
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      hasMore = false;
+    } else {
+      allData.push(...data);
+      if (data.length < pageSize) {
+        hasMore = false;
+      } else {
+        pageNum++;
+      }
+    }
+  }
 
   const settings = await getSystemSettings();
   const isCompleted = settings.isAcademicYearCompleted;
 
-  return (data || []).map(s => {
+  return allData.map(s => {
     const acad = (s.student_academics as any)?.[0] || (s.student_academics as any) || {};
     const yearNum = getYearFromBatch(s.year, isCompleted);
     const range = getBatchRangeFromYear(s.year);
