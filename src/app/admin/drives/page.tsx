@@ -73,7 +73,6 @@ export default function DrivesPage() {
       if (activeTab === "Drives") {
         const [drivesData, distinctBatches] = await Promise.all([
           db.getDrives({ 
-            search, 
             status: showPastDrives ? 'completed' : undefined,
             excludeCompleted: !showPastDrives,
             type: filterType === 'All' ? undefined : filterType,
@@ -83,7 +82,8 @@ export default function DrivesPage() {
         ]);
         // Prepend "All" to the sorted distinct batch years
         setBatchYears(["All", ...distinctBatches]);
-        setDrives(drivesData.map((d: any) => ({
+        
+        const mappedDrives = drivesData.map((d: any) => ({
           id: d.id,
           company: d.companies?.name || "Unknown",
           companyId: d.company_id,
@@ -100,7 +100,25 @@ export default function DrivesPage() {
           applications: (d.applications as any)?.[0]?.count ?? d.applications?.length ?? 0,
           eligibility: d.eligibility_rules,
           type: d.drive_type
-        })));
+        }));
+
+        const filteredDrives = mappedDrives.filter((d: any) => {
+          const queryStr = search.trim().toLowerCase();
+          if (!queryStr) return true;
+          const companyMatch = d.company?.toLowerCase().includes(queryStr);
+          const roleMatch = d.role?.toLowerCase().includes(queryStr);
+          return companyMatch || roleMatch;
+        });
+
+        console.log("DEBUG Drives Filter:", {
+          searchQuery: search,
+          trimmedQuery: search.trim(),
+          totalMapped: mappedDrives.length,
+          totalFiltered: filteredDrives.length,
+          sampleMapped: mappedDrives.slice(0, 3).map(d => ({ company: d.company, role: d.role }))
+        });
+
+        setDrives(filteredDrives);
       } else if (activeTab === "Companies") {
         const companiesData = await db.getCompanies({ search });
         setCompanies(companiesData);

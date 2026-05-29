@@ -29,6 +29,15 @@ import { DEV_STUDENT_ID } from "@/lib/dev-config";
 import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { toast } from "sonner";
 
+const formatCapitalized = (str: string) => {
+  if (!str) return "";
+  if (str.toLowerCase() === "ppo") return "PPO";
+  return str
+    .split(/[\s_-]+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
 interface TimelineEvent {
   id: string;
   title: string;
@@ -137,8 +146,8 @@ export default function ProgressPage() {
             id: app.id,
             company: companyName,
             role: role,
-            overallStatus: app.status || "Applied",
-            currentStage: app.current_stage || "Applied",
+            overallStatus: formatCapitalized(app.status || "Applied"),
+            currentStage: formatCapitalized(app.current_stage || "Applied"),
             completion: completion,
             location: location,
             ctc: ctc,
@@ -182,40 +191,41 @@ export default function ProgressPage() {
     const currentIdx = rawStages.findIndex((s: any) => s.id === currentStageId);
     
     const baseStages: TimelineEvent[] = rawStages.map((stage: any, idx: number) => {
+      const stageName = formatCapitalized(stage.name);
       let stageStatus: "Completed" | "Current" | "Upcoming" | "Rejected" = "Upcoming";
       let date = "TBD";
-      let description = `Process round: ${stage.name}.`;
+      let description = `Process round: ${stageName}.`;
 
       if (status === "Rejected") {
         if (stage.id === currentStageId || (currentIdx === -1 && idx === 1)) {
           stageStatus = "Rejected";
           date = formattedDate;
-          description = `Evaluation stopped at ${stage.name} stage.`;
+          description = `Evaluation stopped at ${stageName} stage.`;
         } else if (idx < currentIdx || (currentIdx === -1 && idx < 1)) {
           stageStatus = "Completed";
           date = formattedDate;
-          description = `${stage.name} round successfully cleared.`;
+          description = `${stageName} round successfully cleared.`;
         }
       } else if (status === "Offered" || status === "Accepted" || status === "Joined") {
         stageStatus = "Completed";
         date = formattedDate;
-        description = `${stage.name} round completed.`;
+        description = `${stageName} round completed.`;
       } else {
         // Active candidate status mapping
         if (stage.id === currentStageId || (currentIdx === -1 && idx === 0)) {
           stageStatus = "Current";
           date = formattedDate;
-          description = `Currently in ${stage.name} round. Awaiting evaluation results.`;
+          description = `Currently in ${stageName} round. Awaiting evaluation results.`;
         } else if (idx < currentIdx) {
           stageStatus = "Completed";
           date = formattedDate;
-          description = `${stage.name} round successfully completed.`;
+          description = `${stageName} round successfully completed.`;
         }
       }
 
       return {
         id: stage.id,
-        title: stage.name,
+        title: stageName,
         status: stageStatus,
         date: date,
         description: description
@@ -267,7 +277,7 @@ export default function ProgressPage() {
   const offeredCount = pipelines.filter(p => p.overallStatus === "Offered" && !acceptedOffers[p.id]).length;
 
   if (loading) return (
-    <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto min-h-screen">
+    <div className="space-y-12 pt-2 pb-10 px-4 max-w-7xl mx-auto min-h-screen">
       <Sk.PageHeader />
       <div className="flex flex-col lg:flex-row gap-6 items-center justify-between">
         <Sk.Block className="h-12 w-full lg:w-2/3 rounded-full" />
@@ -278,7 +288,7 @@ export default function ProgressPage() {
   );
 
   return (
-    <div className="space-y-12 py-10 px-4 max-w-7xl mx-auto min-h-screen">
+    <div className="space-y-12 pt-2 pb-10 px-4 max-w-7xl mx-auto min-h-screen">
       {/* Header */}
       <section className="flex flex-col gap-4">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">

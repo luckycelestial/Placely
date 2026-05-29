@@ -19,9 +19,7 @@ export async function getDrives(options: {
       applications ( count )
     `);
 
-  if (options.search) {
-    query = query.or(`role_title.ilike.%${options.search}%,companies.name.ilike.%${options.search}%`);
-  }
+  // Search filter is processed client-side to avoid PostgREST nested table join syntax errors
 
   if (options.status && options.status !== 'All') {
     query = query.eq('status', options.status.toLowerCase());

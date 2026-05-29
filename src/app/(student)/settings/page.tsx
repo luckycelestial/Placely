@@ -41,7 +41,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="space-y-10 py-10 px-4 max-w-[1000px] mx-auto">
+    <div className="space-y-10 pt-2 pb-10 px-4 max-w-[1000px] mx-auto">
       {/* Header Section */}
       <section className="flex flex-col gap-4">
         <h2 className="font-display text-5xl md:text-6xl font-black tracking-tighter text-foreground leading-tight">

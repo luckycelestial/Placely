@@ -11,6 +11,7 @@ export async function getStudents(options: {
   maxCgpa?: number;
   minLeetcode?: number;
   specialization?: string;
+  company?: string;
 } = {}) {
   const { 
     page = 1, 
@@ -20,7 +21,8 @@ export async function getStudents(options: {
     minCgpa,
     maxCgpa,
     minLeetcode,
-    specialization
+    specialization,
+    company
   } = options;
   
   // Base query with necessary joins for filtering
@@ -59,6 +61,19 @@ export async function getStudents(options: {
     if (dbStatus) {
       query = query.eq('placement_status', dbStatus);
     }
+  }
+
+  if (company && company !== "All Companies") {
+    // 1. Get company ID
+    const { data: cos } = await supabase.from('companies').select('id').ilike('name', company);
+    const coIds = (cos || []).map(c => c.id);
+    
+    // 2. Get student IDs from offers table
+    const { data: offs } = await supabase.from('offers').select('student_id').in('company_id', coIds);
+    const studentIds = (offs || []).map(o => o.student_id);
+    
+    // Filter primary query by these student IDs
+    query = query.in('id', studentIds);
   }
 
   if (minCgpa !== undefined && minCgpa > 0) {

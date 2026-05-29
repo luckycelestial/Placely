@@ -96,7 +96,7 @@ export default function DashboardPage() {
   }, []);
 
   if (loading) return (
-    <div className="space-y-8 py-6 px-4 max-w-7xl mx-auto">
+    <div className="space-y-8 pt-2 pb-6 px-4 max-w-7xl mx-auto">
       {/* Welcome skeleton */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-3">
@@ -128,7 +128,7 @@ export default function DashboardPage() {
   const firstName = profile?.users?.name?.split(' ')[0] || 'Student';
 
   return (
-    <div className="space-y-8 py-6 px-4 max-w-7xl mx-auto">
+    <div className="space-y-8 pt-2 pb-6 px-4 max-w-7xl mx-auto">
       {/* Welcome Section */}
       <section className="relative">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">

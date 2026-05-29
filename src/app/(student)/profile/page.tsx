@@ -20,6 +20,15 @@ import { getYearFromBatch, getBatchRangeFromYear, getRomanYear } from "@/lib/bat
 import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { toast } from "sonner";
 
+const formatCapitalized = (str: string) => {
+  if (!str) return "";
+  if (str.toLowerCase() === "ppo") return "PPO";
+  return str
+    .split(/[\s_-]+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
 export default function ProfilePage() {
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -165,7 +174,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="space-y-12 max-w-7xl py-10 px-4 mx-auto">
+      <div className="space-y-12 max-w-7xl pt-2 pb-10 px-4 mx-auto">
         <Sk.Profile />
       </div>
     );
@@ -205,7 +214,7 @@ export default function ProfilePage() {
     : null;
 
   return (
-    <div className="space-y-12 max-w-7xl py-10 px-4 mx-auto">
+    <div className="space-y-12 max-w-7xl pt-2 pb-10 px-4 mx-auto">
       {/* ── Master Profile Card ── */}
       <div className="app-card overflow-hidden border border-border-subtle shadow-xl bg-surface">
         <div className="p-8 md:p-12 relative">
@@ -503,7 +512,7 @@ export default function ProfilePage() {
                 app.current_stage === 'selection' ? 'Offer Discussion' :
                 app.current_stage === 'offered' ? 'Offered' :
                 app.current_stage === 'rejected' ? 'Rejected' :
-                app.current_stage.charAt(0).toUpperCase() + app.current_stage.slice(1)
+                formatCapitalized(app.current_stage)
               ) : 'Applied';
 
               const isOffered = app.status?.toLowerCase() === 'offered' || app.current_stage?.toLowerCase() === 'offered' || app.status?.toLowerCase() === 'selection';
@@ -532,7 +541,7 @@ export default function ProfilePage() {
                       isRejected ? "bg-red-500/10 text-red-600 border-red-500/20" :
                       "bg-blue-500/10 text-blue-600 border-blue-500/20"
                     )}>
-                      {app.status || 'Applied'}
+                      {formatCapitalized(app.status || 'Applied')}
                     </span>
                     {drive.package_ctc && (
                       <span className="text-[10px] font-black tracking-wider text-muted bg-background border border-border-subtle px-2 py-0.5 rounded-md">
@@ -551,7 +560,7 @@ export default function ProfilePage() {
         {/* Documents */}
         <ProfileSection 
           title="Documents" 
-          description="Credential Verification"
+          description="Credential Progress"
           actions={
             <Link href="/documents" className="flex items-center gap-2 font-sans text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary-dark transition-colors bg-primary/5 px-4 py-2 rounded-full">
               <LuFolderOpen size={16} />
@@ -561,8 +570,8 @@ export default function ProfilePage() {
         >
           <div className="grid gap-4 mt-4">
             <DocumentCard name="Resume_2024.pdf" date="Updated 2 days ago" type="pdf" />
-            <DocumentCard name="10th_Marksheet.pdf" date="Verified" type="pdf" isVerified />
-            <DocumentCard name="12th_Marksheet.pdf" date="Verified" type="pdf" isVerified />
+            <DocumentCard name="10th_Marksheet.pdf" date="Completed" type="pdf" isCompleted />
+            <DocumentCard name="12th_Marksheet.pdf" date="Completed" type="pdf" isCompleted />
           </div>
         </ProfileSection>
 
@@ -791,7 +800,7 @@ function DetailItem({ value, icon: Icon }: { value: string; icon: import("react-
   );
 }
 
-function DocumentCard({ name, date, isVerified, type }: { name: string; date: string; isVerified?: boolean; type?: string }) {
+function DocumentCard({ name, date, isCompleted, type }: { name: string; date: string; isCompleted?: boolean; type?: string }) {
   return (
     <div className="flex items-center justify-between p-6 rounded-3xl bg-background border border-border-subtle hover:border-primary hover:bg-surface hover:shadow-xl hover:shadow-black/5 transition-all group">
       <div className="flex items-center gap-5">
@@ -802,10 +811,10 @@ function DocumentCard({ name, date, isVerified, type }: { name: string; date: st
           <p className="font-display text-lg font-bold tracking-tight truncate max-w-[180px]">{name}</p>
           <div className="flex items-center gap-3 mt-1 font-sans text-[10px] font-bold uppercase tracking-widest text-muted">
             <span>{date}</span>
-            {isVerified && (
+            {isCompleted && (
               <div className="flex items-center gap-1 text-emerald-500">
                 <LuCircleCheck size={12} />
-                <span>Verified</span>
+                <span>Completed</span>
               </div>
             )}
           </div>

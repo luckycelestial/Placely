@@ -189,7 +189,7 @@ export default function JobDrivesPage() {
     : null;
 
   return (
-    <div className="py-10 px-4 max-w-7xl mx-auto min-h-screen relative">
+    <div className="pt-2 pb-10 px-4 max-w-7xl mx-auto min-h-screen relative">
       {/* Hero */}
       <section className="flex flex-col gap-4 mb-10">
         <h2 className="font-display text-5xl md:text-6xl font-black tracking-tighter text-foreground leading-tight">
