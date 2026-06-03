@@ -1,5 +1,5 @@
 -- Migration: Enable Row Level Security (RLS) CRUD Access for anonymous role
--- Since Placely is a single-college template, administrators and client portals interact
+-- Since CareerBridge is a single-college template, administrators and client portals interact
 -- with the database directly under the anon role. To prevent silent failures when updating
 -- or deleting, the database must have permissive policies configured for the anon role.
 

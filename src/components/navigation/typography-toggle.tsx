@@ -14,7 +14,7 @@ export function TypographyToggle() {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("placely-theme") || "default";
+    const saved = localStorage.getItem("careerbridge-theme") || "default";
     setCurrentTheme(saved);
     applyTheme(saved);
   }, []);
@@ -29,7 +29,7 @@ export function TypographyToggle() {
     });
     if (theme.class) html.classList.add(theme.class);
     
-    localStorage.setItem("placely-theme", themeId);
+    localStorage.setItem("careerbridge-theme", themeId);
   };
 
   const handleSelect = (themeId: string) => {

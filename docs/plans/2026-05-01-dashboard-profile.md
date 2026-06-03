@@ -1,8 +1,8 @@
-# Placely Initial Setup & Student Screens Implementation Plan (Next.js)
+# CareerBridge Initial Setup & Student Screens Implementation Plan (Next.js)
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Initialize the Placely project with Next.js and implement the Student Dashboard and Profile screens.
+**Goal:** Initialize the CareerBridge project with Next.js and implement the Student Dashboard and Profile screens.
 
 **Architecture:** A modern Next.js 15+ App Router application. The UI will follow a "Clean Operational" aesthetic with a white/light base and blue accents. Navigation will be sidebar-based for desktop and bottom-bar-based for mobile, managed through Next.js Layouts.
 
@@ -17,7 +17,7 @@
 - Modify: `tailwind.config.ts`
 
 **Step 1: Configure Tailwind Theme**
-Update `tailwind.config.ts` with Placely brand colors (Primary Blue: #2563eb).
+Update `tailwind.config.ts` with CareerBridge brand colors (Primary Blue: #2563eb).
 
 **Step 2: Setup Global Styles**
 Update `src/app/globals.css` with base styles, custom scrollbars, and standard layout resets.
@@ -91,3 +91,4 @@ Follow the spec in `Student/profile.md` with read/edit toggles.
 
 **Step 4: Commit**
 Run: `git add src && git commit -m "feat: implement structured student profile with academic and identity sections"`
+

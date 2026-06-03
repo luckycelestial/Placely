@@ -1,7 +1,7 @@
-# Placely database setup instructions
+# CareerBridge database setup instructions
 
 ## Goal
-Create the full Placely Supabase database schema for the v2 platform. The database should support the student portal, admin portal, placement workflows, analytics, and document references.
+Create the full CareerBridge Supabase database schema for the v2 platform. The database should support the student portal, admin portal, placement workflows, analytics, and document references.
 
 ## Important direction
 - Build for PostgreSQL on Supabase.
@@ -403,7 +403,7 @@ After creating the schema, confirm:
 
 ## Deliverable expectation
 
-The final database should support the Placely screens already planned, especially:
+The final database should support the CareerBridge screens already planned, especially:
 - student dashboard
 - student profile
 - drives
@@ -423,3 +423,4 @@ The final database should support the Placely screens already planned, especiall
 - Prefer normalized design over oversized tables.
 - Keep the schema future-proof for a single-college deployment.
 - Ensure the schema supports production use, not just demo data.
+

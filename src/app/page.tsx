@@ -108,8 +108,8 @@ export default function TenantEntryPage() {
           
           <div className="space-y-12">
             <div className="flex items-center gap-6 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-              <img src="/placely.png" alt="Placely" className="h-20 w-20 object-contain" />
-              <span className="text-7xl font-black tracking-tighter text-foreground leading-none">Placely</span>
+              <img src="/careerbridge.png" alt="CareerBridge" className="h-20 w-20 object-contain" />
+              <span className="text-7xl font-black tracking-tighter text-foreground leading-none">CareerBridge</span>
             </div>
             <div className="space-y-2">
               <h2 className="text-2xl font-bold tracking-tight text-muted">Sign in to Continue</h2>
@@ -211,7 +211,7 @@ export default function TenantEntryPage() {
         </div>
 
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-center opacity-40">
-           <p className="text-[9px] font-black uppercase tracking-[0.2em]">Powered by Placely Unified Infrastructure</p>
+           <p className="text-[9px] font-black uppercase tracking-[0.2em]">Powered by CareerBridge Unified Infrastructure</p>
         </div>
       </div>
     </div>

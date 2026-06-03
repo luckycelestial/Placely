@@ -59,11 +59,20 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
 
   // 3. Update students table
   const studentUpdates: any = {};
-  if ('regNo' in updatedFields) studentUpdates.register_number = updatedFields.regNo;
-  if ('rollNo' in updatedFields) studentUpdates.roll_number = updatedFields.rollNo;
+  if ('regNo' in updatedFields || 'register_number' in updatedFields) {
+    studentUpdates.register_number = updatedFields.regNo !== undefined ? updatedFields.regNo : updatedFields.register_number;
+  }
+  if ('rollNo' in updatedFields || 'roll_number' in updatedFields) {
+    studentUpdates.roll_number = updatedFields.rollNo !== undefined ? updatedFields.rollNo : updatedFields.roll_number;
+  }
   if ('gender' in updatedFields) studentUpdates.gender = updatedFields.gender;
-  if ('dob' in updatedFields) studentUpdates.date_of_birth = updatedFields.dob || null;
-  if ('dept' in updatedFields) studentUpdates.department = updatedFields.dept;
+  if ('dob' in updatedFields || 'date_of_birth' in updatedFields) {
+    studentUpdates.date_of_birth = updatedFields.dob !== undefined ? updatedFields.dob : updatedFields.date_of_birth;
+    if (studentUpdates.date_of_birth === '') studentUpdates.date_of_birth = null;
+  }
+  if ('dept' in updatedFields || 'department' in updatedFields) {
+    studentUpdates.department = updatedFields.dept !== undefined ? updatedFields.dept : updatedFields.department;
+  }
   if ('year' in updatedFields) studentUpdates.year = parseInt(updatedFields.year);
   if ('status' in updatedFields) {
     const statusMap: Record<string, string> = {
@@ -138,21 +147,28 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
   if ('specializations' in updatedFields) {
     let specs = updatedFields.specializations;
     if (typeof specs === 'string') {
-      specs = specs.split(',').map((s: string) => s.trim()).filter(Boolean);
+      try { specs = JSON.parse(specs); } catch (e) { specs = specs.split(',').map((s: string) => s.trim()); }
     }
     profileUpdates.specializations = specs;
   }
+  if ('skills' in updatedFields) {
+    let sks = updatedFields.skills;
+    if (typeof sks === 'string') {
+      try { sks = JSON.parse(sks); } catch (e) { sks = sks.split(',').map((s: string) => s.trim()); }
+    }
+    profileUpdates.skills = sks;
+  }
 
   if (Object.keys(profileUpdates).length > 0) {
-      const { data: eP } = await supabase.from('student_profiles').select('id').eq('student_id', studentId).single();
-      if (eP) {
-        const { error: profileError } = await supabase.from('student_profiles').update({ ...profileUpdates }).eq('id', eP.id);
-        if (profileError) throw profileError;
-      } else {
-        const { error: profileError } = await supabase.from('student_profiles').insert([{ student_id: studentId, ...profileUpdates }]);
-        if (profileError) throw profileError;
-      }
+    const { data: eP } = await supabase.from('student_profiles').select('id').eq('student_id', studentId).single();
+    if (eP) {
+      const { error: profileError } = await supabase.from('student_profiles').update({ ...profileUpdates, updated_at: new Date().toISOString() }).eq('id', eP.id);
+      if (profileError) throw profileError;
+    } else {
+      const { error: profileError } = await supabase.from('student_profiles').insert([{ student_id: studentId, ...profileUpdates, updated_at: new Date().toISOString() }]);
+      if (profileError) throw profileError;
     }
+  }
 
   // 6. Update student_contacts (address)
   const contactUpdates: any = {};
@@ -203,13 +219,41 @@ export async function flagStudent(studentId: string, reason: string) {
   }
 
 export async function updateStudentProfile(studentId: string, profileData: any) {
+    // 0. Update users table if name/email are in profileData
+    const { data: studentRecord } = await supabase
+      .from('students')
+      .select('user_id')
+      .eq('id', studentId)
+      .single();
+
+    const userUpdates: any = {};
+    if (profileData.name) userUpdates.name = profileData.name;
+    if (profileData.email) userUpdates.email = profileData.email;
+    if (Object.keys(userUpdates).length > 0 && studentRecord?.user_id) {
+      const { error: userError } = await supabase
+        .from('users')
+        .update(userUpdates)
+        .eq('id', studentRecord.user_id);
+      if (userError) throw userError;
+    }
+
     // Update students table
     const studentUpdates: any = {};
-    if (profileData.dept) studentUpdates.department = profileData.dept;
+    if (profileData.department || profileData.dept) {
+      studentUpdates.department = profileData.department || profileData.dept;
+    }
     if (profileData.year) studentUpdates.year = parseInt(profileData.year);
     if (profileData.gender) studentUpdates.gender = profileData.gender;
-    if (profileData.dob !== undefined) studentUpdates.date_of_birth = profileData.dob || null;
-    if (profileData.rollNo !== undefined) studentUpdates.roll_number = profileData.rollNo;
+    if (profileData.date_of_birth !== undefined || profileData.dob !== undefined) {
+      studentUpdates.date_of_birth = profileData.date_of_birth !== undefined ? profileData.date_of_birth : profileData.dob;
+      if (studentUpdates.date_of_birth === '') studentUpdates.date_of_birth = null;
+    }
+    if (profileData.roll_number !== undefined || profileData.rollNo !== undefined) {
+      studentUpdates.roll_number = profileData.roll_number !== undefined ? profileData.roll_number : profileData.rollNo;
+    }
+    if (profileData.register_number || profileData.regNo) {
+      studentUpdates.register_number = profileData.register_number || profileData.regNo;
+    }
 
     if (Object.keys(studentUpdates).length > 0) {
       const { error: studentError } = await supabase

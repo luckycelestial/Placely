@@ -1,7 +1,7 @@
 # Tenant Entry
 
 ## Purpose
-The Tenant Entry screen is the public landing and authentication entry point for each college instance of Placely.
+The Tenant Entry screen is the public landing and authentication entry point for each college instance of CareerBridge.
 
 ## User role
 - Student.
@@ -14,10 +14,10 @@ The Tenant Entry screen is the public landing and authentication entry point for
 - It is not part of the internal sidebar navigation.
 
 ## Screen goal
-This screen should immediately feel like Placely, show strong brand presence, and still route the user into the correct login or shell experience.
+This screen should immediately feel like CareerBridge, show strong brand presence, and still route the user into the correct login or shell experience.
 
 ## Core sections
-- Large Placely brand header or hero area.
+- Large CareerBridge brand header or hero area.
 - College name or tenant label.
 - Login or sign-in form.
 - Fallback college code or email-domain check.
@@ -30,7 +30,7 @@ This screen should immediately feel like Placely, show strong brand presence, an
 - Move into the appropriate student or admin shell.
 
 ## Content rules
-- Make Placely branding prominent and memorable.
+- Make CareerBridge branding prominent and memorable.
 - Use a stronger visual identity than a plain auth page.
 - Keep the brand polished but still focused on login.
 - Support subdomain or domain-based tenant detection first.
@@ -49,7 +49,7 @@ This screen should immediately feel like Placely, show strong brand presence, an
 - User role on sign-in.
 
 ## UX notes
-- Let the Placely identity be clearly visible at first glance.
+- Let the CareerBridge identity be clearly visible at first glance.
 - Use a branded hero, accent panel, or strong top section.
 - Keep the form clean beneath the branding.
 - Ensure the screen routes cleanly to the student or admin side after login.
@@ -61,3 +61,4 @@ This screen should immediately feel like Placely, show strong brand presence, an
 
 ## File name
 tenant-entry.md
+

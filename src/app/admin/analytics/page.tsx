@@ -36,6 +36,7 @@ import {
   Line
 } from "recharts";
 import { CompanyLogo } from "@/components/ui/CompanyLogo";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Sk } from "@/components/ui/skeleton";
 import { db } from "@/services/database";
 import { cn } from "@/lib/utils";
@@ -154,6 +155,7 @@ function KPICard({ title, value, subValue, trend, isUp, color, sparkData, icon: 
 }
 
 export default function VisualAnalyticsPage() {
+  const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState<ReportStats | null>(null);
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
   const [deptData, setDeptData] = useState<DeptData[]>([]);
@@ -166,9 +168,11 @@ export default function VisualAnalyticsPage() {
   // Drill-down folder target state
   const [drillDownTarget, setDrillDownTarget] = useState<{ type: "company" | "dept"; value: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedExplorerCompany, setSelectedExplorerCompany] = useState<string>("");
 
   // Load unified dashboard data
   useEffect(() => {
+    setMounted(true);
     async function load() {
       try {
         const [s, t, d, c, y, allStuds] = await Promise.all([
@@ -194,7 +198,7 @@ export default function VisualAnalyticsPage() {
     load();
   }, []);
 
-  if (loading) {
+  if (loading || !mounted) {
     return (
       <div className="space-y-8 pt-2 pb-10 px-4 max-w-7xl mx-auto animate-in fade-in duration-700">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -636,6 +640,116 @@ export default function VisualAnalyticsPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Placed Recruits Explorer */}
+      <div className="app-card border border-border-subtle shadow-md bg-surface p-6 md:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border-subtle pb-6 bg-gradient-to-r from-primary/5 to-transparent -mx-6 -mt-6 p-6 rounded-t-3xl">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-6 bg-primary rounded-full" />
+            <div>
+              <span className="text-[10px] font-black text-primary uppercase tracking-widest font-sans">Placed Recruits Explorer</span>
+              <h3 className="text-xl font-display font-black tracking-tight text-foreground">Interactive Recruit Lookup Directory</h3>
+            </div>
+          </div>
+          <div className="w-64 shrink-0">
+            <SearchableSelect
+              options={companyData.map(c => ({ value: c.name, label: c.name }))}
+              value={selectedExplorerCompany}
+              onChange={value => setSelectedExplorerCompany(value)}
+              placeholder="Search / Select Company..."
+            />
+          </div>
+        </div>
+
+        {selectedExplorerCompany ? (() => {
+          const placedCandidates = students.filter((s: any) => 
+            s.status === "Placed" && s.company === selectedExplorerCompany
+          );
+          
+          const companyDetail = companyData.find(c => c.name === selectedExplorerCompany);
+          
+          const packages = placedCandidates.map((s: any) => parseFloat(s.package_ctc)).filter(p => !isNaN(p));
+          const avgPkg = packages.length > 0 ? (packages.reduce((a, b) => a + b, 0) / packages.length).toFixed(1) : (companyDetail?.avgCTC || "0.0");
+          const maxPkg = packages.length > 0 ? Math.max(...packages).toFixed(1) : (companyDetail?.avgCTC || "0.0");
+
+          return (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="grid grid-cols-3 divide-x divide-border-subtle bg-background/30 rounded-2xl border border-border-subtle p-6 text-center">
+                <div>
+                  <span className="text-[9px] font-black text-muted uppercase tracking-widest font-sans">Total Placed</span>
+                  <p className="text-xl font-black text-primary mt-1 font-display">{placedCandidates.length} Hires</p>
+                </div>
+                <div>
+                  <span className="text-[9px] font-black text-muted uppercase tracking-widest font-sans">Avg CTC Package</span>
+                  <p className="text-xl font-black text-foreground mt-1 flex items-center justify-center gap-1 font-display">
+                    <LuIndianRupee size={14} className="text-emerald-500" />
+                    {avgPkg} LPA
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[9px] font-black text-muted uppercase tracking-widest font-sans">Highest CTC Package</span>
+                  <p className="text-xl font-black text-foreground mt-1 flex items-center justify-center gap-1 font-display">
+                    <LuIndianRupee size={14} className="text-primary" />
+                    {maxPkg} LPA
+                  </p>
+                </div>
+              </div>
+
+              {placedCandidates.length === 0 ? (
+                <div className="p-8 border border-dashed border-border-subtle rounded-2xl text-center text-muted font-bold text-sm bg-background/10">
+                  No placed student records linked to {selectedExplorerCompany} in the current academic dataset.
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-border-subtle rounded-2xl bg-background/10">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-border-subtle bg-background/50">
+                        <th className="px-6 py-3.5 text-[10px] font-black uppercase tracking-widest text-muted font-sans">Candidate Name</th>
+                        <th className="px-6 py-3.5 text-[10px] font-black uppercase tracking-widest text-muted font-sans">Department</th>
+                        <th className="px-6 py-3.5 text-[10px] font-black uppercase tracking-widest text-muted font-sans">Register Number</th>
+                        <th className="px-6 py-3.5 text-[10px] font-black uppercase tracking-widest text-muted font-sans text-right">Package Package</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-subtle bg-surface">
+                      {placedCandidates.map((student: any) => (
+                        <tr key={student.id} className="group hover:bg-emerald-500/[0.01] transition-colors">
+                          <td className="px-6 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-black text-xs shrink-0">
+                                {student.name.split(" ").map((n: string) => n[0]).join("")}
+                              </div>
+                              <div>
+                                <p className="font-bold text-sm leading-none mb-1 text-foreground group-hover:text-emerald-600 transition-colors">{student.name}</p>
+                                <p className="text-muted text-[10px] font-medium uppercase tracking-wider font-sans">{student.email}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-3.5">
+                            <span className="text-xs font-black uppercase tracking-widest text-muted bg-background border border-border-subtle px-2 py-0.5 rounded-md font-sans">{student.dept}</span>
+                          </td>
+                          <td className="px-6 py-3.5">
+                            <span className="text-sm font-bold text-muted font-sans">{student.regNo || "—"}</span>
+                          </td>
+                          <td className="px-6 py-3.5 text-right">
+                            <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg font-sans">
+                              <LuIndianRupee size={11} />
+                              {student.package_ctc ? `${student.package_ctc} LPA` : "—"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })() : (
+          <div className="p-12 border border-dashed border-border-subtle rounded-3xl text-center text-muted font-bold text-sm bg-background/20">
+            Select a company from the dropdown search above to explore placed recruits details.
+          </div>
+        )}
       </div>
 
       {/* Dynamic Visual Drill-Down Candidate Directory Modal */}

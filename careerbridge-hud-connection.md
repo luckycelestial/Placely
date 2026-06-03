@@ -1,7 +1,7 @@
-# Placely HUD connection instructions
+# CareerBridge HUD connection instructions
 
 ## Goal
-Connect the Supabase database schema to the Placely HUD and all screen modules so the frontend reads and writes real data instead of mock data.
+Connect the Supabase database schema to the CareerBridge HUD and all screen modules so the frontend reads and writes real data instead of mock data.
 
 ## Important direction
 - Use the existing HUD / screen structure as the consumer of the database.
@@ -117,9 +117,10 @@ Every screen should map to one or more database entities.
 - All detail pages should load from live data, not local constants.
 
 ## Expected outcome
-After this is done, the Placely HUD should feel fully connected to the database:
+After this is done, the CareerBridge HUD should feel fully connected to the database:
 - cards show real values
 - lists show real records
 - forms save real changes
 - timelines show real history
 - dashboards reflect live operations
+

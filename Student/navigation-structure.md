@@ -1,10 +1,10 @@
-# Placely navigation structure
+# CareerBridge navigation structure
 
 This file defines how screens are connected inside the student and admin shells, and what belongs in each sidebar or navigation area.
 
 ## Overall rule
 
-Placely uses separate shells for students and admin users. The student shell focuses on self-service placement tracking, while the admin shell focuses on operations, control, and reporting.
+CareerBridge uses separate shells for students and admin users. The student shell focuses on self-service placement tracking, while the admin shell focuses on operations, control, and reporting.
 
 ## Public flow
 
@@ -120,3 +120,4 @@ Both shells should keep navigation predictable.
 
 ## File name
 navigation-structure.md
+

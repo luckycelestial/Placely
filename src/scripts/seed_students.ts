@@ -61,7 +61,7 @@ async function seedStudents() {
         const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
         const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
         const fullName = `${firstName} ${lastName}`;
-        const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}.${batch.yearNum}.${i}@placely.edu`;
+        const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}.${batch.yearNum}.${i}@careerbridge.edu`;
         const phone = `9${Math.floor(Math.random() * 900000000) + 100000000}`;
         const dept = departments[Math.floor(Math.random() * departments.length)];
         const regNo = `202${batch.endYear % 10}${dept}${Math.floor(Math.random() * 900) + 100}`;

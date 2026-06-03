@@ -86,7 +86,7 @@ export default function SettingsPage() {
 
       <div className="pt-10 text-center border-t border-border-subtle">
         <p className="text-[10px] font-black uppercase tracking-widest text-muted/40">
-          Placely v1.2.0 • Build 2026.05.02
+          CareerBridge v1.2.0 • Build 2026.05.02
         </p>
       </div>
     </div>

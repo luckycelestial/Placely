@@ -477,7 +477,7 @@ export async function generateStudentReport(studentId: string) {
   doc.setFontSize(24);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.text('Placely', 14, 25);
+  doc.text('CareerBridge', 14, 25);
   
   doc.setFontSize(12);
   doc.setFont("helvetica", "normal");
@@ -584,8 +584,8 @@ export async function generateStudentReport(studentId: string) {
   doc.setFontSize(9);
   doc.setTextColor(150, 150, 150);
   doc.setFont("helvetica", "italic");
-  doc.text('This is a system-generated official document by the Placely Admin Portal.', 14, pageHeight - 15);
-  doc.text('© 2026 Placely System', pageWidth - 14, pageHeight - 15, { align: 'right' });
+  doc.text('This is a system-generated official document by the CareerBridge Admin Portal.', 14, pageHeight - 15);
+  doc.text('© 2026 CareerBridge System', pageWidth - 14, pageHeight - 15, { align: 'right' });
 
   return new Blob([doc.output('arraybuffer')], { type: 'application/pdf' });
 }
@@ -633,7 +633,7 @@ export async function generateSystemReport() {
   doc.setFontSize(26);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.text('Placely Admin', 14, 28);
+  doc.text('CareerBridge Admin', 14, 28);
   
   doc.setFontSize(12);
   doc.setFont("helvetica", "normal");
@@ -704,7 +704,7 @@ export async function generateSystemReport() {
   doc.setTextColor(150, 150, 150);
   doc.setFont("helvetica", "italic");
   doc.text('Strictly Confidential • For Administrative Use Only', 14, pageHeight - 15);
-  doc.text('© 2026 Placely Systems', pageWidth - 14, pageHeight - 15, { align: 'right' });
+  doc.text('© 2026 CareerBridge Systems', pageWidth - 14, pageHeight - 15, { align: 'right' });
 
   return new Blob([doc.output('arraybuffer')], { type: 'application/pdf' });
 }

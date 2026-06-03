@@ -922,6 +922,7 @@ function OverviewTab({ stats, trendData }: { stats:ReportStats|null; trendData:T
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab]     = useState<AnalyticsTab>('overview');
   const [stats, setStats]             = useState<ReportStats|null>(null);
   const [trendData, setTrendData]     = useState<TrendPoint[]>([]);
@@ -939,6 +940,7 @@ export default function ReportsPage() {
 
   // Load page data
   useEffect(()=>{
+    setMounted(true);
     async function load() {
       try {
         const [s, t, d, c, y, allStuds] = await Promise.all([
@@ -975,7 +977,7 @@ export default function ReportsPage() {
 
   const handleTabChange = (tab:AnalyticsTab) => { setActiveTab(tab); setSelected(null); };
 
-  if (loading) {
+  if (loading || !mounted) {
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between no-print">
@@ -1038,7 +1040,7 @@ export default function ReportsPage() {
 
       {/* Print header */}
       <div className="hidden print-only mb-8 border-b-2 border-primary pb-6">
-        <h1 className="text-3xl font-black uppercase tracking-tighter">Placely Placement Report</h1>
+        <h1 className="text-3xl font-black uppercase tracking-tighter">CareerBridge Placement Report</h1>
         <p className="text-muted font-bold">Generated · {new Date().toLocaleDateString()}</p>
       </div>
 

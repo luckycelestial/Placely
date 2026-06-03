@@ -15,7 +15,7 @@ const arya = Arya({ subsets: ["latin"], weight: ["400", "700"], variable: "--fon
 const rubik = Rubik({ subsets: ["latin"], variable: "--font-rubik" });
 
 export const metadata: Metadata = {
-  title: "Placely | Student Portal",
+  title: "CareerBridge | Student Portal",
   description: "Manage your placement journey with ease.",
 };
 
@@ -33,7 +33,7 @@ export default function RootLayout({
           __html: `
             (function() {
               try {
-                var theme = localStorage.getItem('placely-theme');
+                var theme = localStorage.getItem('careerbridge-theme');
                 if (theme === 'modern') {
                   document.documentElement.classList.add('theme-modern');
                 }

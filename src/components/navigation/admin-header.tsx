@@ -11,7 +11,7 @@ import { DesignToggle } from "./design-toggle";
 export function AdminHeader() {
   const pathname = usePathname();
   const currentItem = ADMIN_NAV_ITEMS.find((item) => pathname === item.href || pathname.startsWith(item.href + '/'));
-  const title = currentItem?.title || "Placely Admin";
+  const title = currentItem?.title || "CareerBridge Admin";
 
   return (
     <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between bg-background/80 backdrop-blur-md px-6 md:px-12 border-b border-border-subtle/50">
@@ -19,9 +19,9 @@ export function AdminHeader() {
       <div className="flex items-center gap-1 md:hidden">
         <Link href="/admin/dashboard" className="flex items-center gap-2">
           <div className="h-10 w-10 flex items-center justify-center overflow-hidden">
-            <img src="/placely.png" alt="Placely" className="h-full w-full object-contain" />
+            <img src="/careerbridge.png" alt="CareerBridge" className="h-full w-full object-contain" />
           </div>
-          <span className="font-display text-lg font-black tracking-tight uppercase">Placely Admin</span>
+          <span className="font-display text-lg font-black tracking-tight uppercase">CareerBridge Admin</span>
         </Link>
       </div>
 

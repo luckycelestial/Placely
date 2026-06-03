@@ -5,25 +5,41 @@ import { getYearFromBatch, getBatchRangeFromYear, formatYearOfStudy } from '@/li
 export async function getStudents(options: { 
   page?: number; 
   pageSize?: number; 
-  dept?: string; 
+  dept?: string | string[]; 
   status?: string;
   minCgpa?: number;
   maxCgpa?: number;
   minLeetcode?: number;
-  specialization?: string;
+  specialization?: string | string[];
+  specializationMode?: 'any' | 'all';
   company?: string;
+  interest?: string | string[];
+  interestMode?: 'any' | 'all';
 } = {}) {
   const { 
     page = 1, 
     pageSize = 10, 
-    dept = "All Departments", 
     status = "All Statuses",
     minCgpa,
     maxCgpa,
     minLeetcode,
-    specialization,
     company
   } = options;
+
+  const depts = typeof options.dept === 'string' 
+    ? (options.dept === "All Departments" ? [] : options.dept.split(',').map(d => d.trim()).filter(Boolean))
+    : (options.dept || []);
+
+  const specs = typeof options.specialization === 'string'
+    ? (options.specialization === "All Domains" ? [] : options.specialization.split(',').map(s => s.trim()).filter(Boolean))
+    : (options.specialization || []);
+
+  const interests = typeof options.interest === 'string'
+    ? (options.interest === "All Preferences" ? [] : options.interest.split(',').map(i => i.trim()).filter(Boolean))
+    : (options.interest || []);
+
+  const hasProfileFilter = (minLeetcode !== undefined && minLeetcode > 0) || (specs.length > 0);
+  const hasInterestFilter = (interests.length > 0);
   
   // Base query with necessary joins for filtering
   let query = supabase
@@ -38,7 +54,8 @@ export async function getStudents(options: {
       verification_status,
       users (name),
       student_academics (cgpa),
-      student_profiles (leetcode_count, specializations),
+      student_profiles${hasProfileFilter ? '!inner' : ''} (leetcode_count, specializations),
+      student_preferences${hasInterestFilter ? '!inner' : ''} (placement_interest),
       offers (
         package_ctc,
         company:companies (name)
@@ -46,8 +63,8 @@ export async function getStudents(options: {
     `, { count: 'exact' });
 
   // Apply filters
-  if (dept !== "All Departments") {
-    query = query.eq('department', dept);
+  if (depts.length > 0) {
+    query = query.in('department', depts);
   }
 
   if (status !== "All Statuses") {
@@ -87,8 +104,26 @@ export async function getStudents(options: {
     query = query.gte('student_profiles.leetcode_count', minLeetcode);
   }
 
-  if (specialization && specialization !== "All Domains") {
-    query = query.contains('student_profiles.specializations', [specialization]);
+  if (specs.length > 0) {
+    const specMode = options.specializationMode || 'any';
+    if (specMode === 'all') {
+      query = query.contains('student_profiles.specializations', specs);
+    } else {
+      query = query.overlaps('student_profiles.specializations', specs);
+    }
+  }
+
+  if (interests.length > 0) {
+    const interestMode = options.interestMode || 'any';
+    if (interestMode === 'all') {
+      if (interests.length === 1) {
+        query = query.eq('student_preferences.placement_interest', interests[0]);
+      } else {
+        query = query.eq('student_preferences.placement_interest', 'impossible_value_for_empty_results');
+      }
+    } else {
+      query = query.in('student_preferences.placement_interest', interests);
+    }
   }
 
   const from = (page - 1) * pageSize;

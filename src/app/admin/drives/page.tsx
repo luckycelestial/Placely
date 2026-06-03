@@ -532,7 +532,7 @@ export default function DrivesPage() {
                   <div className="space-y-4 pt-4 border-t border-border-subtle/50">
                     <div className="flex items-center gap-3 text-sm font-medium text-foreground/80">
                       <LuGlobe size={16} className="text-primary" />
-                      <a href={company.website} target="_blank" className="hover:underline truncate">{company.website?.replace('https://', '') || 'placely.io'}</a>
+                      <a href={company.website} target="_blank" className="hover:underline truncate">{company.website?.replace('https://', '') || 'careerbridge.io'}</a>
                     </div>
                     <div className="flex items-center gap-3 text-sm font-medium text-foreground/80">
                       <LuMail size={16} className="text-primary" />

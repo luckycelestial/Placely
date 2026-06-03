@@ -14,7 +14,7 @@ The Settings screen is where admins manage tenant configuration, roles, policies
 - This is the control-center settings screen in the admin shell.
 
 ## Screen goal
-This screen should let the college configure how Placely behaves for their institution without needing code changes for every operational rule.
+This screen should let the college configure how CareerBridge behaves for their institution without needing code changes for every operational rule.
 
 ## Core sections
 - Role and permission settings.
@@ -70,3 +70,4 @@ This screen should let the college configure how Placely behaves for their insti
 
 ## File name
 admin-settings.md
+

@@ -1,10 +1,10 @@
-# Placely foundation
+# CareerBridge foundation
 
-This file locks the baseline product and build decisions for Placely before individual screen specs are written. It is meant to be the single source of truth for the screen-building phase.
+This file locks the baseline product and build decisions for CareerBridge before individual screen specs are written. It is meant to be the single source of truth for the screen-building phase.
 
 ## Product direction
 
-Placely is being planned as a **multi-college-ready placement platform** for students and placement-cell teams, while keeping the same core structure across colleges.
+CareerBridge is being planned as a **multi-college-ready placement platform** for students and placement-cell teams, while keeping the same core structure across colleges.
 Each college is expected to use the same product structure, with branding and configuration differences, while the backend database can be different per college deployment.
 
 ## Multi-college architecture
@@ -16,7 +16,7 @@ The chosen tenancy model is:
 - Each college owns its own data and auth environment.
 - Schema should stay standardized across deployments so the product remains portable and scalable later.
 
-This means Placely should be designed as a reusable product template, not as a one-off app for a single college.
+This means CareerBridge should be designed as a reusable product template, not as a one-off app for a single college.
 
 ## User roles
 
@@ -27,7 +27,7 @@ The locked roles for the first proper version are:
 - Placement Admin.
 - College Super Admin.
 
-This role split is important because Placely already implies different privilege levels across workflows like verification, drive management, ATS handling, offers, notices, exports, and settings.
+This role split is important because CareerBridge already implies different privilege levels across workflows like verification, drive management, ATS handling, offers, notices, exports, and settings.
 
 ## Core platform stack
 
@@ -38,12 +38,12 @@ The current product direction strongly implies the following baseline stack from
 | Frontend app | Web app with separate student and admin shells. |
 | Backend/data | Supabase per college deployment. |
 | Auth/data ownership | Managed at the college deployment level. |
-| Product model | Same Placely structure across colleges, configurable per tenant. |
+| Product model | Same CareerBridge structure across colleges, configurable per tenant. |
 | Documents | Link-first document handling, with file upload support as optional later. |
 
 ## Design direction
 
-Placely should behave like a product **brand**, not like a different visual system for every college.
+CareerBridge should behave like a product **brand**, not like a different visual system for every college.
 The locked visual direction is a white or light base, blue as the primary accent, and only **very subtle** glass treatment on selected surfaces such as overlays or top bars, while the main operational UI stays crisp and solid for readability.
 
 That means the UI should avoid overusing glassmorphism and should not rely on trendy effects that reduce clarity in dense admin workflows.
@@ -66,7 +66,7 @@ The navigation structure is already locked for both device types.
 
 ## Public entry flow
 
-Placely will have a **tenant-aware landing and auth experience** before users enter the product shells.
+CareerBridge will have a **tenant-aware landing and auth experience** before users enter the product shells.
 The platform should primarily identify colleges through separate domains or subdomains, with fallback support through a college-code picker and/or email-domain detection.
 
 ## Student data model direction
@@ -86,7 +86,7 @@ The document system is also broader than just resumes. It is planned as a config
 
 ## Workflow direction
 
-Placely is being designed as an operations-heavy system, not just a dashboard.
+CareerBridge is being designed as an operations-heavy system, not just a dashboard.
 The product direction already locks these workflow ideas:
 
 - Full structured job drives with reusable company and role templates.
@@ -159,4 +159,5 @@ Use a simple and consistent naming pattern for the next files:
 ## What this file is for
 
 This is not a detailed screen spec.
-It is the foundational reference for stack, structure, navigation, workflow philosophy, and screen planning, so every later screen markdown file stays aligned with the same Placely decisions.
+It is the foundational reference for stack, structure, navigation, workflow philosophy, and screen planning, so every later screen markdown file stays aligned with the same CareerBridge decisions.
+

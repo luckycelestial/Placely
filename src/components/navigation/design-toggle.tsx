@@ -31,7 +31,7 @@ export function DesignToggle() {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("placely-design") || "default";
+    const saved = localStorage.getItem("careerbridge-design") || "default";
     setCurrentDesign(saved);
     applyDesign(saved);
   }, []);
@@ -46,7 +46,7 @@ export function DesignToggle() {
     });
     if (design.class) html.classList.add(design.class);
     
-    localStorage.setItem("placely-design", designId);
+    localStorage.setItem("careerbridge-design", designId);
   };
 
   const handleSelect = (designId: string) => {

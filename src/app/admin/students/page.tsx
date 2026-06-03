@@ -82,7 +82,11 @@ function StudentsPageContent() {
     minCgpa: parseFloat(searchParams.get('minCgpa') || "0"),
     maxCgpa: parseFloat(searchParams.get('maxCgpa') || "10"),
     minLeetcode: parseInt(searchParams.get('minLeetcode') || "0"),
-    specialization: searchParams.get('specialization') || "All Domains"
+    specialization: searchParams.get('specialization') || "All Domains",
+    specializationMode: (searchParams.get('specializationMode') || "any") as 'any' | 'all',
+    company: searchParams.get('company') || "All Companies",
+    interest: searchParams.get('interest') || "All Preferences",
+    interestMode: (searchParams.get('interestMode') || "any") as 'any' | 'all'
   }), [searchParams]);
 
   const updateFilters = useCallback((updates: Record<string, string>) => {
@@ -101,10 +105,28 @@ function StudentsPageContent() {
     minCgpa: 0,
     maxCgpa: 10,
     minLeetcode: 0,
-    specialization: "All Domains",
-    dept: "All Departments",
-    status: "All Statuses"
+    specializations: [] as string[],
+    specializationMode: "any" as "any" | "all",
+    depts: [] as string[],
+    status: "All Statuses",
+    company: "All Companies",
+    interests: [] as string[],
+    interestMode: "any" as "any" | "all"
   });
+
+  const [allCompanies, setAllCompanies] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function loadCompanies() {
+      try {
+        const data = await db.getCompanies();
+        setAllCompanies(["All Companies", ...data.map((c: any) => c.name)]);
+      } catch (err) {
+        console.error("Failed to load companies:", err);
+      }
+    }
+    loadCompanies();
+  }, []);
   
   // Add Student Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -256,7 +278,7 @@ function StudentsPageContent() {
             Export CSV
           </button>
           <button 
-            onClick={() => setIsBulkModalOpen(true)}
+            onClick={() => router.push('/admin/data?table=students&import=true')}
             className="flex items-center gap-2 rounded-xl bg-surface border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors"
           >
             <LuUpload size={16} />
@@ -286,26 +308,33 @@ function StudentsPageContent() {
         <div className="md:col-span-2">
           <button 
             onClick={() => {
+              const depts = deptFilter === "All Departments" ? [] : deptFilter.split(',').map(d => d.trim()).filter(Boolean);
+              const specializations = advancedFilters.specialization === "All Domains" ? [] : advancedFilters.specialization.split(',').map(s => s.trim()).filter(Boolean);
+              const interests = advancedFilters.interest === "All Preferences" ? [] : advancedFilters.interest.split(',').map(i => i.trim()).filter(Boolean);
               setStagedFilters({
                 minCgpa: advancedFilters.minCgpa,
                 maxCgpa: advancedFilters.maxCgpa,
                 minLeetcode: advancedFilters.minLeetcode,
-                specialization: advancedFilters.specialization,
-                dept: deptFilter,
-                status: statusFilter
+                specializations,
+                specializationMode: advancedFilters.specializationMode,
+                depts,
+                status: statusFilter,
+                company: advancedFilters.company,
+                interests,
+                interestMode: advancedFilters.interestMode
               });
               setIsFilterDrawerOpen(true);
             }}
             className={cn(
               "w-full h-full py-3 flex items-center justify-center rounded-2xl border transition-all shadow-sm text-sm font-bold gap-2",
-              (advancedFilters.minCgpa > 0 || advancedFilters.minLeetcode > 0 || advancedFilters.specialization !== "All Domains" || deptFilter !== "All Departments" || statusFilter !== "All Statuses")
+              (advancedFilters.minCgpa > 0 || advancedFilters.minLeetcode > 0 || advancedFilters.specialization !== "All Domains" || deptFilter !== "All Departments" || statusFilter !== "All Statuses" || advancedFilters.company !== "All Companies" || advancedFilters.interest !== "All Preferences")
                 ? "bg-primary/5 border-primary text-primary" 
                 : "bg-surface border-border-subtle text-muted hover:bg-background"
             )}
           >
             <LuFilter size={18} />
             Filters
-            {(advancedFilters.minCgpa > 0 || advancedFilters.minLeetcode > 0 || advancedFilters.specialization !== "All Domains" || deptFilter !== "All Departments" || statusFilter !== "All Statuses") && (
+            {(advancedFilters.minCgpa > 0 || advancedFilters.minLeetcode > 0 || advancedFilters.specialization !== "All Domains" || deptFilter !== "All Departments" || statusFilter !== "All Statuses" || advancedFilters.company !== "All Companies" || advancedFilters.interest !== "All Preferences") && (
               <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
             )}
           </button>
@@ -935,21 +964,37 @@ function StudentsPageContent() {
               <div className="space-y-4">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted block">Department</label>
                 <div className="flex flex-wrap gap-2">
-                  {DEPARTMENTS.map(dept => (
-                    <button
-                      key={dept}
-                      onClick={() => setStagedFilters({...stagedFilters, dept})}
-                      type="button"
-                      className={cn(
-                        "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border",
-                        stagedFilters.dept === dept 
-                          ? "bg-primary text-white border-primary shadow-tactile" 
-                          : "bg-background border-border-subtle text-muted hover:border-primary/30"
-                      )}
-                    >
-                      {dept}
-                    </button>
-                  ))}
+                  {DEPARTMENTS.map(dept => {
+                    const isAll = dept === "All Departments";
+                    const isSelected = isAll 
+                      ? stagedFilters.depts.length === 0 
+                      : stagedFilters.depts.includes(dept);
+                    
+                    return (
+                      <button
+                        key={dept}
+                        onClick={() => {
+                          if (isAll) {
+                            setStagedFilters({ ...stagedFilters, depts: [] });
+                          } else {
+                            const newDepts = stagedFilters.depts.includes(dept)
+                              ? stagedFilters.depts.filter(d => d !== dept)
+                              : [...stagedFilters.depts, dept];
+                            setStagedFilters({ ...stagedFilters, depts: newDepts });
+                          }
+                        }}
+                        type="button"
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border",
+                          isSelected 
+                            ? "bg-primary text-white border-primary shadow-tactile" 
+                            : "bg-background border-border-subtle text-muted hover:border-primary/30"
+                        )}
+                      >
+                        {dept}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1029,26 +1074,159 @@ function StudentsPageContent() {
                 </div>
               </div>
 
+              {/* Placed Company */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted block">Placed Company</label>
+                <SearchableSelect
+                  options={allCompanies.map(c => ({ value: c, label: c }))}
+                  value={stagedFilters.company}
+                  onChange={value => setStagedFilters({...stagedFilters, company: value})}
+                  placeholder="All Companies"
+                />
+              </div>
+
+              {/* Placement Interest */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted block">Placement Interest</label>
+                <div className="flex flex-wrap gap-2">
+                  {["All Preferences", "Interested", "Not Interested: Higher Studies", "Not Interested: Entrepreneurship", "Not Interested"].map(pref => {
+                    const isAll = pref === "All Preferences";
+                    const isSelected = isAll 
+                      ? stagedFilters.interests.length === 0 
+                      : stagedFilters.interests.includes(pref);
+
+                    const label = pref === "Not Interested: Higher Studies" ? "Higher Studies" :
+                                  pref === "Not Interested: Entrepreneurship" ? "Entrepreneurship" :
+                                  pref;
+
+                    return (
+                      <button
+                        key={pref}
+                        onClick={() => {
+                          if (isAll) {
+                            setStagedFilters({ ...stagedFilters, interests: [] });
+                          } else {
+                            const newInts = stagedFilters.interests.includes(pref)
+                              ? stagedFilters.interests.filter(i => i !== pref)
+                              : [...stagedFilters.interests, pref];
+                            setStagedFilters({ ...stagedFilters, interests: newInts });
+                          }
+                        }}
+                        type="button"
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border",
+                          isSelected 
+                            ? "bg-primary text-white border-primary shadow-tactile" 
+                            : "bg-background border-border-subtle text-muted hover:border-primary/30"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {stagedFilters.interests.length > 1 && (
+                  <div className="p-3 bg-background rounded-2xl border border-border-subtle flex items-center justify-between mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-muted">Interest Match Mode</span>
+                    <div className="flex bg-surface p-1 rounded-xl border border-border-subtle/50">
+                      <button
+                        type="button"
+                        onClick={() => setStagedFilters({ ...stagedFilters, interestMode: 'any' })}
+                        className={cn(
+                          "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                          stagedFilters.interestMode === 'any'
+                            ? "bg-primary text-white shadow-sm"
+                            : "text-muted hover:text-foreground"
+                        )}
+                      >
+                        Any
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStagedFilters({ ...stagedFilters, interestMode: 'all' })}
+                        className={cn(
+                          "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                          stagedFilters.interestMode === 'all'
+                            ? "bg-primary text-white shadow-sm"
+                            : "text-muted hover:text-foreground"
+                        )}
+                      >
+                        All
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Specializations */}
               <div className="space-y-4">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted block">Specialized Domain</label>
                 <div className="flex flex-wrap gap-2">
-                  {["All Domains", "Cloud", "Python", "Java", "Fullstack", "DevOps", "AI/ML", "Data Science", "Cybersecurity"].map(domain => (
-                    <button
-                      key={domain}
-                      onClick={() => setStagedFilters({...stagedFilters, specialization: domain})}
-                      type="button"
-                      className={cn(
-                        "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border",
-                        stagedFilters.specialization === domain 
-                          ? "bg-primary text-white border-primary shadow-tactile" 
-                          : "bg-background border-border-subtle text-muted hover:border-primary/30"
-                      )}
-                    >
-                      {domain}
-                    </button>
-                  ))}
+                  {["All Domains", "Cloud", "Python", "Java", "Fullstack", "DevOps", "AI/ML", "Data Science", "Cybersecurity"].map(domain => {
+                    const isAll = domain === "All Domains";
+                    const isSelected = isAll 
+                      ? stagedFilters.specializations.length === 0 
+                      : stagedFilters.specializations.includes(domain);
+
+                    return (
+                      <button
+                        key={domain}
+                        onClick={() => {
+                          if (isAll) {
+                            setStagedFilters({ ...stagedFilters, specializations: [] });
+                          } else {
+                            const newSpecs = stagedFilters.specializations.includes(domain)
+                              ? stagedFilters.specializations.filter(s => s !== domain)
+                              : [...stagedFilters.specializations, domain];
+                            setStagedFilters({ ...stagedFilters, specializations: newSpecs });
+                          }
+                        }}
+                        type="button"
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border",
+                          isSelected 
+                            ? "bg-primary text-white border-primary shadow-tactile" 
+                            : "bg-background border-border-subtle text-muted hover:border-primary/30"
+                        )}
+                      >
+                        {domain}
+                      </button>
+                    );
+                  })}
                 </div>
+
+                {stagedFilters.specializations.length > 1 && (
+                  <div className="p-3 bg-background rounded-2xl border border-border-subtle flex items-center justify-between mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-muted">Domain Match Mode</span>
+                    <div className="flex bg-surface p-1 rounded-xl border border-border-subtle/50">
+                      <button
+                        type="button"
+                        onClick={() => setStagedFilters({ ...stagedFilters, specializationMode: 'any' })}
+                        className={cn(
+                          "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                          stagedFilters.specializationMode === 'any'
+                            ? "bg-primary text-white shadow-sm"
+                            : "text-muted hover:text-foreground"
+                        )}
+                      >
+                        Any
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStagedFilters({ ...stagedFilters, specializationMode: 'all' })}
+                        className={cn(
+                          "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                          stagedFilters.specializationMode === 'all'
+                            ? "bg-primary text-white shadow-sm"
+                            : "text-muted hover:text-foreground"
+                        )}
+                      >
+                        All
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1058,9 +1236,13 @@ function StudentsPageContent() {
                   minCgpa: 0,
                   maxCgpa: 10,
                   minLeetcode: 0,
-                  specialization: "All Domains",
-                  dept: "All Departments",
-                  status: "All Statuses"
+                  specializations: [],
+                  specializationMode: "any",
+                  depts: [],
+                  status: "All Statuses",
+                  company: "All Companies",
+                  interests: [],
+                  interestMode: "any"
                 })}
                 type="button"
                 className="flex-1 py-3 rounded-2xl bg-surface border border-border-subtle text-xs font-black uppercase tracking-widest hover:bg-black/5 transition-all"
@@ -1073,9 +1255,13 @@ function StudentsPageContent() {
                     minCgpa: stagedFilters.minCgpa.toString(),
                     maxCgpa: stagedFilters.maxCgpa.toString(),
                     minLeetcode: stagedFilters.minLeetcode.toString(),
-                    specialization: stagedFilters.specialization,
-                    dept: stagedFilters.dept,
-                    status: stagedFilters.status
+                    specialization: stagedFilters.specializations.length > 0 ? stagedFilters.specializations.join(',') : "All Domains",
+                    specializationMode: stagedFilters.specializationMode,
+                    dept: stagedFilters.depts.length > 0 ? stagedFilters.depts.join(',') : "All Departments",
+                    status: stagedFilters.status,
+                    company: stagedFilters.company,
+                    interest: stagedFilters.interests.length > 0 ? stagedFilters.interests.join(',') : "All Preferences",
+                    interestMode: stagedFilters.interestMode
                   });
                   setIsFilterDrawerOpen(false);
                 }}

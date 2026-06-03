@@ -9,15 +9,32 @@ export async function bulkCreateStudents(studentsData: any[]) {
   const cy = new Date().getFullYear();
   const referenceYear = isCompleted ? cy + 1 : cy;
 
+  // Clean and prepare student data, generating emails & names if missing
+  const processedStudents = studentsData.map(s => {
+    const regNo = String(s.register_number || s.regNo || '').trim();
+    const email = s.email ? String(s.email).trim() : (regNo ? `${regNo}@careerbridge.com`.toLowerCase() : '');
+    const name = s.name ? String(s.name).trim() : `Student ${regNo}`;
+    const department = s.department || s.dept || 'General';
+    return {
+      ...s,
+      register_number: regNo,
+      email,
+      name,
+      department
+    };
+  }).filter(s => s.register_number && s.email);
+
+  if (processedStudents.length === 0) return [];
+
   // Deduplicate and filter out any existing users/emails first to prevent batch collision
-  const emails = studentsData.map(s => s.email).filter(Boolean);
+  const emails = processedStudents.map(s => s.email).filter(Boolean);
   const { data: existingUsers } = await supabase
     .from('users')
     .select('email')
     .in('email', emails);
   
   const existingEmails = new Set((existingUsers || []).map(u => u.email));
-  const newStudentsData = studentsData.filter(s => s.email && !existingEmails.has(s.email));
+  const newStudentsData = processedStudents.filter(s => s.email && !existingEmails.has(s.email));
 
   if (newStudentsData.length === 0) return [];
 

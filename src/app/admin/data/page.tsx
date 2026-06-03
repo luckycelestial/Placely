@@ -1,11 +1,12 @@
 "use client";
 import { Sk } from "@/components/ui/skeleton";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { DataGrid, renderTextEditor } from "react-data-grid";
 import type { Column, RenderCellProps, RenderEditCellProps } from "react-data-grid";
 import * as XLSX from "xlsx";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { useSearchParams } from "next/navigation";
 import "react-data-grid/lib/styles.css";
 import { 
   LuUpload, 
@@ -72,12 +73,18 @@ const TABLES = [
   { id: "users", label: "Users", icon: <LuDatabase size={14} /> },
 ];
 
-export default function DataWorkspacePage() {
-  const [activeTable, setActiveTable] = useState("students");
+function DataWorkspacePageContent() {
+  const searchParams = useSearchParams();
+  const tableParam = searchParams.get("table");
+  const autoImportParam = searchParams.get("import");
+
+  const [activeTable, setActiveTable] = useState(tableParam || "students");
   const [activeTab, setActiveTab] = useState<"live" | "staging">("live");
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<any[]>([]);
   const [stagingData, setStagingData] = useState<any[]>([]);
+  const [rawSheetData, setRawSheetData] = useState<any[][]>([]);
+  const [hasHeaders, setHasHeaders] = useState<boolean>(true);
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [isMappingMode, setIsMappingMode] = useState(false);
@@ -155,6 +162,100 @@ export default function DataWorkspacePage() {
     };
     loadMappings();
   }, []);
+
+  useEffect(() => {
+    if (autoImportParam === "true") {
+      setTimeout(() => {
+        const fileInput = document.getElementById("file-import-input") as HTMLInputElement;
+        if (fileInput) {
+          fileInput.click();
+        }
+      }, 500);
+    }
+  }, [autoImportParam]);
+
+  const getColLetter = (index: number): string => {
+    let col = "";
+    let temp = index;
+    while (temp >= 0) {
+      col = String.fromCharCode((temp % 26) + 65) + col;
+      temp = Math.floor(temp / 26) - 1;
+    }
+    return col;
+  };
+
+  const processSheetData = useCallback((jsonData: any[][], useFirstRowAsHeaders: boolean) => {
+    if (jsonData.length === 0) return;
+
+    let headers: string[] = [];
+    let data: any[] = [];
+
+    if (useFirstRowAsHeaders) {
+      // First row contains the headers
+      const maxCols = Math.max(...jsonData.map(row => row.length), 0);
+      const firstRow = jsonData[0] || [];
+      
+      headers = Array.from({ length: maxCols }, (_, i) => {
+        const val = firstRow[i];
+        return val !== undefined && val !== null && String(val).trim() !== "" ? String(val).trim() : `Column ${getColLetter(i)}`;
+      });
+
+      data = jsonData.slice(1).map(row => {
+        const obj: any = {};
+        headers.forEach((h, i) => {
+          obj[h] = row[i] !== undefined && row[i] !== null ? String(row[i]).trim() : "";
+        });
+        return obj;
+      });
+    } else {
+      // No header row, auto-generate column headers (Column A, Column B, etc.)
+      const maxCols = Math.max(...jsonData.map(row => row.length), 0);
+      headers = Array.from({ length: maxCols }, (_, i) => `Column ${getColLetter(i)}`);
+
+      data = jsonData.map(row => {
+        const obj: any = {};
+        headers.forEach((h, i) => {
+          obj[h] = row[i] !== undefined && row[i] !== null ? String(row[i]).trim() : "";
+        });
+        return obj;
+      });
+    }
+
+    setImportHeaders(headers);
+    setStagingData(data);
+    
+    // Auto-mapping logic
+    const autoMappings: ColumnMapping[] = [];
+    const sampleRow = rows[0] || {};
+    const tableKeys = Object.keys(sampleRow).filter(k => k !== "id");
+
+    headers.forEach(h => {
+      let targetField = "";
+      if (activeTable === "students") {
+        const match = STUDENT_FIELDS.find(f => 
+          f.label.toLowerCase() === h.toLowerCase() || 
+          f.id.toLowerCase() === h.toLowerCase() ||
+          h.toLowerCase().includes(f.id.toLowerCase())
+        );
+        if (match) targetField = match.id;
+      } else {
+        const match = tableKeys.find(k => 
+          k.toLowerCase() === h.toLowerCase() || 
+          h.toLowerCase().includes(k.toLowerCase())
+        );
+        if (match) targetField = match;
+      }
+      
+      if (targetField) autoMappings.push({ source: h, target: targetField });
+    });
+    setMappings(autoMappings);
+  }, [activeTable, rows]);
+
+  useEffect(() => {
+    if (rawSheetData.length > 0) {
+      processSheetData(rawSheetData, hasHeaders);
+    }
+  }, [hasHeaders, rawSheetData, processSheetData]);
 
   // Fetch Live Data for Active Table
   const loadData = useCallback(async () => {
@@ -401,65 +502,34 @@ export default function DataWorkspacePage() {
     const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
 
     reader.onload = (event) => {
-      let headers: string[] = [];
-      let data: any[] = [];
+      let rawGridData: any[][] = [];
 
       if (isExcel) {
         const buffer = event.target?.result as ArrayBuffer;
         const workbook = XLSX.read(buffer, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
+        // Use defval: "" to prevent skipped empty cells and align indices perfectly!
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" }) as any[][];
         
-        if (jsonData.length === 0) return;
-        headers = jsonData[0].map(h => String(h).trim());
-        data = jsonData.slice(1).map(row => {
-          const obj: any = {};
-          headers.forEach((h, i) => obj[h] = row[i]);
-          return obj;
-        });
+        // Filter out completely empty rows
+        rawGridData = jsonData.filter(row => row.some(cell => cell !== "" && cell !== null && cell !== undefined));
       } else {
         const text = event.target?.result as string;
-        const rows = text.split("\n").map(row => row.trim()).filter(row => row);
-        if (rows.length === 0) return;
-        headers = rows[0].split(",").map(h => h.trim());
-        data = rows.slice(1).map(row => {
-          const values = row.split(",").map(v => v.trim());
-          const obj: any = {};
-          headers.forEach((h, i) => obj[h] = values[i]);
-          return obj;
-        });
+        const lines = text.split("\n").map(row => row.trim()).filter(row => row);
+        rawGridData = lines.map(line => line.split(",").map(cell => cell.trim()));
       }
 
-      setImportHeaders(headers);
-      setStagingData(data);
+      if (rawGridData.length === 0) return;
+
+      setRawSheetData(rawGridData);
+      
+      // Auto-detect header: check if the first cell of the first row looks like register number or a index count
+      const firstCell = String(rawGridData[0]?.[0] || '');
+      const looksLikeData = /^[A-Z0-9]{6,12}$/i.test(firstCell) || /^[0-9]+$/.test(firstCell) || firstCell === '';
+      setHasHeaders(!looksLikeData);
+
       setActiveTab("staging");
       setIsMappingMode(true);
-      
-      // Auto-mapping logic
-      const autoMappings: ColumnMapping[] = [];
-      const sampleRow = rows[0] || {};
-      const tableKeys = Object.keys(sampleRow).filter(k => k !== "id");
-
-      headers.forEach(h => {
-        let targetField = "";
-        if (activeTable === "students") {
-          const match = STUDENT_FIELDS.find(f => 
-            f.label.toLowerCase() === h.toLowerCase() || 
-            f.id.toLowerCase() === h.toLowerCase() ||
-            h.toLowerCase().includes(f.id.toLowerCase())
-          );
-          if (match) targetField = match.id;
-        } else {
-          const match = tableKeys.find(k => 
-            k.toLowerCase() === h.toLowerCase() || 
-            h.toLowerCase().includes(k.toLowerCase())
-          );
-          if (match) targetField = match;
-        }
-        
-        if (targetField) autoMappings.push({ source: h, target: targetField });
-      });
-      setMappings(autoMappings);
     };
 
     if (isExcel) reader.readAsArrayBuffer(file);
@@ -476,6 +546,7 @@ export default function DataWorkspacePage() {
 
   const handleImportCancel = () => {
     setStagingData([]);
+    setRawSheetData([]);
     setImportHeaders([]);
     setIsMappingMode(false);
     setActiveTab("live");
@@ -647,7 +718,13 @@ export default function DataWorkspacePage() {
           <label className="flex items-center gap-2 rounded-xl bg-primary text-white px-4 py-2 text-xs font-black shadow-tactile hover:bg-primary-dark cursor-pointer transition-all">
             <LuUpload size={14} />
             Import Excel/CSV
-            <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} />
+            <input 
+              id="file-import-input"
+              type="file" 
+              accept=".csv,.xlsx,.xls" 
+              className="hidden" 
+              onChange={handleFileUpload} 
+            />
           </label>
           
           <button 
@@ -667,14 +744,27 @@ export default function DataWorkspacePage() {
         {isMappingMode && (
           <div className="bg-primary/5 border-b border-primary/10 p-6 animate-in slide-in-from-top duration-300">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-primary text-white flex items-center justify-center">
-                  <LuFilter size={16} />
+              <div className="flex items-center gap-8">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-primary text-white flex items-center justify-center">
+                    <LuFilter size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-wider">Map your columns</h3>
+                    <p className="text-[10px] font-bold text-muted uppercase">Align your spreadsheet headers with CareerBridge fields</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-wider">Map your columns</h3>
-                  <p className="text-[10px] font-bold text-muted uppercase">Align your spreadsheet headers with Placely fields</p>
-                </div>
+                
+                {/* Reactive Headers Toggle Checkbox */}
+                <label className="flex items-center gap-2 cursor-pointer select-none px-3.5 py-2 bg-white border border-border-subtle rounded-xl shadow-sm hover:bg-background transition-all shrink-0">
+                  <input 
+                    type="checkbox"
+                    checked={hasHeaders}
+                    onChange={(e) => setHasHeaders(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20 accent-primary"
+                  />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-muted">First Row Contains Headers</span>
+                </label>
               </div>
               <div className="flex items-center gap-2">
                 {Object.keys(validationErrors).length > 0 && (
@@ -943,5 +1033,18 @@ export default function DataWorkspacePage() {
         }
       ` }} />
     </div>
+  );
+}
+
+export default function DataWorkspacePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col h-[calc(100vh-112px)] items-center justify-center bg-background">
+        <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-xs font-bold text-muted mt-4 uppercase tracking-widest animate-pulse">Initializing Data Workspace...</p>
+      </div>
+    }>
+      <DataWorkspacePageContent />
+    </Suspense>
   );
 }

@@ -1,10 +1,10 @@
-# Placely — Data Workspace & Bulk Import: Implementation Plan
+# CareerBridge — Data Workspace & Bulk Import: Implementation Plan
 
 ---
 
 ## Overview
 
-This document captures the agreed-upon plan to replace the current "Bulk Neural Import" modal with a full **Data Workspace** — a Google Sheets-style grid embedded inside the Placely admin UI, supporting both live data viewing and smart bulk imports with column mapping.
+This document captures the agreed-upon plan to replace the current "Bulk Neural Import" modal with a full **Data Workspace** — a Google Sheets-style grid embedded inside the CareerBridge admin UI, supporting both live data viewing and smart bulk imports with column mapping.
 
 ---
 
@@ -39,7 +39,7 @@ A two-mode grid system inside the Students / Data section of the admin panel:
 - A mapping panel appears above the grid:
 
 ```
-Your Column        →    Placely Field
+Your Column        →    CareerBridge Field
 ─────────────────────────────────────────
 "Reg.No"           →   [Register Number  ▼]
 "Student Name"     →   [Full Name        ▼]
@@ -143,7 +143,7 @@ Both support:
 
 ## In Simple Words — What Are We Actually Building?
 
-Right now, Placely's bulk import is a basic modal where you pick a data type, drop a CSV, and pray it works. That's not good enough for a college that needs to upload 4 years of student records, results, internships, offers, and placement history.
+Right now, CareerBridge's bulk import is a basic modal where you pick a data type, drop a CSV, and pray it works. That's not good enough for a college that needs to upload 4 years of student records, results, internships, offers, and placement history.
 
 **Here's what the new system will feel like:**
 
@@ -151,10 +151,11 @@ Think of opening a Google Sheet — but instead of a blank sheet, you're looking
 
 Now let's say you got an Excel export from the university's legacy system. You click **"+ Import Sheet"**. A new tab opens right there (like a new sheet tab at the bottom of Google Sheets). You paste your Excel data into it with Ctrl+V, or you upload the CSV. Your data appears in the grid immediately.
 
-But here's the smart part — Placely looks at your column names ("Reg.No", "CGPA (10)", "yr of join") and tries to figure out which database field each one matches. It shows you a panel saying *"I think 'Reg.No' means Register Number — is that right?"* You fix whatever it got wrong, and mark the columns you don't care about as Skip.
+But here's the smart part — CareerBridge looks at your column names ("Reg.No", "CGPA (10)", "yr of join") and tries to figure out which database field each one matches. It shows you a panel saying *"I think 'Reg.No' means Register Number — is that right?"* You fix whatever it got wrong, and mark the columns you don't care about as Skip.
 
-Then before anything actually gets saved, Placely shows you a side-by-side comparison: *"This student already exists in the database with CGPA 8.2, but your sheet says 8.5 — should I update it?"* You can say "update everything", "skip everything that already exists", or go row by row. Only after you say **"Confirm"** does the data actually merge.
+Then before anything actually gets saved, CareerBridge shows you a side-by-side comparison: *"This student already exists in the database with CGPA 8.2, but your sheet says 8.5 — should I update it?"* You can say "update everything", "skip everything that already exists", or go row by row. Only after you say **"Confirm"** does the data actually merge.
 
-If some rows had problems (wrong email format, CGPA over 10, duplicate register number), Placely downloads a small CSV with just those broken rows so you can fix them and re-upload.
+If some rows had problems (wrong email format, CGPA over 10, duplicate register number), CareerBridge downloads a small CSV with just those broken rows so you can fix them and re-upload.
 
-The result: staff never have to leave Placely to manage data. No more maintaining a "master Excel" on someone's desktop. The grid inside Placely becomes their spreadsheet — just smarter, safer, and connected to real data.
+The result: staff never have to leave CareerBridge to manage data. No more maintaining a "master Excel" on someone's desktop. The grid inside CareerBridge becomes their spreadsheet — just smarter, safer, and connected to real data.
+

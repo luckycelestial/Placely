@@ -15,10 +15,10 @@ export function Sidebar() {
         <div className="mb-6 px-3 flex items-center min-w-[260px]">
           <Link href="/dashboard" className="flex items-center gap-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden">
-              <img src="/placely.png" alt="Placely" className="h-full w-full object-contain" />
+              <img src="/careerbridge.png" alt="CareerBridge" className="h-full w-full object-contain" />
             </div>
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-              <span className="font-display text-xl font-black tracking-tight text-foreground block leading-none">Placely</span>
+              <span className="font-display text-xl font-black tracking-tight text-foreground block leading-none">CareerBridge</span>
               <span className="text-[10px] font-black uppercase tracking-widest text-primary">Student Hub</span>
             </div>
           </Link>
