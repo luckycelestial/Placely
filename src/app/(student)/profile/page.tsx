@@ -6,7 +6,7 @@ import {
   LuBook, LuCalendar, LuFileText, LuUpload, LuExternalLink,
   LuCircleCheck, LuArrowRight, LuGlobe, LuBriefcase, 
   LuIndianRupee, LuFolderOpen, LuTriangleAlert, LuBadgeCheck,
-  LuHash, LuX
+  LuHash, LuX, LuSettings, LuActivity, LuLayers
 } from "react-icons/lu";
 import { SiGithub, SiLeetcode } from "react-icons/si";
 import { FaLinkedin } from "react-icons/fa";
@@ -15,7 +15,7 @@ import { db } from "@/services/database";
 import Link from "next/link";
 import { DEV_STUDENT_ID } from "@/lib/dev-config";
 import { cn } from "@/lib/utils";
-import { getSystemSettings } from "@/services/settings";
+import { getSystemSettings, getSettingByKey, DEFAULT_CUSTOM_GROUPS, type CustomGroup } from "@/services/settings";
 import { getYearFromBatch, getBatchRangeFromYear, getRomanYear } from "@/lib/batch-utils";
 import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { toast } from "sonner";
@@ -37,38 +37,48 @@ export default function ProfilePage() {
   const [isSavingPref, setIsSavingPref] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Social Links States
-  const [showLinksModal, setShowLinksModal] = useState(false);
+  const [isEditingTop, setIsEditingTop] = useState(false);
+  const [isEditingPrefs, setIsEditingPrefs] = useState(false);
+  const [isEditingLinks, setIsEditingLinks] = useState(false);
+
+  const [isSavingTop, setIsSavingTop] = useState(false);
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
+  const [isSavingLinks, setIsSavingLinks] = useState(false);
   const [githubUrl, setGithubUrl] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [leetcodeUrl, setLeetcodeUrl] = useState("");
   const [portfolioUrl, setPortfolioUrl] = useState("");
-  const [isSavingLinks, setIsSavingLinks] = useState(false);
+  const [prefRolesInput, setPrefRolesInput] = useState("");
+  const [prefLocationsInput, setPrefLocationsInput] = useState("");
+
+  const [currentAddress, setCurrentAddress] = useState("");
+  const [permAddress, setPermAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [stateVal, setStateVal] = useState("");
+  const [pincode, setPincode] = useState("");
+
+  const [customGroups, setCustomGroups] = useState<CustomGroup[]>([]);
+  const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
+  const [placementGroup, setPlacementGroup] = useState<string>("");
 
   useEffect(() => {
     if (student) {
       const pref = student?.student_preferences?.[0] || student?.student_preferences || {};
       setPlacementInterest(pref.placement_interest || "Interested");
+      setPlacementGroup(pref.work_mode_preference || "");
+      
+      const roles = pref.preferred_roles || [];
+      setPrefRolesInput(roles.join(", "));
+      
+      const locations = pref.preferred_locations || [];
+      setPrefLocationsInput(locations.join(", "));
+
+      const prof = student?.student_profiles?.[0] || student?.student_profiles || {};
+      setSelectedDomains(prof.specializations || []);
     }
   }, [student]);
 
-  const handlePlacementInterestChange = async (value: string) => {
-    setPlacementInterest(value);
-    setIsSavingPref(true);
-    setSaveSuccess(false);
-    try {
-      await db.updateStudentProfile(DEV_STUDENT_ID, {
-        placement_interest: value
-      });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
-    } catch (error: any) {
-      console.error("Error saving placement interest:", error);
-      alert("Failed to save preference: " + (error.message || error));
-    } finally {
-      setIsSavingPref(false);
-    }
-  };
+  // Placement interest is now updated locally during editing, and saved on main save.
 
   const [applications, setApplications] = useState<any[]>([]);
   const [loadingApplications, setLoadingApplications] = useState(true);
@@ -76,14 +86,16 @@ export default function ProfilePage() {
   useEffect(() => {
     async function loadProfileAndSettings() {
       try {
-        const [profileData, settingsData, appsData] = await Promise.all([
+        const [profileData, settingsData, appsData, customGroupsData] = await Promise.all([
           db.getStudentProfile(DEV_STUDENT_ID),
           getSystemSettings(),
-          db.getStudentApplications(DEV_STUDENT_ID)
+          db.getStudentApplications(DEV_STUDENT_ID),
+          getSettingByKey<CustomGroup[]>('custom_groups', DEFAULT_CUSTOM_GROUPS)
         ]);
         setStudent(profileData);
         setIsCompleted(settingsData.isAcademicYearCompleted);
         setApplications(appsData);
+        setCustomGroups(customGroupsData);
 
         // Populate links states
         const prof = profileData?.student_profiles?.[0] || profileData?.student_profiles || {};
@@ -91,6 +103,21 @@ export default function ProfilePage() {
         setLinkedinUrl(prof.linkedin_url || "");
         setLeetcodeUrl(prof.notes || "");
         setPortfolioUrl(prof.portfolio_url || "");
+        setSelectedDomains(prof.specializations || []);
+
+        // Populate preferences states
+        const pref = profileData?.student_preferences?.[0] || profileData?.student_preferences || {};
+        setPrefRolesInput(Array.isArray(pref.preferred_roles) ? pref.preferred_roles.join(", ") : "");
+        setPrefLocationsInput(Array.isArray(pref.preferred_locations) ? pref.preferred_locations.join(", ") : "");
+        setPlacementGroup(pref.work_mode_preference || "");
+
+        // Populate contacts states
+        const contactsData = profileData?.student_contacts?.[0] || profileData?.student_contacts || {};
+        setCurrentAddress(contactsData.address || "");
+        setPermAddress(contactsData.permanent_address || "");
+        setCity(contactsData.city || "");
+        setStateVal(contactsData.state || "");
+        setPincode(contactsData.pincode || "");
       } catch (error) {
         console.error("Error loading profile, settings or applications:", error);
       } finally {
@@ -126,8 +153,116 @@ export default function ProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSaveLinks = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveTop = async () => {
+    setIsSavingTop(true);
+    try {
+      await db.updateStudentProfile(DEV_STUDENT_ID, {
+        address: currentAddress || null,
+        permanent_address: permAddress || null,
+        city: city || null,
+        state: stateVal || null,
+        pincode: pincode || null
+      });
+
+      setStudent((prev: any) => {
+        let updatedContacts = prev.student_contacts;
+        if (Array.isArray(prev.student_contacts)) {
+          updatedContacts = [{
+            ...prev.student_contacts[0],
+            address: currentAddress || null,
+            permanent_address: permAddress || null,
+            city: city || null,
+            state: stateVal || null,
+            pincode: pincode || null
+          }];
+        } else {
+          updatedContacts = {
+            ...prev.student_contacts,
+            address: currentAddress || null,
+            permanent_address: permAddress || null,
+            city: city || null,
+            state: stateVal || null,
+            pincode: pincode || null
+          };
+        }
+        return {
+          ...prev,
+          student_contacts: updatedContacts
+        };
+      });
+
+      setIsEditingTop(false);
+      toast.success("Address updated successfully!");
+    } catch (error: any) {
+      console.error("Error saving address:", error);
+      toast.error("Failed to save address: " + (error.message || error));
+    } finally {
+      setIsSavingTop(false);
+    }
+  };
+
+  const handleSavePrefs = async () => {
+    setIsSavingPrefs(true);
+    const rolesArray = prefRolesInput.split(",").map(r => r.trim()).filter(Boolean);
+    const locationsArray = prefLocationsInput.split(",").map(l => l.trim()).filter(Boolean);
+
+    try {
+      await db.updateStudentProfile(DEV_STUDENT_ID, {
+        placement_interest: placementInterest,
+        preferred_roles: rolesArray,
+        preferred_locations: locationsArray,
+        specializations: selectedDomains
+      });
+
+      setStudent((prev: any) => {
+        let updatedPref = prev.student_preferences;
+        if (Array.isArray(prev.student_preferences)) {
+          updatedPref = [{
+            ...prev.student_preferences[0],
+            placement_interest: placementInterest,
+            preferred_roles: rolesArray,
+            preferred_locations: locationsArray
+          }];
+        } else {
+          updatedPref = {
+            ...prev.student_preferences,
+            placement_interest: placementInterest,
+            preferred_roles: rolesArray,
+            preferred_locations: locationsArray
+          };
+        }
+
+        let updatedProfiles = prev.student_profiles;
+        if (Array.isArray(prev.student_profiles)) {
+          updatedProfiles = [{
+            ...prev.student_profiles[0],
+            specializations: selectedDomains
+          }];
+        } else {
+          updatedProfiles = {
+            ...prev.student_profiles,
+            specializations: selectedDomains
+          };
+        }
+
+        return {
+          ...prev,
+          student_preferences: updatedPref,
+          student_profiles: updatedProfiles
+        };
+      });
+
+      setIsEditingPrefs(false);
+      toast.success("Preferences updated successfully!");
+    } catch (error: any) {
+      console.error("Error saving preferences:", error);
+      toast.error("Failed to save preferences: " + (error.message || error));
+    } finally {
+      setIsSavingPrefs(false);
+    }
+  };
+
+  const handleSaveLinks = async () => {
     setIsSavingLinks(true);
     try {
       await db.updateStudentProfile(DEV_STUDENT_ID, {
@@ -156,20 +291,51 @@ export default function ProfilePage() {
             notes: leetcodeUrl || null
           };
         }
+
         return {
           ...prev,
           student_profiles: updatedProfiles
         };
       });
 
-      setShowLinksModal(false);
-      toast.success("Professional links updated successfully!");
+      setIsEditingLinks(false);
+      toast.success("Links updated successfully!");
     } catch (error: any) {
-      console.error("Error saving professional links:", error);
-      alert("Failed to save links: " + (error.message || error));
+      console.error("Error saving links:", error);
+      toast.error("Failed to save links: " + (error.message || error));
     } finally {
       setIsSavingLinks(false);
     }
+  };
+
+  const handleCancelTop = () => {
+    const contactsData = student?.student_contacts?.[0] || student?.student_contacts || {};
+    setCurrentAddress(contactsData.address || "");
+    setPermAddress(contactsData.permanent_address || "");
+    setCity(contactsData.city || "");
+    setStateVal(contactsData.state || "");
+    setPincode(contactsData.pincode || "");
+    setIsEditingTop(false);
+  };
+
+  const handleCancelPrefs = () => {
+    const pref = student?.student_preferences?.[0] || student?.student_preferences || {};
+    setPlacementInterest(pref.placement_interest || "Interested");
+    setPrefRolesInput(Array.isArray(pref.preferred_roles) ? pref.preferred_roles.join(", ") : "");
+    setPrefLocationsInput(Array.isArray(pref.preferred_locations) ? pref.preferred_locations.join(", ") : "");
+
+    const prof = student?.student_profiles?.[0] || student?.student_profiles || {};
+    setSelectedDomains(prof.specializations || []);
+    setIsEditingPrefs(false);
+  };
+
+  const handleCancelLinks = () => {
+    const prof = student?.student_profiles?.[0] || student?.student_profiles || {};
+    setGithubUrl(prof.github_url || "");
+    setLinkedinUrl(prof.linkedin_url || "");
+    setLeetcodeUrl(prof.notes || "");
+    setPortfolioUrl(prof.portfolio_url || "");
+    setIsEditingLinks(false);
   };
 
   if (loading) {
@@ -183,6 +349,9 @@ export default function ProfilePage() {
   const academics = student?.student_academics?.[0] || student?.student_academics || {};
   const profile = student?.student_profiles?.[0] || student?.student_profiles || {};
   const contacts = student?.student_contacts?.[0] || student?.student_contacts || {};
+  const pref = student?.student_preferences?.[0] || student?.student_preferences || {};
+  const preferredRoles = pref.preferred_roles || [];
+  const preferredLocations = pref.preferred_locations || [];
   const completionPercentage = student?.profile_completion || 0;
 
   const range = getBatchRangeFromYear(student?.year);
@@ -218,6 +387,8 @@ export default function ProfilePage() {
       {/* ── Master Profile Card ── */}
       <div className="app-card overflow-hidden border border-border-subtle shadow-xl bg-surface">
         <div className="p-8 md:p-12 relative">
+
+
           <div className="flex flex-col lg:flex-row gap-10 items-start relative z-10">
             {/* Profile Image */}
             <div className="relative group flex-shrink-0">
@@ -278,16 +449,126 @@ export default function ProfilePage() {
             </div>
 
             {/* Contact Info */}
-            <div className="w-full lg:w-auto flex flex-col gap-3">
-              <HeaderDetailItem value={student?.users?.email || ""} icon={LuMail} />
-              <HeaderDetailItem value={student?.users?.phone || "+91 ----- -----"} icon={LuPhone} />
-              {physicalAddress ? (
-                <HeaderDetailItem value={physicalAddress} icon={LuMapPin} />
+            <div className="w-full lg:w-96 flex flex-col gap-3 relative z-20">
+              <div className="flex justify-end mb-1">
+                {isEditingTop ? (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleCancelTop}
+                      disabled={isSavingTop}
+                      className="bg-surface hover:bg-background border border-border-subtle text-muted hover:text-foreground rounded-2xl px-5 py-2.5 text-xs font-black uppercase tracking-widest transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveTop}
+                      disabled={isSavingTop}
+                      className="bg-primary hover:bg-primary-dark text-white rounded-2xl px-5 py-2.5 text-xs font-black uppercase tracking-widest transition-all shadow-[0_4px_20px_rgba(255,56,60,0.2)] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isSavingTop ? (
+                        <>
+                          <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <LuCircleCheck size={14} />
+                          Save
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsEditingTop(true)}
+                    className="bg-primary hover:bg-primary-dark text-white rounded-2xl px-5 py-2.5 text-xs font-black uppercase tracking-widest transition-all shadow-[0_4px_20px_rgba(255,56,60,0.2)] flex items-center gap-2 cursor-pointer animate-in fade-in duration-200"
+                  >
+                    <LuSettings size={14} />
+                    Edit Info
+                  </button>
+                )}
+              </div>
+
+              {isEditingTop ? (
+                <div className="space-y-3">
+                  <HeaderDetailItem value={student?.users?.email || ""} icon={LuMail} />
+                  <HeaderDetailItem value={student?.users?.phone || "+91 ----- -----"} icon={LuPhone} />
+                  
+                  {/* Address Editor */}
+                  <div className="bg-surface border border-border-subtle p-5 rounded-2xl space-y-3.5 shadow-sm text-left relative z-25">
+                    <div className="flex items-center gap-2 text-primary font-black uppercase tracking-widest text-[10px]">
+                      <LuMapPin size={14} /> Address Editor
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-muted tracking-widest">Current Address</label>
+                      <textarea
+                        value={currentAddress}
+                        onChange={(e) => setCurrentAddress(e.target.value)}
+                        placeholder="Street, locality..."
+                        rows={2}
+                        className="w-full px-3 py-2 bg-background border border-border-subtle rounded-xl text-xs font-semibold focus:outline-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase text-muted tracking-widest">City</label>
+                        <input
+                          type="text"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          placeholder="City"
+                          className="w-full px-2 py-1.5 bg-background border border-border-subtle rounded-xl text-xs font-semibold focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase text-muted tracking-widest">State</label>
+                        <input
+                          type="text"
+                          value={stateVal}
+                          onChange={(e) => setStateVal(e.target.value)}
+                          placeholder="State"
+                          className="w-full px-2 py-1.5 bg-background border border-border-subtle rounded-xl text-xs font-semibold focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase text-muted tracking-widest">Pincode</label>
+                        <input
+                          type="text"
+                          value={pincode}
+                          onChange={(e) => setPincode(e.target.value)}
+                          placeholder="Pin"
+                          className="w-full px-2 py-1.5 bg-background border border-border-subtle rounded-xl text-xs font-semibold focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-muted tracking-widest">Permanent Address</label>
+                      <textarea
+                        value={permAddress}
+                        onChange={(e) => setPermAddress(e.target.value)}
+                        placeholder="Same as current..."
+                        rows={2}
+                        className="w-full px-3 py-2 bg-background border border-border-subtle rounded-xl text-xs font-semibold focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <HeaderDetailItem value="Address not set" icon={LuMapPin} />
+                <div className="space-y-3">
+                  <HeaderDetailItem value={student?.users?.email || ""} icon={LuMail} />
+                  <HeaderDetailItem value={student?.users?.phone || "+91 ----- -----"} icon={LuPhone} />
+                  {physicalAddress ? (
+                    <HeaderDetailItem value={physicalAddress} icon={LuMapPin} />
+                  ) : (
+                    <HeaderDetailItem value="Address not set" icon={LuMapPin} />
+                  )}
+                  {permanentAddress && (
+                    <HeaderDetailItem value={`Perm: ${permanentAddress}`} icon={LuMapPin} />
+                  )}
+                </div>
               )}
-            </div>
           </div>
+        </div>
 
           {/* Decor */}
           <div className="absolute top-0 right-0 h-64 w-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl opacity-50" />
@@ -298,13 +579,14 @@ export default function ProfilePage() {
       {/* ── Academic Performance ── */}
       <ProfileSection title="Academic Performance" description="Score Breakdown">
         <div className="mt-6 space-y-8">
-          {/* School Scores */}
+          {/* Overall Scores */}
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-4">School & Pre-University</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-4">Overall Scores</p>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <ScoreCard label="10th Grade" value={academics?.tenth_score} unit="%" />
               <ScoreCard label="12th Grade" value={academics?.twelfth_score} unit="%" />
               <ScoreCard label="Diploma" value={academics?.diploma_score} unit="%" optional />
+              <ScoreCard label="CGPA" value={Number(aggregateCgpa)} unit="" />
             </div>
           </div>
 
@@ -312,10 +594,6 @@ export default function ProfilePage() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Semester-wise CGPA</p>
-              <div className="flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full">
-                <LuGraduationCap size={14} />
-                <span className="text-xs font-black">Aggregate: {aggregateCgpa}</span>
-              </div>
             </div>
             <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
               {semKeys.map((key, idx) => {
@@ -389,355 +667,400 @@ export default function ProfilePage() {
         </div>
       </ProfileSection>
 
-      {/* ── Address Details ── */}
-      <ProfileSection title="Address Details" description="Location & Contact">
-        <div className="grid gap-4 sm:grid-cols-2 mt-6">
-          <div className="p-6 rounded-3xl bg-background border border-border-subtle">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-3">Current / Physical Address</p>
-            {physicalAddress ? (
-              <p className="font-semibold text-foreground leading-relaxed">{physicalAddress}</p>
-            ) : (
-              <p className="text-sm text-muted">Not set</p>
-            )}
-          </div>
-          <div className="p-6 rounded-3xl bg-background border border-border-subtle">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-3">Permanent Address</p>
-            {permanentAddress ? (
-              <p className="font-semibold text-foreground leading-relaxed">{permanentAddress}</p>
-            ) : (
-              <p className="text-sm text-muted">Not set</p>
-            )}
-          </div>
-        </div>
-      </ProfileSection>
 
-      {/* ── Placement Preferences ── */}
-      <ProfileSection title="Placement Preferences" description="Career Strategy">
-        <div className="space-y-8 mt-4">
-          <div className="grid gap-6 md:grid-cols-3">
-            <DetailItem value="SDE / Full Stack" icon={LuBriefcase} />
-            <DetailItem value="12 - 18 LPA" icon={LuIndianRupee} />
-            <DetailItem value="Bangalore, Hyderabad, Remote" icon={LuMapPin} />
-          </div>
-
-          {/* Interactive Placement Interest Option */}
-          <div className="p-6 md:p-8 rounded-3xl bg-background border border-border-subtle shadow-sm relative overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div>
-                <h4 className="text-xl font-display font-black tracking-tight text-foreground flex items-center gap-2">
-                  Placement Interest
-                </h4>
-                <p className="text-xs text-muted mt-1">Specify whether you wish to participate in active campus placement drives.</p>
-              </div>
-
-              {/* Status Saver Badge */}
-              <div className="flex items-center gap-2 h-7">
-                {isSavingPref && (
-                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/5 text-primary text-xs font-black animate-pulse border border-primary/10">
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary animate-ping" />
-                    Saving...
-                  </span>
-                )}
-                {saveSuccess && (
-                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-black border border-emerald-100">
-                    <LuCircleCheck size={12} className="text-emerald-500" />
-                    Saved to profile
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Premium Radio Selection Grid */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <InterestRadioCard
-                title="Interested"
-                description="Actively looking for placement opportunities"
-                icon={LuBriefcase}
-                isSelected={placementInterest === "Interested"}
-                onClick={() => handlePlacementInterestChange("Interested")}
-              />
-              <InterestRadioCard
-                title="Higher Studies"
-                description="Pursuing post-graduation or research"
-                icon={LuGraduationCap}
-                isSelected={placementInterest === "Not Interested: Higher Studies"}
-                onClick={() => handlePlacementInterestChange("Not Interested: Higher Studies")}
-              />
-              <InterestRadioCard
-                title="Entrepreneurship"
-                description="Founding a startup or building business"
-                icon={LuGlobe}
-                isSelected={placementInterest === "Not Interested: Entrepreneurship"}
-                onClick={() => handlePlacementInterestChange("Not Interested: Entrepreneurship")}
-              />
-              <InterestRadioCard
-                title="Not Interested"
-                description="Other career paths / Not specified"
-                icon={LuTriangleAlert}
-                isSelected={placementInterest === "Not Interested"}
-                onClick={() => handlePlacementInterestChange("Not Interested")}
-              />
-            </div>
-          </div>
-        </div>
-      </ProfileSection>
-
-      {/* ── Drive Attendance History ── */}
       <ProfileSection 
-        title="Drive Attendance History" 
-        description="Recruitment progress, outcomes, and current status across campus drives."
+        title="Placement Preferences" 
+        description="Career Strategy"
+        actions={
+          isEditingPrefs ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCancelPrefs}
+                disabled={isSavingPrefs}
+                className="bg-surface hover:bg-background border border-border-subtle text-muted hover:text-foreground rounded-2xl px-4 py-2 text-xs font-black uppercase tracking-widest transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePrefs}
+                disabled={isSavingPrefs}
+                className="bg-primary hover:bg-primary-dark text-white rounded-2xl px-4 py-2 text-xs font-black uppercase tracking-widest transition-all shadow-[0_4px_20px_rgba(255,56,60,0.2)] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isSavingPrefs ? (
+                  <>
+                    <span className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <LuCircleCheck size={12} />
+                    Save
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsEditingPrefs(true)}
+              className="bg-primary hover:bg-primary-dark text-white rounded-2xl px-4 py-2 text-xs font-black uppercase tracking-widest transition-all shadow-[0_4px_20px_rgba(255,56,60,0.2)] flex items-center gap-2 cursor-pointer"
+            >
+              <LuSettings size={12} />
+              Edit
+            </button>
+          )
+        }
       >
-        {loadingApplications ? (
-          <div className="grid gap-6 md:grid-cols-2 mt-6">
-            <Sk.Card />
-            <Sk.Card />
-          </div>
-        ) : applications.length === 0 ? (
-          <div className="mt-6 border-2 border-dashed border-border-subtle rounded-3xl p-10 flex flex-col items-center justify-center text-muted text-center bg-surface/50">
-            <LuBriefcase size={40} className="text-muted/40 mb-3" />
-            <p className="font-sans text-sm font-bold text-muted uppercase tracking-widest">No recruitment history found</p>
-            <p className="text-xs text-muted/60 mt-1 max-w-sm">You haven't applied to any placement or internship recruitment drives yet.</p>
+        {!isEditingPrefs ? (
+          <div className="space-y-8 mt-4">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {preferredRoles.length > 0 ? (
+                <DetailItem value={preferredRoles.join(" / ")} icon={LuBriefcase} />
+              ) : (
+                <div className="flex items-center gap-4 bg-background/50 rounded-3xl p-5 border border-dashed border-border-subtle">
+                  <div className="h-10 w-10 rounded-xl bg-muted/15 flex items-center justify-center text-muted flex-shrink-0">
+                    <LuBriefcase size={20} />
+                  </div>
+                  <p className="text-sm text-muted font-bold">No preferred roles selected</p>
+                </div>
+              )}
+              <DetailItem value={`Interest: ${placementInterest}`} icon={LuActivity} />
+              <DetailItem value="12 - 18 LPA" icon={LuIndianRupee} />
+              {preferredLocations.length > 0 ? (
+                <DetailItem value={preferredLocations.join(", ")} icon={LuMapPin} />
+              ) : (
+                <div className="flex items-center gap-4 bg-background/50 rounded-3xl p-5 border border-dashed border-border-subtle">
+                  <div className="h-10 w-10 rounded-xl bg-muted/15 flex items-center justify-center text-muted flex-shrink-0">
+                    <LuMapPin size={20} />
+                  </div>
+                  <p className="text-sm text-muted font-bold">No preferred locations selected</p>
+                </div>
+              )}
+
+              {/* Dynamic Groups/Domains in identical boxes */}
+              {customGroups.map((group) => {
+                if (group.type === "student_selectable") {
+                  const selectedInGroup = group.options.filter(opt => selectedDomains.includes(opt));
+                  const displayValue = selectedInGroup.length > 0 
+                    ? selectedInGroup.join(" / ") 
+                    : "None selected";
+                  return (
+                    <DetailItem 
+                      key={group.id}
+                      value={`${group.name}: ${displayValue}`} 
+                      icon={LuLayers} 
+                    />
+                  );
+                } else {
+                  let assignedOpt = "";
+                  if (placementGroup) {
+                    if (placementGroup.trim().startsWith('{')) {
+                      try {
+                        const parsed = JSON.parse(placementGroup);
+                        assignedOpt = parsed[group.id] || "";
+                      } catch (e) {}
+                    } else if (group.id === "placement_groups") {
+                      assignedOpt = placementGroup;
+                    }
+                  }
+                  const displayValue = assignedOpt || "Unassigned";
+                  return (
+                    <DetailItem 
+                      key={group.id}
+                      value={`${group.name}: ${displayValue}`} 
+                      icon={LuBadgeCheck} 
+                    />
+                  );
+                }
+              })}
+            </div>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 mt-6">
-            {applications.map((app: any) => {
-              const drive = app.job_drives || {};
-              const company = drive.companies || {};
-              const roundTitle = app.current_stage ? (
-                app.current_stage === 'applied' ? 'Applied' :
-                app.current_stage === 'shortlisted' ? 'Shortlisted' :
-                app.current_stage === 'aptitude' ? 'Aptitude Assessment' :
-                app.current_stage === 'interview1' ? 'Technical Interview 1' :
-                app.current_stage === 'interview2' ? 'Technical Interview 2' :
-                app.current_stage === 'selection' ? 'Offer Discussion' :
-                app.current_stage === 'offered' ? 'Offered' :
-                app.current_stage === 'rejected' ? 'Rejected' :
-                formatCapitalized(app.current_stage)
-              ) : 'Applied';
+          <div className="space-y-8 mt-4 animate-in fade-in duration-300">
+            <div className="grid gap-6 md:grid-cols-3 bg-background/50 border border-border-subtle p-6 rounded-3xl">
+              {/* Preferred Roles Input */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
+                  <LuBriefcase size={12} /> Preferred Job Roles
+                </label>
+                <input 
+                  type="text"
+                  value={prefRolesInput}
+                  onChange={(e) => setPrefRolesInput(e.target.value)}
+                  placeholder="e.g. SDE, Full Stack, Frontend Developer"
+                  className="w-full bg-background border border-border-subtle rounded-2xl py-4 px-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+                <p className="text-[10px] text-muted-foreground/60 font-medium">Use commas to separate multiple roles.</p>
+              </div>
 
-              const isOffered = app.status?.toLowerCase() === 'offered' || app.current_stage?.toLowerCase() === 'offered' || app.status?.toLowerCase() === 'selection';
-              const isRejected = app.status?.toLowerCase() === 'rejected' || app.current_stage?.toLowerCase() === 'rejected';
-
-              return (
-                <div key={app.id} className="p-6 rounded-3xl border border-border-subtle bg-surface hover:shadow-lg transition-all group flex items-start justify-between gap-6">
-                  <div className="flex items-start gap-4 min-w-0">
-                    <CompanyLogo name={company.name || 'Unknown'} size={48} rounded="rounded-2xl shadow-tactile" className="group-hover:scale-105 transition-transform" />
-                    <div className="min-w-0">
-                      <h4 className="font-display text-xl font-bold tracking-tight text-foreground truncate group-hover:text-primary transition-colors">
-                        {drive.role_title || 'Software Engineer'}
-                      </h4>
-                      <p className="text-xs font-black text-muted uppercase tracking-widest mt-0.5">
-                        {company.name || 'Unknown Company'}
-                      </p>
-                      <p className="text-xs font-bold text-muted/80 mt-2">
-                        Round Reached: <span className="text-foreground font-black">{roundTitle}</span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0 flex flex-col items-end gap-2">
-                    <span className={cn(
-                      "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm",
-                      isOffered ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
-                      isRejected ? "bg-red-500/10 text-red-600 border-red-500/20" :
-                      "bg-blue-500/10 text-blue-600 border-blue-500/20"
-                    )}>
-                      {formatCapitalized(app.status || 'Applied')}
-                    </span>
-                    {drive.package_ctc && (
-                      <span className="text-[10px] font-black tracking-wider text-muted bg-background border border-border-subtle px-2 py-0.5 rounded-md">
-                        {drive.package_ctc}
-                      </span>
-                    )}
+              {/* Placement Interest Dropdown */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
+                  <LuActivity size={12} /> Placement Interest
+                </label>
+                <div className="relative">
+                  <select
+                    value={placementInterest}
+                    onChange={(e) => setPlacementInterest(e.target.value)}
+                    className="w-full bg-background border border-border-subtle rounded-2xl py-4 pl-4 pr-10 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all cursor-pointer appearance-none"
+                  >
+                    <option value="Interested">Interested</option>
+                    <option value="Not Interested: Higher Studies">Not Interested: Higher Studies</option>
+                    <option value="Not Interested: Entrepreneurship">Not Interested: Entrepreneurship</option>
+                    <option value="Not Interested">Not Interested</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
+                    <LuArrowRight size={16} className="rotate-90" />
                   </div>
                 </div>
-              );
-            })}
+                <p className="text-[10px] text-muted-foreground/60 font-medium">Participation in campus placement drives.</p>
+              </div>
+
+              {/* Preferred Locations Input */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
+                  <LuMapPin size={12} /> Preferred Locations
+                </label>
+                <input 
+                  type="text"
+                  value={prefLocationsInput}
+                  onChange={(e) => setPrefLocationsInput(e.target.value)}
+                  placeholder="e.g. Bangalore, Mumbai, Remote"
+                  className="w-full bg-background border border-border-subtle rounded-2xl py-4 px-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+                <p className="text-[10px] text-muted-foreground/60 font-medium">Use commas to separate multiple locations.</p>
+              </div>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 bg-background/50 border border-border-subtle p-6 rounded-3xl">
+              {customGroups.map((group) => {
+                if (group.type === "student_selectable") {
+                  return (
+                    <div key={group.id} className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
+                        <LuLayers size={12} /> {group.name}
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {group.options.map((option) => {
+                          const isSelected = selectedDomains.includes(option);
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedDomains(selectedDomains.filter(o => o !== option));
+                                } else {
+                                  setSelectedDomains([...selectedDomains, option]);
+                                }
+                              }}
+                              className={cn(
+                                "px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer",
+                                isSelected
+                                  ? "bg-primary text-white border-primary shadow-tactile"
+                                  : "bg-surface text-muted border-border-subtle hover:border-primary/30"
+                              )}
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/60 font-medium">Toggle options to choose your specializations.</p>
+                    </div>
+                  );
+                } else {
+                  let currentAssigned = "";
+                  if (placementGroup) {
+                    if (placementGroup.trim().startsWith('{')) {
+                      try {
+                        const parsed = JSON.parse(placementGroup);
+                        currentAssigned = parsed[group.id] || "";
+                      } catch (e) {}
+                    } else if (group.id === "placement_groups") {
+                      currentAssigned = placementGroup;
+                    }
+                  }
+                  return (
+                    <div key={group.id} className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
+                        <LuUser size={12} /> {group.name}
+                      </label>
+                      <div className="relative">
+                        <select
+                          disabled
+                          value={currentAssigned}
+                          className="w-full bg-slate-100/50 border border-border-subtle rounded-2xl py-4 pl-4 pr-10 text-sm font-semibold text-muted focus:outline-none appearance-none cursor-not-allowed"
+                        >
+                          <option value="">Unassigned</option>
+                          {group.options.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/30">
+                          <LuArrowRight size={16} className="rotate-90" />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/50 font-medium italic">Managed by administrator.</p>
+                    </div>
+                  );
+                }
+              })}
+            </div>
           </div>
         )}
       </ProfileSection>
 
-      <div className="grid gap-12 lg:grid-cols-2">
-        {/* Documents */}
-        <ProfileSection 
-          title="Documents" 
-          description="Credential Progress"
-          actions={
-            <Link href="/documents" className="flex items-center gap-2 font-sans text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary-dark transition-colors bg-primary/5 px-4 py-2 rounded-full">
-              <LuFolderOpen size={16} />
-              View Center
-            </Link>
-          }
-        >
-          <div className="grid gap-4 mt-4">
-            <DocumentCard name="Resume_2024.pdf" date="Updated 2 days ago" type="pdf" />
-            <DocumentCard name="10th_Marksheet.pdf" date="Completed" type="pdf" isCompleted />
-            <DocumentCard name="12th_Marksheet.pdf" date="Completed" type="pdf" isCompleted />
-          </div>
-        </ProfileSection>
-
-        {/* Professional Links */}
-        <ProfileSection 
-          title="Professional Links" 
-          description="External Assets"
-          actions={
-            <button 
-              onClick={() => setShowLinksModal(true)} 
-              className="flex items-center gap-2 font-sans text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary-dark transition-colors bg-primary/5 px-4 py-2 rounded-full cursor-pointer"
+      <ProfileSection 
+        title="Professional Links" 
+        description="External Assets"
+        actions={
+          isEditingLinks ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCancelLinks}
+                disabled={isSavingLinks}
+                className="bg-surface hover:bg-background border border-border-subtle text-muted hover:text-foreground rounded-2xl px-4 py-2 text-xs font-black uppercase tracking-widest transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveLinks}
+                disabled={isSavingLinks}
+                className="bg-primary hover:bg-primary-dark text-white rounded-2xl px-4 py-2 text-xs font-black uppercase tracking-widest transition-all shadow-[0_4px_20px_rgba(255,56,60,0.2)] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isSavingLinks ? (
+                  <>
+                    <span className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <LuCircleCheck size={12} />
+                    Save
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsEditingLinks(true)}
+              className="bg-primary hover:bg-primary-dark text-white rounded-2xl px-4 py-2 text-xs font-black uppercase tracking-widest transition-all shadow-[0_4px_20px_rgba(255,56,60,0.2)] flex items-center gap-2 cursor-pointer"
             >
-              <LuExternalLink size={16} />
-              Connect / Edit
+              <LuSettings size={12} />
+              Edit
             </button>
-          }
-        >
-          <div className="grid gap-4 mt-4">
-            <LinkCard title="GitHub" url={profile?.github_url || "github.com/—"} icon={SiGithub} color="#181717" />
-            <LinkCard title="LinkedIn" url={profile?.linkedin_url || "linkedin.com/in/—"} icon={FaLinkedin} color="#0A66C2" />
-            <LinkCard title="LeetCode" url={profile?.notes || "leetcode.com/—"} icon={SiLeetcode} color="#FFA116" />
-            <LinkCard title="Portfolio" url={profile?.portfolio_url || "—"} icon={LuGlobe} color="#ff383c" />
-          </div>
-        </ProfileSection>
-      </div>
-
-      {/* ── Connect Socials Modal ── */}
-      {showLinksModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity duration-300"
-            onClick={() => setShowLinksModal(false)}
-          />
-          
-          {/* Modal Container */}
-          <div className="relative w-full max-w-lg bg-surface border border-border-subtle rounded-3xl shadow-2xl overflow-hidden z-10 transform scale-100 transition-all duration-300 animate-in zoom-in-95 duration-200">
-            <div className="p-8 md:p-10">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                    <LuGlobe size={24} />
-                  </div>
-                  <div>
-                    <h3 className="font-display text-2xl font-black tracking-tight text-foreground">Connect Socials</h3>
-                    <p className="text-xs text-muted mt-0.5">Link your external professional profiles.</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowLinksModal(false)}
-                  className="h-10 w-10 rounded-full border border-border-subtle flex items-center justify-center text-muted hover:text-primary hover:border-primary transition-all cursor-pointer"
-                >
-                  <LuX size={18} />
-                </button>
+          )
+        }
+      >
+        {!isEditingLinks ? (
+          <div className="grid gap-4 sm:grid-cols-2 mt-6">
+            {profile?.github_url && !profile.github_url.includes('—') && profile.github_url.length > 5 && (
+              <LinkCard title="GitHub" url={profile.github_url} icon={SiGithub} color="#181717" />
+            )}
+            {profile?.linkedin_url && !profile.linkedin_url.includes('—') && profile.linkedin_url.length > 5 && (
+              <LinkCard title="LinkedIn" url={profile.linkedin_url} icon={FaLinkedin} color="#0A66C2" />
+            )}
+            {profile?.notes && !profile.notes.includes('—') && profile.notes.length > 5 && (
+              <LinkCard title="LeetCode" url={profile.notes} icon={SiLeetcode} color="#FFA116" />
+            )}
+            {profile?.portfolio_url && !profile.portfolio_url.includes('—') && profile.portfolio_url.length > 5 && (
+              <LinkCard title="Portfolio" url={profile.portfolio_url} icon={LuGlobe} color="#ff383c" />
+            )}
+            {(!profile?.github_url || profile.github_url.includes('—') || profile.github_url.length <= 5) &&
+             (!profile?.linkedin_url || profile.linkedin_url.includes('—') || profile.linkedin_url.length <= 5) &&
+             (!profile?.notes || profile.notes.includes('—') || profile.notes.length <= 5) &&
+             (!profile?.portfolio_url || profile.portfolio_url.includes('—') || profile.portfolio_url.length <= 5) && (
+              <div className="col-span-2 p-8 text-center text-muted font-bold bg-background border border-dashed border-border-subtle rounded-3xl">
+                No professional links connected. Click Edit to add.
               </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 mt-6 bg-background/50 border border-border-subtle p-6 rounded-3xl animate-in fade-in duration-300">
+            {/* GitHub */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
+                <SiGithub size={12} /> GitHub Profile
+              </label>
+              <div className="relative flex items-center">
+                <span className="absolute left-4 text-xs font-semibold text-muted/50 select-none">github.com/</span>
+                <input 
+                  type="text"
+                  value={githubUrl.replace(/^(https?:\/\/)?(www\.)?github\.com\//, '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setGithubUrl(val ? `github.com/${val.replace(/^(https?:\/\/)?(www\.)?github\.com\//, '')}` : "");
+                  }}
+                  placeholder="username"
+                  className="w-full bg-background border border-border-subtle rounded-2xl py-3 pl-[90px] pr-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
 
-              {/* Form */}
-              <form onSubmit={handleSaveLinks} className="space-y-6">
-                {/* GitHub */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
-                    <SiGithub size={12} /> GitHub Profile
-                  </label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-4 text-xs font-semibold text-muted/50 select-none">github.com/</span>
-                    <input 
-                      type="text"
-                      value={githubUrl.replace(/^(https?:\/\/)?(www\.)?github\.com\//, '')}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setGithubUrl(val ? `github.com/${val.replace(/^(https?:\/\/)?(www\.)?github\.com\//, '')}` : "");
-                      }}
-                      placeholder="username"
-                      className="w-full bg-background border border-border-subtle rounded-2xl py-4 pl-[90px] pr-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    />
-                  </div>
-                </div>
+            {/* LinkedIn */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
+                <FaLinkedin size={12} /> LinkedIn Profile
+              </label>
+              <div className="relative flex items-center">
+                <span className="absolute left-4 text-xs font-semibold text-muted/50 select-none">linkedin.com/in/</span>
+                <input 
+                  type="text"
+                  value={linkedinUrl.replace(/^(https?:\/\/)?(www\.)?linkedin\.com\/in\//, '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLinkedinUrl(val ? `linkedin.com/in/${val.replace(/^(https?:\/\/)?(www\.)?linkedin\.com\/in\//, '')}` : "");
+                  }}
+                  placeholder="username"
+                  className="w-full bg-background border border-border-subtle rounded-2xl py-3 pl-[116px] pr-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
 
-                {/* LinkedIn */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
-                    <FaLinkedin size={12} /> LinkedIn Profile
-                  </label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-4 text-xs font-semibold text-muted/50 select-none">linkedin.com/in/</span>
-                    <input 
-                      type="text"
-                      value={linkedinUrl.replace(/^(https?:\/\/)?(www\.)?linkedin\.com\/in\//, '')}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setLinkedinUrl(val ? `linkedin.com/in/${val.replace(/^(https?:\/\/)?(www\.)?linkedin\.com\/in\//, '')}` : "");
-                      }}
-                      placeholder="username"
-                      className="w-full bg-background border border-border-subtle rounded-2xl py-4 pl-[116px] pr-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    />
-                  </div>
-                </div>
+            {/* LeetCode */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
+                <SiLeetcode size={12} /> LeetCode Username
+              </label>
+              <div className="relative flex items-center">
+                <span className="absolute left-4 text-xs font-semibold text-muted/50 select-none">leetcode.com/</span>
+                <input 
+                  type="text"
+                  value={leetcodeUrl.replace(/^(https?:\/\/)?(www\.)?leetcode\.com\//, '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLeetcodeUrl(val ? `leetcode.com/${val.replace(/^(https?:\/\/)?(www\.)?leetcode\.com\//, '')}` : "");
+                  }}
+                  placeholder="username"
+                  className="w-full bg-background border border-border-subtle rounded-2xl py-3 pl-[100px] pr-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
 
-                {/* LeetCode */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
-                    <SiLeetcode size={12} /> LeetCode Username
-                  </label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-4 text-xs font-semibold text-muted/50 select-none">leetcode.com/</span>
-                    <input 
-                      type="text"
-                      value={leetcodeUrl.replace(/^(https?:\/\/)?(www\.)?leetcode\.com\//, '')}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setLeetcodeUrl(val ? `leetcode.com/${val.replace(/^(https?:\/\/)?(www\.)?leetcode\.com\//, '')}` : "");
-                      }}
-                      placeholder="username"
-                      className="w-full bg-background border border-border-subtle rounded-2xl py-4 pl-[100px] pr-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* Portfolio */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
-                    <LuGlobe size={12} /> Portfolio Website
-                  </label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-4 text-xs font-semibold text-muted/50 select-none">https://</span>
-                    <input 
-                      type="text"
-                      value={portfolioUrl.replace(/^(https?:\/\/)?(www\.)?/, '')}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setPortfolioUrl(val ? `https://${val.replace(/^(https?:\/\/)?(www\.)?/, '')}` : "");
-                      }}
-                      placeholder="yourwebsite.com"
-                      className="w-full bg-background border border-border-subtle rounded-2xl py-4 pl-[64px] pr-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-4 mt-8 pt-4 border-t border-border-subtle/50">
-                  <button 
-                    type="button"
-                    onClick={() => setShowLinksModal(false)}
-                    className="flex-1 bg-surface border border-border-subtle hover:bg-background rounded-2xl py-4 text-sm font-black uppercase tracking-widest text-muted hover:text-foreground transition-all cursor-pointer text-center"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit"
-                    disabled={isSavingLinks}
-                    className="flex-1 bg-primary hover:bg-primary-dark text-white rounded-2xl py-4 text-sm font-black uppercase tracking-widest transition-all shadow-[0_4px_20px_rgba(255,56,60,0.2)] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer text-center"
-                  >
-                    {isSavingLinks ? (
-                      <>
-                        <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Saving...
-                      </>
-                    ) : "Save Connections"}
-                  </button>
-                </div>
-              </form>
+            {/* Portfolio */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
+                <LuGlobe size={12} /> Portfolio Website
+              </label>
+              <div className="relative flex items-center">
+                <span className="absolute left-4 text-xs font-semibold text-muted/50 select-none">https://</span>
+                <input 
+                  type="text"
+                  value={portfolioUrl.replace(/^(https?:\/\/)?(www\.)?/, '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPortfolioUrl(val ? `https://${val.replace(/^(https?:\/\/)?(www\.)?/, '')}` : "");
+                  }}
+                  placeholder="yourwebsite.com"
+                  className="w-full bg-background border border-border-subtle rounded-2xl py-3 pl-[64px] pr-4 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ProfileSection>
+
+
     </div>
   );
 }
@@ -794,7 +1117,7 @@ function DetailItem({ value, icon: Icon }: { value: string; icon: import("react-
         <Icon size={20} />
       </div>
       <div className="flex-1 overflow-hidden">
-        <p className="text-lg font-display font-bold tracking-tight text-foreground truncate">{value}</p>
+        <p className="text-lg font-display font-bold tracking-tight text-foreground break-words whitespace-normal">{value}</p>
       </div>
     </div>
   );

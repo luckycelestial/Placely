@@ -149,7 +149,16 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
           branches: data.branches,
           min_cgpa: data.minCgpa,
           backlogs_allowed: data.backlogsAllowed,
-          history_of_arrears: data.historyOfArrears
+          history_of_arrears: data.historyOfArrears,
+          stages: drive
+            ? (drive.eligibility_rules?.stages || drive.eligibility?.stages)
+            : [
+                { id: "applied", name: "Applied", color: "bg-slate-500" },
+                { id: "shortlisted", name: "Shortlisted", color: "bg-blue-500" },
+                { id: "interview1", name: "Tech Round 1", color: "bg-purple-500" },
+                { id: "interview2", name: "Tech Round 2", color: "bg-indigo-500" },
+                { id: "selection", name: "Selection", color: "bg-emerald-500" }
+              ]
         },
         status: data.status,
         title: `${selectedCompany?.name || 'Company'} Recruitment ${data.batch}`

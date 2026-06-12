@@ -19,7 +19,7 @@ import { FaAmazon } from "react-icons/fa";
 import { StatCard } from "@/components/ui/stat-card";
 import { ProfileCompleteness } from "@/components/student/profile-completeness";
 import { ActiveDrives } from "@/components/student/active-drives";
-import { TaskInbox } from "@/components/student/task-inbox";
+import { NotificationInbox } from "@/components/student/notification-inbox";
 import { db } from "@/services/database";
 import { DEV_STUDENT_ID } from "@/lib/dev-config";
 
@@ -82,7 +82,10 @@ export default function DashboardPage() {
           db.getEvents()
         ]);
 
-        setStats(statsData);
+        setStats({
+          ...statsData,
+          tasksCount: noticesData.length
+        });
         setProfile(profileData);
         setActivities(activityData);
         setBulletin({ notices: noticesData, events: eventsData });
@@ -166,12 +169,12 @@ export default function DashboardPage() {
             trend={{ value: "Active Stream", isUp: true }}
           />
         </Link>
-        <Link href="/notifications" className="block transition-transform hover:scale-[1.02]">
+        <Link href="#notifications" className="block transition-transform hover:scale-[1.02]">
           <StatCard 
-            title="Pending Tasks" 
+            title="Active Alerts" 
             value={stats.tasksCount} 
-            icon={LuTimer} 
-            description="Due by end of week"
+            icon={LuBell} 
+            description="Bulletin & Action alerts"
           />
         </Link>
         <Link href="/progress" className="block transition-transform hover:scale-[1.02]">
@@ -196,7 +199,7 @@ export default function DashboardPage() {
         {/* Main Content (Left) */}
         <div className="lg:col-span-2 space-y-8">
           {/* Mission Control - Action Inbox */}
-          <TaskInbox />
+          <NotificationInbox />
           
           {/* Active Drives */}
           <ActiveDrives />

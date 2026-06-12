@@ -194,3 +194,26 @@ html, body {
     display: none !important;
   }
 }
+
+/* Global Dropdown Custom Styles */
+select {
+  background-color: var(--color-surface);
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border-subtle);
+  font-family: var(--font-sans);
+  outline: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(255, 56, 60, 0.15);
+}
+
+option {
+  background-color: var(--color-surface);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  padding: 12px;
+}

@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
 import { setLoggedStudentId } from "@/lib/dev-config";
 
+import { toast } from "sonner";
+
 export default function TenantEntryPage() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [students, setStudents] = useState<any[]>([]);
@@ -38,12 +40,7 @@ export default function TenantEntryPage() {
   }, []);
 
   const handleGoogleSignIn = () => {
-    setIsLoggingIn(true);
-    // Simulate premium SSO callback validation using default student (Aarav Sharma)
-    setLoggedStudentId("fd6d99a3-41d9-488d-9e98-b50b649233a8");
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 800);
+    toast.info("Google SSO Simulation: Please select a student profile from the list below to sign in.");
   };
 
   const handleProfileSignIn = (studentId: string) => {

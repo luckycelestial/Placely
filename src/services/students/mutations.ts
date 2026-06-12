@@ -331,9 +331,12 @@ export async function updateStudentProfile(studentId: string, profileData: any) 
       }
     }
 
-    // Update preferences (placement interest)
+    // Update preferences (placement interest, roles, locations)
     const preferenceUpdates: any = {};
     if (profileData.placement_interest !== undefined) preferenceUpdates.placement_interest = profileData.placement_interest;
+    if (profileData.preferred_roles !== undefined) preferenceUpdates.preferred_roles = profileData.preferred_roles;
+    if (profileData.preferred_locations !== undefined) preferenceUpdates.preferred_locations = profileData.preferred_locations;
+    if (profileData.placement_group !== undefined) preferenceUpdates.work_mode_preference = profileData.placement_group;
 
     if (Object.keys(preferenceUpdates).length > 0) {
       const { data: ePref } = await supabase.from('student_preferences').select('id').eq('student_id', studentId).single();

@@ -75,18 +75,17 @@ export async function getDashboardStats() {
 }
 
 export async function getStudentDashboardStats(studentId: string) {
-  const [apps, offers, interviews, tasks] = await Promise.all([
-    supabase.from('applications').select('*', { count: 'exact', head: true }).eq('student_id', studentId),
-    supabase.from('offers').select('*', { count: 'exact', head: true }).eq('student_id', studentId),
-    supabase.from('applications').select('*', { count: 'exact', head: true }).eq('student_id', studentId).not('current_stage', 'eq', 'applied'),
-    supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('student_id', studentId).eq('status', 'pending')
-  ]);
+  const { data, error } = await supabase
+    .rpc('get_student_dashboard_stats', { p_student_id: studentId });
+  if (error) throw error;
+  
+  const stats = data && data.length > 0 ? data[0] : { applications_count: 0, offers_count: 0, interviews_count: 0 };
 
   return {
-    applicationsCount: apps.count || 0,
-    offersCount: offers.count || 0,
-    interviewsCount: interviews.count || 0,
-    tasksCount: tasks.count || 0
+    applicationsCount: Number(stats.applications_count),
+    offersCount: Number(stats.offers_count),
+    interviewsCount: Number(stats.interviews_count),
+    tasksCount: 0
   };
 }
 

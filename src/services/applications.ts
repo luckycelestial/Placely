@@ -58,12 +58,14 @@ export async function getStudentApplications(studentId: string) {
     .select(`
       *,
       job_drives (
+        company_id,
         role_title,
         drive_type,
         package_ctc,
         location,
         eligibility_rules,
         companies (
+          id,
           name,
           logo_url,
           theme_color
@@ -290,4 +292,120 @@ export async function updateApplicationCtc(id: string, ctc: string) {
     .eq('id', id);
   if (error) throw error;
   return { success: true };
+}
+
+export async function getStudentOffers(studentId: string) {
+  const { data, error } = await supabase
+    .from('offers')
+    .select('*')
+    .eq('student_id', studentId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function acceptOffer(
+  studentId: string,
+  driveId: string,
+  companyId: string,
+  roleTitle: string,
+  packageCtc: string,
+  applicationId: string
+) {
+  // Check if offer exists
+  const { data: existingOffers, error: findError } = await supabase
+    .from('offers')
+    .select('id')
+    .eq('student_id', studentId)
+    .eq('drive_id', driveId);
+  
+  if (findError) throw findError;
+
+  let offerId = null;
+
+  if (existingOffers && existingOffers.length > 0) {
+    offerId = existingOffers[0].id;
+    const { error: updateError } = await supabase
+      .from('offers')
+      .update({
+        acceptance_status: 'accepted',
+        offer_status: 'accepted'
+      })
+      .eq('id', offerId);
+    if (updateError) throw updateError;
+  } else {
+    const { data: newOffer, error: insertError } = await supabase
+      .from('offers')
+      .insert([{
+        student_id: studentId,
+        drive_id: driveId,
+        company_id: companyId,
+        role_title: roleTitle,
+        package_ctc: packageCtc,
+        acceptance_status: 'accepted',
+        offer_status: 'accepted'
+      }])
+      .select();
+    if (insertError) throw insertError;
+    offerId = newOffer?.[0]?.id;
+  }
+
+  // Update application status
+  const { error: appError } = await supabase
+    .from('applications')
+    .update({ 
+      status: 'Accepted',
+      current_stage: 'accepted'
+    })
+    .eq('id', applicationId);
+  if (appError) throw appError;
+
+  return { success: true, offerId };
+}
+
+export async function setOfferJoiningDate(
+  studentId: string,
+  driveId: string,
+  companyId: string,
+  roleTitle: string,
+  packageCtc: string,
+  joiningDate: string
+) {
+  const { data: existingOffers, error: findError } = await supabase
+    .from('offers')
+    .select('id')
+    .eq('student_id', studentId)
+    .eq('drive_id', driveId);
+
+  if (findError) throw findError;
+
+  if (existingOffers && existingOffers.length > 0) {
+    const { error: updateError } = await supabase
+      .from('offers')
+      .update({ joining_date: joiningDate })
+      .eq('id', existingOffers[0].id);
+    if (updateError) throw updateError;
+  } else {
+    const { error: insertError } = await supabase
+      .from('offers')
+      .insert([{
+        student_id: studentId,
+        drive_id: driveId,
+        company_id: companyId,
+        role_title: roleTitle,
+        package_ctc: packageCtc,
+        joining_date: joiningDate,
+        acceptance_status: 'pending',
+        offer_status: 'offered'
+      }]);
+    if (insertError) throw insertError;
+  }
+
+  return { success: true };
+}
+
+export async function getStudentApplicationStats(studentId: string) {
+  const { data, error } = await supabase
+    .rpc('get_student_application_stats', { p_student_id: studentId });
+  if (error) throw error;
+  return data && data.length > 0 ? data[0] : { active_count: 0, placed_count: 0, offered_count: 0 };
 }

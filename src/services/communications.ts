@@ -141,7 +141,8 @@ export async function getNotices() {
     .from('notices')
     .select('*')
     .eq('status', 'published')
-    .order('publish_at', { ascending: false });
+    .order('publish_at', { ascending: false })
+    .limit(20);
   if (error) throw error;
   return data;
 }
@@ -244,29 +245,6 @@ export async function deleteEvent(id: string) {
     .eq('id', id);
   if (error) throw new Error(error.message || 'Failed to delete event');
   return true;
-}
-
-export async function getTasks(studentId: string) {
-  const { data, error } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('student_id', studentId)
-    .order('due_date', { ascending: true });
-  if (error) throw error;
-  return data;
-}
-
-export async function toggleTaskStatus(taskId: string, currentStatus: string) {
-  const newStatus = currentStatus === 'pending' ? 'completed' : 'pending';
-  const { data, error } = await supabase
-    .from('tasks')
-    .update({ status: newStatus })
-    .eq('id', taskId)
-    .select();
-
-  if (error) throw error;
-  if (!data || data.length === 0) throw new Error(`Task ${taskId} not found or update was blocked`);
-  return data[0];
 }
 
 export async function getRecentActivity() {

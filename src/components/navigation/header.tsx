@@ -50,21 +50,7 @@ export function Header() {
   useEffect(() => {
     async function loadNotifications() {
       try {
-        const [tasks, notices] = await Promise.all([
-          db.getTasks(DEV_STUDENT_ID),
-          db.getNotices()
-        ]);
-
-        const mappedTasks = (tasks || []).map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          description: t.description,
-          type: "Action Required" as const,
-          priority: t.priority as "high" | "medium" | "low",
-          timestamp: t.due_date ? db.formatRelativeTime(t.due_date) : "No Date",
-          isRead: t.status === "completed",
-          category: t.link?.includes('profile') ? 'profile' : t.link?.includes('offer') ? 'offers' : t.link?.includes('application') ? 'applications' : 'general'
-        }));
+        const notices = await db.getNotices();
 
         const mappedNotices = (notices || []).map((n: any) => ({
           id: n.id,
@@ -77,7 +63,7 @@ export function Header() {
           category: "general" as const
         }));
 
-        setNotifications([...mappedTasks, ...mappedNotices]);
+        setNotifications(mappedNotices);
       } catch (error) {
         console.error("Failed to load notifications in header:", error);
       } finally {
@@ -176,7 +162,7 @@ export function Header() {
                   <div className="px-6 py-4 border-b border-border-subtle bg-background/30 flex items-center justify-between">
                     <div>
                       <h3 className="font-display text-sm font-black tracking-tight text-foreground">Missions & Alerts</h3>
-                      <p className="text-[10px] font-bold text-muted uppercase tracking-widest mt-0.5">{unreadCount} unread tasks</p>
+                      <p className="text-[10px] font-bold text-muted uppercase tracking-widest mt-0.5">{unreadCount} new alerts</p>
                     </div>
                     <button 
                       onClick={markAllRead} 
@@ -251,7 +237,7 @@ export function Header() {
                       <div className="py-16 text-center text-muted">
                         <LuBell className="mx-auto mb-3 opacity-30 text-muted" size={30} />
                         <p className="text-xs font-bold uppercase tracking-wider text-foreground">All Clear</p>
-                        <p className="text-[10px] text-muted/60 mt-1">No tasks or notifications found.</p>
+                        <p className="text-[10px] text-muted/60 mt-1">No notifications found.</p>
                       </div>
                     )}
                   </div>

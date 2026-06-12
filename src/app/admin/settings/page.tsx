@@ -11,14 +11,23 @@ import {
   LuChevronRight,
   LuChevronLeft,
   LuCalendar,
-  LuCircleCheck
+  LuCircleCheck,
+  LuLayers,
+  LuPlus,
+  LuTrash2,
+  LuX
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
-import { getSystemSettings, updateSystemSettings } from "@/services/settings";
+import { 
+  getSystemSettings, 
+  updateSystemSettings 
+} from "@/services/settings";
 import { getBatchList, getRomanYear } from "@/lib/batch-utils";
+import { toast } from "sonner";
 
 const SECTIONS = [
   { id: "general", title: "General", icon: LuSettings, description: "College identity and basic info." },
+  { id: "groups", title: "Groups & Domains", icon: LuLayers, description: "Manage dynamic domains & placement groups." },
   { id: "branding", title: "Branding", icon: LuPalette, description: "Logos, colors and portal theme." },
   { id: "policy", title: "Placement Policy", icon: LuBriefcase, description: "Rules, eligibility and thresholds." },
   { id: "roles", title: "Roles & Access", icon: LuShield, description: "Manage staff roles and permissions." },
@@ -34,8 +43,8 @@ export default function SettingsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const data = await getSystemSettings();
-        setIsCompleted(data.isAcademicYearCompleted);
+        const sysData = await getSystemSettings();
+        setIsCompleted(sysData.isAcademicYearCompleted);
       } catch (err) {
         console.error(err);
       } finally {
@@ -65,7 +74,12 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-black tracking-tight">System Settings</h1>
           <p className="text-muted text-sm font-medium">Configure portal behavior and institutional policies.</p>
         </div>
-        <button className="flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-tactile hover:bg-primary-dark transition-all">
+        <button
+          onClick={() => {
+            toast.info("This settings module is managed dynamically. Changes are saved automatically.");
+          }}
+          className="flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-tactile hover:bg-primary-dark transition-all cursor-pointer"
+        >
           <LuSave size={18} />
           Save Changes
         </button>
@@ -286,8 +300,27 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {activeSection === "groups" && (
+            <div className="bg-surface rounded-3xl border border-dashed border-border-subtle p-20 flex flex-col items-center justify-center text-center animate-in zoom-in duration-300">
+               <div className="h-16 w-16 rounded-full bg-background flex items-center justify-center text-primary mb-6">
+                 <LuLayers size={32} />
+               </div>
+               <h3 className="text-xl font-black tracking-tight mb-2 uppercase">Groups & Domains</h3>
+               <p className="text-sm font-medium text-muted max-w-sm mx-auto mb-6">
+                 Custom groups, options, and student mappings are now managed inside the dedicated Cohorts & Groups page.
+               </p>
+               <a
+                 href="/admin/groups"
+                 className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary-dark text-white px-6 py-3 text-sm font-bold shadow-tactile transition-all cursor-pointer"
+               >
+                 Go to Groups Manager
+                 <LuChevronRight size={16} />
+               </a>
+            </div>
+          )}
+
           {/* Fallback for other sections */}
-          {activeSection !== "general" && activeSection !== "policy" && (
+          {activeSection !== "general" && activeSection !== "policy" && activeSection !== "groups" && (
             <div className="bg-surface rounded-3xl border border-dashed border-border-subtle p-20 flex flex-col items-center justify-center text-center animate-in zoom-in duration-300">
                <div className="h-16 w-16 rounded-full bg-background flex items-center justify-center text-muted mb-6">
                  <LuSettings size={32} />

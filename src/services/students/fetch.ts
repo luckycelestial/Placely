@@ -190,6 +190,7 @@ export async function getAllStudents() {
         users (name, email, phone),
         student_academics (cgpa, tenth_score, twelfth_score, diploma_score, backlog_count, active_arrears, history_of_arrears, semester_cgpa),
         student_profiles (leetcode_count, specializations),
+        student_preferences (work_mode_preference),
         offers (
           package_ctc,
           company:companies (name)
@@ -239,6 +240,7 @@ export async function getAllStudents() {
       semester_cgpa: acad.semester_cgpa || {},
       leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
       specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
+      placementGroup: (s.student_preferences as any)?.[0]?.work_mode_preference || (s.student_preferences as any)?.work_mode_preference || '',
       status: s.placement_status === 'placed' ? 'Placed' : 
               s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
       completeness: s.profile_completion || 0,

@@ -1,10 +1,11 @@
 "use client";
 
 import { Sk } from "@/components/ui/skeleton";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { 
   LuCircle, 
   LuChevronRight,
+  LuChevronLeft,
   LuBuilding2,
   LuTarget,
   LuCircleCheck,
@@ -42,7 +43,7 @@ interface TimelineEvent {
   id: string;
   title: string;
   company?: string;
-  status: "Completed" | "Current" | "Upcoming" | "Rejected";
+  status: "Completed" | "Current" | "Upcoming" | "Rejected" | "Skipped";
   date: string;
   description: string;
 }
@@ -53,8 +54,10 @@ interface OfferDetails {
   ctc: string;
   offerDate: string;
   joiningDate: string;
+  dbJoiningDate?: string;
   description: string;
   actionsRequired: string[];
+  companyId?: string;
 }
 
 interface ApplicationProgress {
@@ -68,6 +71,7 @@ interface ApplicationProgress {
   ctc: string;
   events: TimelineEvent[];
   offer?: OfferDetails;
+  driveId?: string;
 }
 
 export default function ProgressPage() {
@@ -76,17 +80,49 @@ export default function ProgressPage() {
   const [pipelines, setPipelines] = useState<ApplicationProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
+  const [activeCount, setActiveCount] = useState(0);
+  const [placedCount, setPlacedCount] = useState(0);
+  const [offeredCount, setOfferedCount] = useState(0);
   
   // Local state to manage offer acceptances and action item checklist triggers dynamically
   const [acceptedOffers, setAcceptedOffers] = useState<Record<string, boolean>>({});
   const [completedActions, setCompletedActions] = useState<Record<string, boolean>>({});
+  const [isDateModalOpen, setIsDateModalOpen] = useState(false);
+  const [dateModalData, setDateModalData] = useState<{
+    appId: string;
+    companyId: string;
+    driveId: string;
+    roleTitle: string;
+    packageCtc: string;
+    currentDate?: string;
+  } | null>(null);
+
+  const [calendarMonth, setCalendarMonth] = useState<number>(6); // Default to July
+  const [calendarYear, setCalendarYear] = useState<number>(2026); // Default to 2026
+  const [tempSelectedDate, setTempSelectedDate] = useState<string>("");
+
+  useEffect(() => {
+    if (isDateModalOpen && dateModalData) {
+      const initialDateStr = dateModalData.currentDate || "2026-07-15";
+      setTempSelectedDate(initialDateStr);
+      const parsedDate = new Date(initialDateStr);
+      if (!isNaN(parsedDate.getTime())) {
+        setCalendarMonth(parsedDate.getMonth());
+        setCalendarYear(parsedDate.getFullYear());
+      }
+    }
+  }, [isDateModalOpen, dateModalData]);
 
   useEffect(() => {
     async function loadAllProgress() {
       setLoading(true);
       try {
         const studentId = DEV_STUDENT_ID;
-        const data = await db.getStudentApplications(studentId);
+        const [data, offersData, statsData] = await Promise.all([
+          db.getStudentApplications(studentId),
+          db.getStudentOffers(studentId),
+          db.getStudentApplicationStats(studentId)
+        ]);
         
         const formatted = data.map((app: any) => {
           const ctc = app.job_drives?.package_ctc || "12 - 18 LPA";
@@ -127,18 +163,30 @@ export default function ProgressPage() {
           const timeline = getTimelineStages(app.status, app.current_stage, app.applied_at, driveStages);
 
           // Populate mock offer details if status is Offered, Accepted, or Joined
+          const realOffer = offersData.find((o: any) => o.drive_id === app.drive_id);
           let offer = undefined;
-          if (app.status === "Offered" || app.status === "Accepted" || app.status === "Joined") {
+          if (app.status === "Offered" || app.status === "Accepted" || app.status === "Joined" || (realOffer && (realOffer.acceptance_status === "accepted" || app.status === "offered"))) {
+            const isAccepted = realOffer ? realOffer.acceptance_status === 'accepted' : app.status === "Accepted" || app.status === "Joined";
+            const dbJoiningDate = realOffer?.joining_date;
+            
+            // Format joining date beautifully for display
+            let displayJoiningDate = "July 15, 2026"; // Default fallback
+            if (dbJoiningDate) {
+              displayJoiningDate = new Date(dbJoiningDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            }
+
             offer = {
-              status: app.status as any,
+              status: (isAccepted ? "Accepted" : "Offered") as any,
               type: (app.job_drives?.drive_type || "Full Time") as any,
               ctc: ctc,
               offerDate: new Date(app.applied_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-              joiningDate: "July 15, 2026",
+              joiningDate: displayJoiningDate,
+              dbJoiningDate: dbJoiningDate,
               description: `Congratulations! We are thrilled to offer you the position of ${role} on the engineering team at ${companyName}.`,
-              actionsRequired: app.status === "Offered" 
+              actionsRequired: !isAccepted 
                 ? ["Accept Offer", "Choose Joining Date Slot"]
-                : ["Upload Medical Certificate", "Verify ID Proofs"]
+                : ["Upload Medical Certificate", "Verify ID Proofs"],
+              companyId: app.job_drives?.companies?.id || ""
             };
           }
 
@@ -146,17 +194,21 @@ export default function ProgressPage() {
             id: app.id,
             company: companyName,
             role: role,
-            overallStatus: formatCapitalized(app.status || "Applied"),
+            overallStatus: app.status === "Rejected" ? "Not Selected" : formatCapitalized(app.status || "Applied"),
             currentStage: formatCapitalized(app.current_stage || "Applied"),
             completion: completion,
             location: location,
             ctc: ctc,
             events: timeline,
-            offer: offer
+            offer: offer,
+            driveId: app.drive_id
           };
         });
         
         setPipelines(formatted);
+        setActiveCount(Number(statsData.active_count));
+        setPlacedCount(Number(statsData.placed_count));
+        setOfferedCount(Number(statsData.offered_count));
       } catch (err) {
         console.error("Failed to load progress data", err);
       } finally {
@@ -192,19 +244,24 @@ export default function ProgressPage() {
     
     const baseStages: TimelineEvent[] = rawStages.map((stage: any, idx: number) => {
       const stageName = formatCapitalized(stage.name);
-      let stageStatus: "Completed" | "Current" | "Upcoming" | "Rejected" = "Upcoming";
+      let stageStatus: "Completed" | "Current" | "Upcoming" | "Rejected" | "Skipped" = "Upcoming";
       let date = "TBD";
       let description = `Process round: ${stageName}.`;
 
       if (status === "Rejected") {
-        if (stage.id === currentStageId || (currentIdx === -1 && idx === 1)) {
+        const rejectedIdx = currentIdx !== -1 ? currentIdx : 1;
+        if (idx === rejectedIdx) {
           stageStatus = "Rejected";
           date = formattedDate;
           description = `Evaluation stopped at ${stageName} stage.`;
-        } else if (idx < currentIdx || (currentIdx === -1 && idx < 1)) {
+        } else if (idx < rejectedIdx) {
           stageStatus = "Completed";
           date = formattedDate;
           description = `${stageName} round successfully cleared.`;
+        } else {
+          stageStatus = "Skipped";
+          date = "—";
+          description = `Evaluation skipped.`;
         }
       } else if (status === "Offered" || status === "Accepted" || status === "Joined") {
         stageStatus = "Completed";
@@ -247,9 +304,86 @@ export default function ProgressPage() {
   }
 
   // Handle Offer Acceptance dynamic action
-  const handleAcceptOffer = (appId: string) => {
-    setAcceptedOffers(prev => ({ ...prev, [appId]: true }));
-    toast.success("Offer Accepted Successfully! Preparing your day-one onboarding dashboard.");
+  const handleAcceptOffer = async (app: any) => {
+    try {
+      const studentId = DEV_STUDENT_ID;
+      const companyId = app.offer?.companyId || "";
+      const driveId = app.driveId;
+      const roleTitle = app.role;
+      const packageCtc = app.ctc;
+
+      await db.acceptOffer(
+        studentId,
+        driveId,
+        companyId,
+        roleTitle,
+        packageCtc,
+        app.id
+      );
+
+      setAcceptedOffers(prev => ({ ...prev, [app.id]: true }));
+      setActiveCount(prev => Math.max(0, prev - 1));
+      setPlacedCount(prev => prev + 1);
+      setOfferedCount(prev => Math.max(0, prev - 1));
+      
+      setPipelines(prev => prev.map(p => {
+        if (p.id === app.id) {
+          return {
+            ...p,
+            overallStatus: "Accepted",
+            offer: p.offer ? {
+              ...p.offer,
+              status: "Accepted",
+              actionsRequired: ["Upload Medical Certificate", "Verify ID Proofs"]
+            } : undefined
+          };
+        }
+        return p;
+      }));
+
+      toast.success("Offer Accepted Successfully! Preparing your day-one onboarding dashboard.");
+    } catch (err) {
+      console.error("Failed to accept offer:", err);
+      toast.error("Failed to accept offer. Please try again.");
+    }
+  };
+
+  const handleSelectJoiningDate = async (selectedDate: string) => {
+    if (!dateModalData) return;
+    try {
+      const studentId = DEV_STUDENT_ID;
+      await db.setOfferJoiningDate(
+        studentId,
+        dateModalData.driveId,
+        dateModalData.companyId,
+        dateModalData.roleTitle,
+        dateModalData.packageCtc,
+        selectedDate
+      );
+
+      const displayDate = new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+      setPipelines(prev => prev.map(p => {
+        if (p.id === dateModalData.appId) {
+          return {
+            ...p,
+            offer: p.offer ? {
+              ...p.offer,
+              joiningDate: displayDate,
+              dbJoiningDate: selectedDate
+            } : undefined
+          };
+        }
+        return p;
+      }));
+
+      setIsDateModalOpen(false);
+      setDateModalData(null);
+      toast.success("Joining date updated successfully!");
+    } catch (err) {
+      console.error("Failed to set joining date:", err);
+      toast.error("Failed to set joining date. Please try again.");
+    }
   };
 
   // Toggle action item checklists
@@ -258,23 +392,40 @@ export default function ProgressPage() {
   };
 
   // Filter application pipelines
-  const filteredApps = pipelines.filter(app => {
-    const matchesSearch = app.company.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          app.role.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Support filtering by tab state
-    let matchesTab = activeTab === "All" || app.overallStatus === activeTab;
-    if (activeTab === "Accepted") {
-      matchesTab = app.overallStatus === "Accepted" || acceptedOffers[app.id];
-    }
-    
-    return matchesSearch && matchesTab;
-  });
+  // Memoized filtered apps
+  const filteredApps = useMemo(() => {
+    return pipelines.filter(app => {
+      const matchesSearch = app.company.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            app.role.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Support filtering by tab state
+      let matchesTab = activeTab === "All" || app.overallStatus === activeTab;
+      if (activeTab === "Accepted") {
+        matchesTab = app.overallStatus === "Accepted" || acceptedOffers[app.id];
+      }
+      
+      return matchesSearch && matchesTab;
+    });
+  }, [pipelines, searchQuery, activeTab, acceptedOffers]);
 
-  // Calculate high-fidelity stats banner metrics
-  const activeCount = pipelines.filter(p => p.overallStatus !== "Rejected" && p.overallStatus !== "Accepted" && p.overallStatus !== "Joined").length;
-  const placedCount = pipelines.filter(p => p.overallStatus === "Accepted" || p.overallStatus === "Joined" || acceptedOffers[p.id]).length;
-  const offeredCount = pipelines.filter(p => p.overallStatus === "Offered" && !acceptedOffers[p.id]).length;
+  // Stats are retrieved directly via Supabase RPC server-side and managed in state variables
+
+  // Calendar grid calculations
+  const getDaysInMonth = (m: number, y: number) => new Date(y, m + 1, 0).getDate();
+  const getFirstDayOfMonth = (m: number, y: number) => new Date(y, m, 1).getDay();
+  const daysInMonth = getDaysInMonth(calendarMonth, calendarYear);
+  const firstDayIndex = getFirstDayOfMonth(calendarMonth, calendarYear);
+
+  const daysGrid: (number | null)[] = useMemo(() => {
+    const grid: (number | null)[] = [];
+    for (let i = 0; i < firstDayIndex; i++) {
+      grid.push(null);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      grid.push(d);
+    }
+    return grid;
+  }, [firstDayIndex, daysInMonth]);
 
   if (loading) return (
     <div className="space-y-12 pt-2 pb-10 px-4 max-w-7xl mx-auto min-h-screen">
@@ -328,7 +479,7 @@ export default function ProgressPage() {
       {/* Control Bar */}
       <div className="flex flex-col lg:flex-row gap-6 items-center justify-between sticky -top-4 md:-top-6 z-30 bg-background/95 backdrop-blur-md py-2.5 mb-8">
         <div className="flex items-center gap-2 overflow-x-auto pb-1.5 w-full lg:w-auto no-scrollbar">
-          {["All", "Applied", "In Review", "Shortlisted", "Offered", "Accepted", "Rejected"].map((tab) => (
+          {["All", "Applied", "In Review", "Shortlisted", "Offered", "Accepted", "Not Selected"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -404,7 +555,7 @@ export default function ProgressPage() {
                     <span className={cn(
                       "px-3 py-1.5 rounded-full flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest",
                       isPlacedLocally ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/15" :
-                      app.overallStatus === "Rejected" ? "bg-red-500/10 text-red-500 border border-red-500/15" :
+                      app.overallStatus === "Not Selected" ? "bg-red-500/10 text-red-500 border border-red-500/15" :
                       app.overallStatus === "Offered" ? "bg-purple-500/15 text-purple-600 border border-purple-500/20 animate-pulse" :
                       "bg-primary/10 text-primary border border-primary/15"
                     )}>
@@ -437,7 +588,7 @@ export default function ProgressPage() {
                     </button>
                   )}
                   
-                  {!hasOffer && app.overallStatus !== "Rejected" && (
+                  {!hasOffer && app.overallStatus !== "Not Selected" && (
                     <button className="btn-secondary px-5 py-3 h-auto text-[9px] font-black uppercase tracking-widest rounded-xl">
                       Prepare Now
                     </button>
@@ -454,20 +605,23 @@ export default function ProgressPage() {
                     const isCompleted = event.status === "Completed" || (isPlacedLocally && idx === app.events.length - 1);
                     const isCurrent = event.status === "Current" && !isPlacedLocally;
                     const isRejected = event.status === "Rejected";
+                    const isSkipped = event.status === "Skipped";
 
                     return (
-                      <div key={event.id} className="flex items-center shrink-0">
+                      <div key={event.id} className={cn("flex items-center shrink-0", isSkipped && "opacity-30")}>
                         <div className="flex flex-col items-center text-center relative z-10 w-32 px-2">
                           <div className={cn(
                             "h-12 w-12 rounded-full border-4 border-background flex items-center justify-center relative transition-all duration-300 shadow-sm",
                             isCompleted ? "bg-emerald-500 text-white" :
                             isCurrent ? "bg-primary text-white shadow-tactile animate-pulse scale-105" :
                             isRejected ? "bg-red-500 text-white" :
+                            isSkipped ? "bg-surface/30 border-2 border-dashed border-border-subtle/50 text-muted/30" :
                             "bg-surface border-border-subtle text-muted"
                           )}>
                             {isCompleted ? <LuCircleCheck size={18} /> :
                              isCurrent ? <LuTarget size={18} /> :
                              isRejected ? <LuX size={18} /> :
+                             isSkipped ? <span className="text-xs font-semibold select-none">—</span> :
                              <LuCircle size={14} />}
                           </div>
                           
@@ -483,7 +637,10 @@ export default function ProgressPage() {
                         {idx < app.events.length - 1 && (
                           <div className={cn(
                             "h-[2px] w-20 mx-1 self-center rounded-full mt-[-24px] shrink-0",
-                            isCompleted ? "bg-emerald-500" : "bg-border-subtle"
+                            isCompleted ? "bg-emerald-500" :
+                            (event.status === "Skipped" || event.status === "Rejected" || app.events[idx + 1]?.status === "Skipped")
+                              ? "bg-border-subtle/30"
+                              : "bg-border-subtle"
                           )} />
                         )}
                       </div>
@@ -555,14 +712,30 @@ export default function ProgressPage() {
                           </h5>
                           
                           <div className="space-y-3">
-                            {app.offer.actionsRequired.map((action, i) => {
+                            {app.offer?.actionsRequired.map((action, i) => {
                               const actionKey = `${app.id}-${action}`;
-                              const isItemChecked = completedActions[actionKey] || (action === "Accept Offer" && isPlacedLocally);
+                              const isItemChecked = completedActions[actionKey] || 
+                                (action === "Accept Offer" && isPlacedLocally) ||
+                                (action === "Choose Joining Date Slot" && app.offer?.dbJoiningDate);
                               
                               return (
                                 <div 
                                   key={i} 
-                                  onClick={() => toggleActionItem(actionKey)}
+                                  onClick={() => {
+                                    if (action === "Choose Joining Date Slot") {
+                                      setDateModalData({
+                                        appId: app.id,
+                                        companyId: app.offer?.companyId || "",
+                                        driveId: app.driveId || "",
+                                        roleTitle: app.role,
+                                        packageCtc: app.ctc,
+                                        currentDate: app.offer?.dbJoiningDate
+                                      });
+                                      setIsDateModalOpen(true);
+                                    } else {
+                                      toggleActionItem(actionKey);
+                                    }
+                                  }}
                                   className={cn(
                                     "flex items-center justify-between p-4 rounded-xl border transition-all group/action cursor-pointer select-none",
                                     isItemChecked 
@@ -590,7 +763,7 @@ export default function ProgressPage() {
                         {/* Sign Actions */}
                         {!isPlacedLocally ? (
                           <button 
-                            onClick={() => handleAcceptOffer(app.id)}
+                            onClick={() => handleAcceptOffer(app)}
                             className="btn-primary w-full py-4 rounded-2xl mt-6 shadow-xl shadow-primary/20 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest"
                           >
                             Sign & Accept Offer
@@ -638,6 +811,141 @@ export default function ProgressPage() {
           </div>
         )}
       </div>
+
+      {/* Date Slot Picker Modal */}
+      {isDateModalOpen && dateModalData && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-surface border border-border-subtle rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-border-subtle bg-gradient-to-r from-primary/5 to-transparent flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <LuCalendar className="text-primary" size={20} />
+                <div>
+                  <h3 className="font-display text-sm font-black tracking-tight text-foreground">Choose Joining Date</h3>
+                  <p className="text-[10px] font-bold text-muted uppercase tracking-widest mt-0.5">Select your preferred date</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsDateModalOpen(false);
+                  setDateModalData(null);
+                }}
+                aria-label="Close modal"
+                className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-primary/10 transition-colors text-muted hover:text-foreground cursor-pointer"
+              >
+                <LuX size={16} />
+              </button>
+            </div>
+
+            {/* Calendar Selector */}
+            <div className="p-6 space-y-4">
+              <p className="font-sans text-xs font-semibold text-muted leading-relaxed">
+                Choose a custom start date that coordinates best with your timeline.
+              </p>
+              
+              {/* Calendar Grid */}
+              <div className="border border-border-subtle bg-background/50 rounded-2xl p-4">
+                {/* Month/Year Navigation */}
+                <div className="flex items-center justify-between mb-4">
+                  <button
+                    onClick={() => {
+                      if (calendarMonth === 0) {
+                        setCalendarMonth(11);
+                        setCalendarYear(prev => prev - 1);
+                      } else {
+                        setCalendarMonth(prev => prev - 1);
+                      }
+                    }}
+                    aria-label="Previous month"
+                    className="p-2 rounded-xl hover:bg-primary/10 text-muted hover:text-primary transition-colors cursor-pointer"
+                  >
+                    <LuChevronLeft size={16} />
+                  </button>
+                  <span className="font-display text-sm font-black text-foreground">
+                    {new Date(calendarYear, calendarMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (calendarMonth === 11) {
+                        setCalendarMonth(0);
+                        setCalendarYear(prev => prev + 1);
+                      } else {
+                        setCalendarMonth(prev => prev + 1);
+                      }
+                    }}
+                    aria-label="Next month"
+                    className="p-2 rounded-xl hover:bg-primary/10 text-muted hover:text-primary transition-colors cursor-pointer"
+                  >
+                    <LuChevronRight size={16} />
+                  </button>
+                </div>
+
+                {/* Day labels */}
+                <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                  {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(d => (
+                    <span key={d} className="text-[10px] font-black text-muted/60 uppercase tracking-widest">{d}</span>
+                  ))}
+                </div>
+
+                {/* Days Grid */}
+                <div className="grid grid-cols-7 gap-1.5 text-center">
+                  {daysGrid.map((day, idx) => {
+                    if (day === null) {
+                      return <div key={`empty-${idx}`} />;
+                    }
+
+                    // Format date string: YYYY-MM-DD
+                    const dateString = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isSelected = tempSelectedDate === dateString;
+
+                    return (
+                      <button
+                        key={dateString}
+                        onClick={() => setTempSelectedDate(dateString)}
+                        className={cn(
+                          "h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold transition-all mx-auto cursor-pointer",
+                          isSelected 
+                            ? "bg-primary text-white shadow-tactile font-black scale-110" 
+                            : "hover:bg-primary/10 text-foreground hover:text-primary"
+                        )}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Selected date preview */}
+              {tempSelectedDate && (
+                <div className="p-3 bg-primary/5 border border-primary/10 rounded-xl text-center text-xs font-bold text-primary">
+                  Selected Date: {new Date(tempSelectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-border-subtle bg-background/30 flex gap-3">
+              <button 
+                onClick={() => {
+                  setIsDateModalOpen(false);
+                  setDateModalData(null);
+                }}
+                className="flex-1 py-3 rounded-xl border border-border-subtle text-[10px] font-black uppercase tracking-widest hover:bg-background transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSelectJoiningDate(tempSelectedDate)}
+                disabled={!tempSelectedDate}
+                className="flex-1 btn-primary py-3 px-6 h-auto text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                Confirm Date
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

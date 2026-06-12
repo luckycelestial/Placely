@@ -10,7 +10,9 @@ import {
   LuActivity,
   LuLayers,
   LuMegaphone,
-  LuChartBar
+  LuChartBar,
+  LuDatabase,
+  LuWorkflow
 } from "react-icons/lu";
 
 export const STUDENT_NAV_ITEMS = [
@@ -57,20 +59,21 @@ export const ADMIN_NAV_ITEMS = [
     href: "/admin/reports",
     icon: LuActivity,
   },
-  {
-    title: "Visual Analytics",
-    href: "/admin/analytics",
-    icon: LuChartBar,
-  },
+
   {
     title: "Students",
     href: "/admin/students",
     icon: LuUser,
   },
   {
+    title: "Groups & Domains",
+    href: "/admin/groups",
+    icon: LuLayers,
+  },
+  {
     title: "Data Workspace",
     href: "/admin/data",
-    icon: LuLayers,
+    icon: LuDatabase,
   },
   {
     title: "Companies & Drives",
@@ -80,7 +83,7 @@ export const ADMIN_NAV_ITEMS = [
   {
     title: "ATS Tracker",
     href: "/admin/ats",
-    icon: LuLayers,
+    icon: LuWorkflow,
   },
   {
     title: "Notices & Events",

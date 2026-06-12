@@ -90,3 +90,110 @@ export async function updateSystemSettings(settings: SystemSettings): Promise<vo
     console.error('Failed to sync settings to Supabase, local-only update applied:', e);
   }
 }
+
+export const DEFAULT_DOMAINS = ["Cloud", "Frontend", "Backend", "Fullstack", "DevOps", "AI/ML", "Data Science", "Cybersecurity", "Python", "Java"];
+export const DEFAULT_GROUPS = ["Tier 1 (Product)", "Tier 2 (Service)", "Core Engineering", "Dream Offer Group", "Mass Recruiter"];
+
+export interface CustomGroup {
+  id: string;
+  name: string;
+  type: 'student_selectable' | 'admin_assigned';
+  options: string[];
+}
+
+export const DEFAULT_CUSTOM_GROUPS: CustomGroup[] = [
+  {
+    id: "tech_domains",
+    name: "Tech Domains",
+    type: "student_selectable",
+    options: ["Cloud", "Frontend", "Backend", "Fullstack", "DevOps", "AI/ML", "Data Science", "Cybersecurity", "Python", "Java"]
+  },
+  {
+    id: "placement_groups",
+    name: "Placement Groups",
+    type: "admin_assigned",
+    options: ["Placement Group 1", "Placement Group 2", "Placement Group 3"]
+  }
+];
+
+export async function getSettingByKey<T>(key: string, defaultValue: T): Promise<T> {
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('setting_value_json')
+      .eq('setting_key', key)
+      .maybeSingle();
+
+    if (error) {
+      console.warn(`Error fetching setting key ${key}:`, error);
+    }
+
+    if (data?.setting_value_json) {
+      return data.setting_value_json as T;
+    }
+
+    // Check localStorage fallback for client side
+    if (typeof window !== 'undefined') {
+      const local = localStorage.getItem(`setting_${key}`);
+      if (local) {
+        return JSON.parse(local) as T;
+      }
+    }
+    return defaultValue;
+  } catch (e) {
+    console.error(`Error fetching setting key ${key}:`, e);
+    // fallback to localStorage
+    if (typeof window !== 'undefined') {
+      const local = localStorage.getItem(`setting_${key}`);
+      if (local) {
+        return JSON.parse(local) as T;
+      }
+    }
+    return defaultValue;
+  }
+}
+
+export async function updateSettingByKey<T>(key: string, value: T): Promise<void> {
+  // Sync to localStorage immediately for instant UI response
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(`setting_${key}`, JSON.stringify(value));
+  }
+
+  try {
+    const { data: existing, error: fetchError } = await supabase
+      .from('settings')
+      .select('id')
+      .eq('setting_key', key)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.warn(`Error fetching existing setting ${key}, attempting upsert:`, fetchError);
+    }
+
+    if (existing?.id) {
+      const { error: updateError } = await supabase
+        .from('settings')
+        .update({
+          setting_value_json: value,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id);
+      
+      if (updateError) throw updateError;
+    } else {
+      const { error: insertError } = await supabase
+        .from('settings')
+        .insert([{
+          setting_key: key,
+          setting_value_json: value,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }]);
+        
+      if (insertError) throw insertError;
+    }
+  } catch (e) {
+    console.error(`Failed to sync setting ${key} to Supabase:`, e);
+  }
+}
+

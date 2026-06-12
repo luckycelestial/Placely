@@ -69,9 +69,19 @@ const TABLES = [
   { id: "joinees", label: "Joinees", icon: <LuDatabase size={14} /> },
   { id: "notices", label: "Notices", icon: <LuDatabase size={14} /> },
   { id: "events", label: "Events", icon: <LuDatabase size={14} /> },
-  { id: "tasks", label: "Tasks", icon: <LuDatabase size={14} /> },
   { id: "users", label: "Users", icon: <LuDatabase size={14} /> },
 ];
+
+function customRenderTextEditor(props: RenderEditCellProps<any>) {
+  const value = props.row[props.column.key];
+  return renderTextEditor({
+    ...props,
+    row: {
+      ...props.row,
+      [props.column.key]: value ?? ""
+    }
+  });
+}
 
 function DataWorkspacePageContent() {
   const searchParams = useSearchParams();
@@ -162,17 +172,6 @@ function DataWorkspacePageContent() {
     };
     loadMappings();
   }, []);
-
-  useEffect(() => {
-    if (autoImportParam === "true") {
-      setTimeout(() => {
-        const fileInput = document.getElementById("file-import-input") as HTMLInputElement;
-        if (fileInput) {
-          fileInput.click();
-        }
-      }, 500);
-    }
-  }, [autoImportParam]);
 
   const getColLetter = (index: number): string => {
     let col = "";
@@ -288,7 +287,7 @@ function DataWorkspacePageContent() {
         name: h,
         resizable: true,
         editable: true,
-        renderEditCell: renderTextEditor
+        renderEditCell: customRenderTextEditor
       }));
     }
 
@@ -331,7 +330,7 @@ function DataWorkspacePageContent() {
           resizable: true,
           editable: true,
           frozen: index === 0,
-          renderEditCell: renderTextEditor,
+          renderEditCell: customRenderTextEditor,
           width: k === "register_number" || k === "regNo" ? 150 : (isStudentId || isCompanyId || isDriveId || isOfferId ? 250 : 200),
           renderCell: (props: RenderCellProps<any>) => {
             if (props.row.isEmptyPlaceholder) return "";
@@ -736,6 +735,32 @@ function DataWorkspacePageContent() {
           </button>
         </div>
       </div>
+
+      {/* Auto Import Prompt Modal */}
+      {autoImportParam === "true" && rawSheetData.length === 0 && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="bg-surface p-8 rounded-3xl shadow-2xl border border-border-subtle text-center max-w-md w-full animate-in zoom-in-95 duration-200">
+             <LuUpload size={48} className="text-primary mx-auto mb-4" />
+             <h2 className="text-2xl font-black mb-2">Upload Data</h2>
+             <p className="text-muted mb-6 text-sm">Select an Excel or CSV file to import records into <span className="font-bold">{activeTable}</span>.</p>
+             <label className="btn-primary w-full py-4 rounded-xl cursor-pointer flex items-center justify-center text-white font-black text-sm uppercase tracking-widest shadow-tactile hover:bg-primary-dark transition-all">
+               Choose File
+               <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => {
+                 const url = new URL(window.location.href);
+                 url.searchParams.delete('import');
+                 window.history.replaceState({}, '', url.toString());
+                 handleFileUpload(e);
+               }} />
+             </label>
+             <button onClick={() => {
+               const url = new URL(window.location.href);
+               url.searchParams.delete('import');
+               window.history.replaceState({}, '', url.toString());
+               window.location.reload(); 
+             }} className="mt-4 text-xs font-bold text-muted uppercase tracking-widest hover:text-foreground">Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* Main Workspace Area */}
       <div className="flex-1 bg-surface border border-border-subtle rounded-3xl overflow-hidden shadow-soft flex flex-col relative">

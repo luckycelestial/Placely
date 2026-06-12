@@ -369,7 +369,16 @@ function ATSTrackerContent() {
         <SearchableSelect
           options={[
             { value: "All Drives", label: "All Drives" },
-            ...drives.map((d) => ({ value: d.id, label: `${d.companies?.name} - ${d.role_title}` })),
+            ...[...drives]
+              .sort((a, b) => {
+                const countA = (a.applications as any)?.[0]?.count ?? 0;
+                const countB = (b.applications as any)?.[0]?.count ?? 0;
+                return countB - countA;
+              })
+              .map((d) => {
+                const count = (d.applications as any)?.[0]?.count ?? 0;
+                return { value: d.id, label: `(${count}) ${d.companies?.name} - ${d.role_title}` };
+              }),
           ]}
           value={activeDrive}
           onChange={setActiveDrive}
