@@ -10,11 +10,10 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function run() {
-  console.log('Fetching columns for job_drives...');
-  const { data: p1 } = await supabase.from('job_drives').select('*').limit(1);
-  console.log('job_drives record sample keys:', p1?.[0] ? Object.keys(p1[0]) : 'no records');
+  console.log('Fetching columns for student_preferences...');
+  const { data: p1 } = await supabase.from('student_preferences').select('*').limit(1);
   if (p1?.[0]) {
-    console.log('job_drives record sample values:', p1[0]);
+    console.log('student_preferences record sample values:', p1[0]);
   }
 }
 

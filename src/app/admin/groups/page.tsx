@@ -15,6 +15,7 @@ import {
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
+import { supabase } from "@/lib/supabase";
 import { 
   getSettingByKey, 
   updateSettingByKey, 
@@ -190,27 +191,19 @@ export default function AdminGroupsPage() {
     try {
       // Clean up connections for all students in database and local state
       toast.loading("Cleaning up connections for students...");
-      await Promise.all(students.map(async (student) => {
-        if (groupToDelete.type === "student_selectable") {
-          const updatedSpecs = (student.specializations || []).filter((s: string) => !groupToDelete.options.includes(s));
-          if (updatedSpecs.length !== (student.specializations || []).length) {
-            await db.updateStudentProfile(student.id, { specializations: updatedSpecs });
-          }
-        } else {
-          const currentPref = student.placementGroup || "";
-          if (currentPref.trim().startsWith('{')) {
-            try {
-              const map = JSON.parse(currentPref);
-              if (groupToDelete.id in map) {
-                delete map[groupToDelete.id];
-                await db.updateStudentProfile(student.id, { placement_group: JSON.stringify(map) });
-              }
-            } catch (e) {}
-          } else if (groupToDelete.id === "placement_groups" && currentPref) {
-            await db.updateStudentProfile(student.id, { placement_group: null });
-          }
+      if (groupToDelete.type === "student_selectable") {
+        if (groupToDelete.options && groupToDelete.options.length > 0) {
+          const { error } = await supabase.rpc('unlink_specializations_by_options', { 
+            options_to_remove: groupToDelete.options 
+          });
+          if (error) throw error;
         }
-      }));
+      } else {
+        const { error } = await supabase.rpc('unlink_placement_group_by_key', { 
+          group_id: groupToDelete.id 
+        });
+        if (error) throw error;
+      }
 
       // Update settings
       await updateSettingByKey<CustomGroup[]>('custom_groups', updatedGroups);
@@ -229,7 +222,8 @@ export default function AdminGroupsPage() {
             try {
               const map = JSON.parse(currentPref);
               delete map[groupToDelete.id];
-              return { ...student, placementGroup: JSON.stringify(map) };
+              const mapStr = JSON.stringify(map);
+              return { ...student, placementGroup: mapStr === '{}' ? "" : mapStr };
             } catch (e) {}
           } else if (groupToDelete.id === "placement_groups") {
             return { ...student, placementGroup: "" };
@@ -295,28 +289,18 @@ export default function AdminGroupsPage() {
 
     try {
       toast.loading(`Unlinking option "${optionToDelete}" from students...`);
-      // Clean up connections for students having this option
-      await Promise.all(students.map(async (student) => {
-        if (activeGroup.type === "student_selectable") {
-          if (student.specializations?.includes(optionToDelete)) {
-            const newSpecs = student.specializations.filter((s: string) => s !== optionToDelete);
-            await db.updateStudentProfile(student.id, { specializations: newSpecs });
-          }
-        } else {
-          const currentPref = student.placementGroup || "";
-          if (currentPref.trim().startsWith('{')) {
-            try {
-              const map = JSON.parse(currentPref);
-              if (map[activeGroup.id] === optionToDelete) {
-                delete map[activeGroup.id];
-                await db.updateStudentProfile(student.id, { placement_group: JSON.stringify(map) });
-              }
-            } catch (e) {}
-          } else if (activeGroup.id === "placement_groups" && currentPref === optionToDelete) {
-            await db.updateStudentProfile(student.id, { placement_group: null });
-          }
-        }
-      }));
+      if (activeGroup.type === "student_selectable") {
+        const { error } = await supabase.rpc('unlink_specializations_by_options', { 
+          options_to_remove: [optionToDelete] 
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.rpc('unlink_placement_group_option', { 
+          group_id: activeGroup.id, 
+          option_to_remove: optionToDelete 
+        });
+        if (error) throw error;
+      }
 
       // Save to settings
       await updateSettingByKey<CustomGroup[]>('custom_groups', updatedGroups);
@@ -336,8 +320,9 @@ export default function AdminGroupsPage() {
               const map = JSON.parse(currentPref);
               if (map[activeGroup.id] === optionToDelete) {
                 delete map[activeGroup.id];
-                return { ...student, placementGroup: JSON.stringify(map) };
               }
+              const mapStr = JSON.stringify(map);
+              return { ...student, placementGroup: mapStr === '{}' ? "" : mapStr };
             } catch (e) {}
           } else if (activeGroup.id === "placement_groups" && currentPref === optionToDelete) {
             return { ...student, placementGroup: "" };
@@ -835,13 +820,25 @@ export default function AdminGroupsPage() {
                                   <button
                                     type="button"
                                     disabled={isUpdatingMember === s.id}
-                                    onClick={() => {
+                                    onClick={async () => {
                                       // Clear all mappings in this group for this student
                                       if (activeGroup.type === "student_selectable") {
+                                        setIsUpdatingMember(s.id);
                                         toast.loading("Clearing all selections...");
-                                        Promise.all(selections.map(sel => 
-                                          assignOptionToStudent(s.id, activeGroup, sel, 'remove')
-                                        )).then(() => toast.dismiss());
+                                        try {
+                                          const newSpecs = (s.specializations || []).filter((opt: string) => !activeGroup.options.includes(opt));
+                                          await db.updateStudentProfile(s.id, { specializations: newSpecs });
+                                          setStudents(prev => prev.map(stud => 
+                                            stud.id === s.id ? { ...stud, specializations: newSpecs } : stud
+                                          ));
+                                          toast.success("All selections cleared!");
+                                        } catch (err) {
+                                          console.error(err);
+                                          toast.error("Failed to clear selections.");
+                                        } finally {
+                                          setIsUpdatingMember(null);
+                                          toast.dismiss();
+                                        }
                                       } else {
                                         assignOptionToStudent(s.id, activeGroup, "", 'remove');
                                       }

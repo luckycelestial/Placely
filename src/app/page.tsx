@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
 import { setLoggedStudentId } from "@/lib/dev-config";
+import { supabase } from "@/lib/supabase";
 
 import { toast } from "sonner";
 
@@ -39,8 +40,20 @@ export default function TenantEntryPage() {
     loadProfiles();
   }, []);
 
-  const handleGoogleSignIn = () => {
-    toast.info("Google SSO Simulation: Please select a student profile from the list below to sign in.");
+  const handleGoogleSignIn = async () => {
+    setIsLoggingIn(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/auth/callback"
+        }
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to initialize Google Sign-in.");
+      setIsLoggingIn(false);
+    }
   };
 
   const handleProfileSignIn = (studentId: string) => {
@@ -103,13 +116,13 @@ export default function TenantEntryPage() {
       <div className="w-full lg:w-[45%] flex flex-col justify-center p-8 lg:p-20 bg-background relative border-l border-border-subtle">
         <div className="max-w-[420px] mx-auto w-full space-y-10">
           
-          <div className="space-y-12">
-            <div className="flex items-center gap-6 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+          <div className="space-y-8 flex flex-col items-center text-center">
+            <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-1000">
               <img src="/careerbridge.png" alt="CareerBridge" className="h-20 w-20 object-contain" />
-              <span className="text-7xl font-black tracking-tighter text-foreground leading-none">CareerBridge</span>
+              <span className="text-5xl sm:text-6xl font-black tracking-tighter text-foreground leading-none">CareerBridge</span>
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold tracking-tight text-muted">Sign in to Continue</h2>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-muted">Sign in to Continue</h2>
             </div>
           </div>
 
