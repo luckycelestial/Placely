@@ -109,10 +109,37 @@ export const DEFAULT_CUSTOM_GROUPS: CustomGroup[] = [
     options: ["Cloud", "Frontend", "Backend", "Fullstack", "DevOps", "AI/ML", "Data Science", "Cybersecurity", "Python", "Java"]
   },
   {
-    id: "placement_groups",
-    name: "Placement Groups",
+    id: "placement_group",
+    name: "Placement Group",
     type: "admin_assigned",
-    options: ["Placement Group 1", "Placement Group 2", "Placement Group 3"]
+    options: ["Group A", "Group B", "Group C"]
+  },
+  {
+    id: "departments",
+    name: "Departments",
+    type: "admin_assigned",
+    options: ["CSE", "ECE", "EEE", "MECH", "CIVIL", "IT"]
+  },
+  {
+    id: "batches",
+    name: "Batches",
+    type: "admin_assigned",
+    options: (() => {
+      const currentYear = new Date().getFullYear();
+      const options = [];
+      for (let i = 4; i >= 1; i--) {
+        const startYear = currentYear - (i - 1);
+        const endYear = startYear + 4;
+        options.push(`${startYear}-${endYear}`);
+      }
+      return options;
+    })()
+  },
+  {
+    id: "placement_lock",
+    name: "Placement Lock",
+    type: "admin_assigned",
+    options: ["Active", "Deactive"]
   }
 ];
 

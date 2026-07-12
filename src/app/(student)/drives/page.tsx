@@ -57,6 +57,7 @@ export default function JobDrivesPage() {
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [stagedFilters, setStagedFilters] = useState<DriveFilters>(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<DriveFilters>(DEFAULT_FILTERS);
+  const [isPlacementLocked, setIsPlacementLocked] = useState(false);
 
   useEffect(() => {
     loadDrives();
@@ -74,8 +75,9 @@ export default function JobDrivesPage() {
         acad.history_of_arrears !== undefined
           ? acad.history_of_arrears
           : DUMMY_STUDENT.history_of_arrears,
+      isPlacementLocked,
     };
-  }, [studentProfile]);
+  }, [studentProfile, isPlacementLocked]);
 
   // ---------- Data loading ----------
   const loadDrives = async () => {
@@ -88,6 +90,19 @@ export default function JobDrivesPage() {
 
       setStudentProfile(profile);
 
+      // Resolve placement lock from student_preferences.work_mode_preference
+      let locked = false;
+      try {
+        const rawPref = (profile?.student_preferences as any)?.[0]?.work_mode_preference
+          || (profile?.student_preferences as any)?.work_mode_preference
+          || '';
+        if (typeof rawPref === 'string' && rawPref.trim().startsWith('{')) {
+          const map = JSON.parse(rawPref);
+          locked = map['placement_lock'] === 'Active';
+        }
+      } catch (e) { /* ignore parse errors */ }
+      setIsPlacementLocked(locked);
+
       const acad =
         (profile?.student_academics as any)?.[0] || profile?.student_academics || {};
       const studentInfo: StudentInfo = {
@@ -99,6 +114,9 @@ export default function JobDrivesPage() {
           acad.history_of_arrears !== undefined
             ? acad.history_of_arrears
             : DUMMY_STUDENT.history_of_arrears,
+        isPlacementLocked: locked,
+        registerNumber: profile?.register_number || '',
+        id: STUDENT_ID,
       };
 
       const processedDrives = (data || []).map((drive: any) => {
@@ -127,6 +145,14 @@ export default function JobDrivesPage() {
 
   // ---------- Apply to drive ----------
   const handleApply = async (driveId: string) => {
+    const drive = drives.find(d => d.id === driveId);
+    const bypassList = drive?.eligibility_rules?.bypass_placement_lock_students || [];
+    const isBypassed = bypassList.includes(studentProfile?.register_number || '') || bypassList.includes(STUDENT_ID);
+
+    if (isPlacementLocked && !isBypassed) {
+      toast.error('Your Placement Lock is Active. You cannot apply to new drives.');
+      return;
+    }
     setIsApplying(true);
     try {
       await db.applyToDrive(STUDENT_ID, driveId);
@@ -217,7 +243,7 @@ export default function JobDrivesPage() {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1.5 w-full md:w-auto no-scrollbar">
-          {["All", "Full-time", "Internship", "Contract"].map((category) => (
+          {["All", "Full-time", "Internship", "Contract", "Intern + Full-time"].map((category) => (
             <button
               key={category}
               onClick={() => setActiveCategory(category)}

@@ -46,6 +46,7 @@ export async function getStudents(options: {
     .from('students')
     .select(`
       id,
+      name,
       register_number,
       department,
       year,
@@ -53,6 +54,7 @@ export async function getStudents(options: {
       profile_completion,
       verification_status,
       users (name),
+      student_contacts (personal_email),
       student_academics (cgpa),
       student_profiles${hasProfileFilter ? '!inner' : ''} (leetcode_count, specializations),
       student_preferences${hasInterestFilter ? '!inner' : ''} (placement_interest),
@@ -143,7 +145,7 @@ export async function getStudents(options: {
     const range = getBatchRangeFromYear(s.year);
     return {
       id: s.id,
-      name: (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
+      name: s.name || (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
       regNo: s.register_number,
       dept: s.department,
       year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
@@ -157,6 +159,7 @@ export async function getStudents(options: {
                     s.verification_status === 'pending' ? 'Pending' : 'Rejected',
       company: (s.offers as any)?.[0]?.company?.name || (s.offers as any)?.[0]?.company?.[0]?.name || 'N/A',
       package_ctc: (s.offers as any)?.[0]?.package_ctc || '',
+      personal_email: (s.student_contacts as any)?.[0]?.personal_email || (s.student_contacts as any)?.personal_email || '',
       eligible: true
     };
   });
@@ -164,92 +167,324 @@ export async function getStudents(options: {
   return { data: formatted, total: count || 0 };
 }
 
-export async function getAllStudents() {
-  const allData: any[] = [];
-  let pageNum = 0;
-  const pageSize = 1000;
-  let hasMore = true;
+let cachedStudentsPromise: Promise<any[]> | null = null;
+let cachedLightweightPromise: Promise<any[]> | null = null;
+let lastFetchTime = 0;
+let lastLightweightFetchTime = 0;
+const CACHE_TTL_MS = 10000; // 10 seconds TTL
 
-  while (hasMore) {
-    const from = pageNum * pageSize;
-    const to = from + pageSize - 1;
+export function clearStudentsCache() {
+  cachedStudentsPromise = null;
+  cachedLightweightPromise = null;
+  lastFetchTime = 0;
+  lastLightweightFetchTime = 0;
+}
 
-    const { data, error } = await supabase
-      .from('students')
-      .select(`
-        id,
-        register_number,
-        roll_number,
-        gender,
-        date_of_birth,
-        department,
-        year,
-        placement_status,
-        profile_completion,
-        verification_status,
-        users (name, email, phone),
-        student_academics (cgpa, tenth_score, twelfth_score, diploma_score, backlog_count, active_arrears, history_of_arrears, semester_cgpa),
-        student_profiles (leetcode_count, specializations),
-        student_preferences (work_mode_preference),
-        offers (
-          package_ctc,
-          company:companies (name)
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .range(from, to);
+export async function getAllStudents(options?: { lightweight?: boolean; limit?: number; offset?: number; search?: string; year?: string }) {
+  const now = Date.now();
+  const isLightweight = !!options?.lightweight;
+  const hasLimit = options?.limit !== undefined;
 
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      hasMore = false;
-    } else {
-      allData.push(...data);
-      if (data.length < pageSize) {
-        hasMore = false;
+  if (hasLimit) {
+    try {
+      const limitVal = options!.limit!;
+      const from = options?.offset || 0;
+      const to = from + limitVal - 1;
+      
+      let query;
+      if (isLightweight) {
+        query = supabase
+          .from('students')
+          .select(`
+            id,
+            name,
+            register_number,
+            roll_number,
+            department,
+            year,
+            student_profiles (specializations),
+            student_preferences (work_mode_preference)
+          `);
       } else {
-        pageNum++;
+        query = supabase
+          .from('students')
+          .select(`
+            id,
+            name,
+            register_number,
+            roll_number,
+            gender,
+            date_of_birth,
+            department,
+            year,
+            placement_status,
+            profile_completion,
+            verification_status,
+            users (name, email, phone),
+            student_contacts (personal_email),
+            student_academics (cgpa, tenth_score, twelfth_score, diploma_score, backlog_count, active_arrears, history_of_arrears, semester_cgpa),
+            student_profiles (leetcode_count, specializations),
+            student_preferences (work_mode_preference),
+            offers (
+              package_ctc,
+              company:companies (name)
+            )
+          `);
       }
+
+      if (options?.year) {
+        query = query.ilike('year', `%${options.year}%`);
+      }
+      if (options?.search) {
+        query = query.or(`name.ilike.%${options.search}%,register_number.ilike.%${options.search}%,roll_number.ilike.%${options.search}%`);
+      }
+
+      const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      const settings = await getSystemSettings();
+      const isCompleted = settings.isAcademicYearCompleted;
+
+      return (data || []).map((s: any) => {
+        if (isLightweight) {
+          const yearNum = getYearFromBatch(s.year, isCompleted);
+          const range = getBatchRangeFromYear(s.year);
+          return {
+            id: s.id,
+            name: s.name || 'Unknown',
+            regNo: s.register_number,
+            rollNo: s.roll_number,
+            dept: s.department,
+            year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
+            specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
+            placementGroup: (s.student_preferences as any)?.[0]?.work_mode_preference || (s.student_preferences as any)?.work_mode_preference || '',
+            cgpa: 0,
+            leetcode: 0,
+            status: 'Unplaced',
+            completeness: 0,
+            verification: 'Verified',
+            company: 'N/A',
+            package_ctc: ''
+          };
+        } else {
+          const acad = (s.student_academics as any)?.[0] || (s.student_academics as any) || {};
+          const yearNum = getYearFromBatch(s.year, isCompleted);
+          const range = getBatchRangeFromYear(s.year);
+          return {
+            id: s.id,
+            name: s.name || (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
+            email: (s.users as any)?.email || (s.users as any)?.[0]?.email || 'N/A',
+            personal_email: (s.student_contacts as any)?.[0]?.personal_email || (s.student_contacts as any)?.personal_email || '',
+            regNo: s.register_number,
+            rollNo: s.roll_number,
+            gender: s.gender,
+            dob: s.date_of_birth,
+            dept: s.department,
+            year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
+            cgpa: acad.cgpa || 0,
+            tenth_score: acad.tenth_score || 0,
+            twelfth_score: acad.twelfth_score || 0,
+            diploma_score: acad.diploma_score || null,
+            backlog_count: acad.backlog_count || 0,
+            active_arrears: acad.active_arrears || 0,
+            history_of_arrears: acad.history_of_arrears || false,
+            semester_cgpa: acad.semester_cgpa || {},
+            leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
+            specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
+            placementGroup: (s.student_preferences as any)?.[0]?.work_mode_preference || (s.student_preferences as any)?.work_mode_preference || '',
+            status: s.placement_status === 'placed' ? 'Placed' : 
+                    s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
+            completeness: s.profile_completion || 0,
+            verification: s.verification_status === 'verified' ? 'Verified' : 
+                          s.verification_status === 'pending' ? 'Pending' : 'Rejected',
+            company: (s.offers as any)?.[0]?.company?.name || (s.offers as any)?.[0]?.company?.[0]?.name || 'N/A',
+            package_ctc: (s.offers as any)?.[0]?.package_ctc || ''
+          };
+        }
+      });
+    } catch (e) {
+      throw e;
     }
   }
 
-  const settings = await getSystemSettings();
-  const isCompleted = settings.isAcademicYearCompleted;
+  if (isLightweight) {
+    if (!cachedLightweightPromise || (now - lastLightweightFetchTime > CACHE_TTL_MS)) {
+      lastLightweightFetchTime = now;
+      cachedLightweightPromise = (async () => {
+        try {
+          const allData: any[] = [];
+          let pageNum = 0;
+          const pageSize = 1000;
+          let hasMore = true;
 
-  return allData.map(s => {
-    const acad = (s.student_academics as any)?.[0] || (s.student_academics as any) || {};
-    const yearNum = getYearFromBatch(s.year, isCompleted);
-    const range = getBatchRangeFromYear(s.year);
-    return {
-      id: s.id,
-      name: (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
-      email: (s.users as any)?.email || (s.users as any)?.[0]?.email || 'N/A',
-      regNo: s.register_number,
-      rollNo: s.roll_number,
-      gender: s.gender,
-      dob: s.date_of_birth,
-      dept: s.department,
-      year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
-      cgpa: acad.cgpa || 0,
-      tenth_score: acad.tenth_score || 0,
-      twelfth_score: acad.twelfth_score || 0,
-      diploma_score: acad.diploma_score || null,
-      backlog_count: acad.backlog_count || 0,
-      active_arrears: acad.active_arrears || 0,
-      history_of_arrears: acad.history_of_arrears || false,
-      semester_cgpa: acad.semester_cgpa || {},
-      leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
-      specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
-      placementGroup: (s.student_preferences as any)?.[0]?.work_mode_preference || (s.student_preferences as any)?.work_mode_preference || '',
-      status: s.placement_status === 'placed' ? 'Placed' : 
-              s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
-      completeness: s.profile_completion || 0,
-      verification: s.verification_status === 'verified' ? 'Verified' : 
-                    s.verification_status === 'pending' ? 'Pending' : 'Rejected',
-      company: (s.offers as any)?.[0]?.company?.name || (s.offers as any)?.[0]?.company?.[0]?.name || 'N/A',
-      package_ctc: (s.offers as any)?.[0]?.package_ctc || ''
-    };
-  });
+          while (hasMore) {
+            const from = pageNum * pageSize;
+            const to = from + pageSize - 1;
+
+            const { data, error } = await supabase
+              .from('students')
+              .select(`
+                id,
+                name,
+                register_number,
+                roll_number,
+                department,
+                year,
+                student_profiles (specializations),
+                student_preferences (work_mode_preference)
+              `)
+              .order('created_at', { ascending: false })
+              .range(from, to);
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+              hasMore = false;
+            } else {
+              allData.push(...data);
+              if (data.length < pageSize) {
+                hasMore = false;
+              } else {
+                pageNum++;
+              }
+            }
+          }
+
+          const settings = await getSystemSettings();
+          const isCompleted = settings.isAcademicYearCompleted;
+
+          return allData.map(s => {
+            const yearNum = getYearFromBatch(s.year, isCompleted);
+            const range = getBatchRangeFromYear(s.year);
+            return {
+              id: s.id,
+              name: s.name || 'Unknown',
+              regNo: s.register_number,
+              rollNo: s.roll_number,
+              dept: s.department,
+              year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
+              specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
+              placementGroup: (s.student_preferences as any)?.[0]?.work_mode_preference || (s.student_preferences as any)?.work_mode_preference || '',
+              cgpa: 0,
+              leetcode: 0,
+              status: 'Unplaced',
+              completeness: 0,
+              verification: 'Verified',
+              company: 'N/A',
+              package_ctc: ''
+            };
+          });
+        } catch (e) {
+          cachedLightweightPromise = null;
+          throw e;
+        }
+      })();
+    }
+    return cachedLightweightPromise;
+  }
+
+  if (!cachedStudentsPromise || (now - lastFetchTime > CACHE_TTL_MS)) {
+    lastFetchTime = now;
+    cachedStudentsPromise = (async () => {
+      try {
+        const allData: any[] = [];
+        let pageNum = 0;
+        const pageSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          const from = pageNum * pageSize;
+          const to = from + pageSize - 1;
+
+          const { data, error } = await supabase
+            .from('students')
+            .select(`
+              id,
+              name,
+              register_number,
+              roll_number,
+              gender,
+              date_of_birth,
+              department,
+              year,
+              placement_status,
+              profile_completion,
+              verification_status,
+              users (name, email, phone),
+              student_contacts (personal_email),
+              student_academics (cgpa, tenth_score, twelfth_score, diploma_score, backlog_count, active_arrears, history_of_arrears, semester_cgpa),
+              student_profiles (leetcode_count, specializations),
+              student_preferences (work_mode_preference),
+              offers (
+                package_ctc,
+                company:companies (name)
+              )
+            `)
+            .order('created_at', { ascending: false })
+            .range(from, to);
+
+          if (error) throw error;
+
+          if (!data || data.length === 0) {
+            hasMore = false;
+          } else {
+            allData.push(...data);
+            if (data.length < pageSize) {
+              hasMore = false;
+            } else {
+              pageNum++;
+            }
+          }
+        }
+
+        const settings = await getSystemSettings();
+        const isCompleted = settings.isAcademicYearCompleted;
+
+        return allData.map(s => {
+          const acad = (s.student_academics as any)?.[0] || (s.student_academics as any) || {};
+          const yearNum = getYearFromBatch(s.year, isCompleted);
+          const range = getBatchRangeFromYear(s.year);
+          return {
+            id: s.id,
+            name: s.name || (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
+            email: (s.users as any)?.email || (s.users as any)?.[0]?.email || 'N/A',
+            personal_email: (s.student_contacts as any)?.[0]?.personal_email || (s.student_contacts as any)?.personal_email || '',
+            regNo: s.register_number,
+            rollNo: s.roll_number,
+            gender: s.gender,
+            dob: s.date_of_birth,
+            dept: s.department,
+            year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
+            cgpa: acad.cgpa || 0,
+            tenth_score: acad.tenth_score || 0,
+            twelfth_score: acad.twelfth_score || 0,
+            diploma_score: acad.diploma_score || null,
+            backlog_count: acad.backlog_count || 0,
+            active_arrears: acad.active_arrears || 0,
+            history_of_arrears: acad.history_of_arrears || false,
+            semester_cgpa: acad.semester_cgpa || {},
+            leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
+            specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
+            placementGroup: (s.student_preferences as any)?.[0]?.work_mode_preference || (s.student_preferences as any)?.work_mode_preference || '',
+            status: s.placement_status === 'placed' ? 'Placed' : 
+                    s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
+            completeness: s.profile_completion || 0,
+            verification: s.verification_status === 'verified' ? 'Verified' : 
+                          s.verification_status === 'pending' ? 'Pending' : 'Rejected',
+            company: (s.offers as any)?.[0]?.company?.name || (s.offers as any)?.[0]?.company?.[0]?.name || 'N/A',
+            package_ctc: (s.offers as any)?.[0]?.package_ctc || ''
+          };
+        });
+      } catch (e) {
+        cachedStudentsPromise = null;
+        throw e;
+      }
+    })();
+  }
+  return cachedStudentsPromise;
 }
 
 export async function getStudentProfile(studentId: string) {

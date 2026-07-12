@@ -1,7 +1,7 @@
 "use client";
 
 import { LuX, LuSend, LuClock, LuUsers, LuCircleCheck, LuCircleAlert, LuInfo } from "react-icons/lu";
-import { cn } from "@/lib/utils";
+import { cn, formatAudienceDisplay } from "@/lib/utils";
 import type { Notice } from "./notice-dialog";
 
 interface OutboxModalProps {
@@ -84,7 +84,7 @@ export default function OutboxModal({ isOpen, onClose, notices }: OutboxModalPro
                           {notice.priority}
                         </span>
                         <span className="flex items-center gap-1 text-[10px] font-bold text-muted">
-                          <LuUsers size={10} /> {notice.audience}
+                          <LuUsers size={10} /> {formatAudienceDisplay(notice.audience)}
                         </span>
                         <span className="flex items-center gap-1 text-[10px] font-bold text-muted">
                           <LuClock size={10} /> {notice.date}, {notice.time}

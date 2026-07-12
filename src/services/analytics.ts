@@ -1,76 +1,37 @@
 import { supabase } from '@/lib/supabase';
 import { getBatchRangeFromYear } from '@/lib/batch-utils';
 
-function _genYears(base: number, mult = 1) {
-  const y = new Date().getFullYear();
-  return [
-    { year: String(y-3), hires: Math.round(base*0.55*mult), avgCTC: 0 },
-    { year: String(y-2), hires: Math.round(base*0.70*mult), avgCTC: 0 },
-    { year: String(y-1), hires: Math.round(base*0.85*mult), avgCTC: 0 },
-    { year: String(y),   hires: base*mult, avgCTC: 0 },
-  ];
+// Fetch placement history from DB (seeded mock data, replaces hardcoded FALLBACK_* and _gen* functions)
+export async function getPlacementHistoryFallback(filters: { year?: number; dept?: string; company?: string } = {}) {
+  let query = supabase.from('placement_history').select('year, dept_name, company_name, hires, avg_ctc');
+  if (filters.year)    query = query.eq('year', filters.year);
+  if (filters.dept)    query = query.eq('dept_name', filters.dept);
+  if (filters.company) query = query.eq('company_name', filters.company);
+  const { data, error } = await query.order('hires', { ascending: false });
+  if (error) { console.error('placement_history fetch error:', error); return []; }
+  return data || [];
 }
 
-function _yearDepts(year: string) {
-  const offset = (new Date().getFullYear() - parseInt(year)) * 5;
-  return [
-    { name:'CSE',hires:Math.max(5,85-offset),avgCTC:12.5 },{ name:'IT',hires:Math.max(4,80-offset),avgCTC:12.0 },
-    { name:'AI&DS',hires:Math.max(4,65-offset),avgCTC:14.5 },{ name:'AI&ML',hires:Math.max(3,60-offset),avgCTC:14.0 },
-    { name:'ECE',hires:Math.max(3,72-offset),avgCTC:9.2 },{ name:'EEE',hires:Math.max(2,60-offset),avgCTC:8.5 },
-    { name:'CYS',hires:Math.max(2,55-offset),avgCTC:11.8 },{ name:'CSBS',hires:Math.max(2,50-offset),avgCTC:11.0 },
-    { name:'MECH',hires:Math.max(1,45-offset),avgCTC:6.8 },{ name:'CCE',hires:Math.max(1,48-offset),avgCTC:10.5 },
-  ].sort((a,b)=>b.hires-a.hires);
-}
-
-function _yearCompanies(year: string) {
-  const offset = (new Date().getFullYear() - parseInt(year)) * 3;
-  return [
-    { name:'TCS',hires:Math.max(5,45-offset),avgCTC:7.2 },{ name:'Zomato',hires:Math.max(3,22-offset),avgCTC:14.5 },
-    { name:'Amazon',hires:Math.max(2,15-offset),avgCTC:32.0 },{ name:'Infosys',hires:Math.max(2,14-offset),avgCTC:6.5 },
-    { name:'Google',hires:Math.max(1,12-offset),avgCTC:24.5 },{ name:'Microsoft',hires:Math.max(1,8-offset),avgCTC:18.2 },
-    { name:'Wipro',hires:Math.max(1,8-offset),avgCTC:6.0 },{ name:'Deloitte',hires:Math.max(1,6-offset),avgCTC:10.5 },
-  ].sort((a,b)=>b.hires-a.hires);
-}
-
-const FALLBACK_DEPT_COMPANIES: Record<string, { name: string; hires: number; avgCTC: number }[]> = {
-  'CSE':   [{ name:'TCS',hires:24,avgCTC:7.2 },{ name:'Amazon',hires:8,avgCTC:32.0 },{ name:'Google',hires:5,avgCTC:24.5 },{ name:'Microsoft',hires:4,avgCTC:18.2 },{ name:'Infosys',hires:14,avgCTC:6.5 },{ name:'Wipro',hires:8,avgCTC:6.0 },{ name:'Zomato',hires:6,avgCTC:14.5 }],
-  'AI&DS': [{ name:'Google',hires:5,avgCTC:24.5 },{ name:'Zomato',hires:9,avgCTC:14.5 },{ name:'Amazon',hires:4,avgCTC:32.0 },{ name:'Microsoft',hires:3,avgCTC:18.2 },{ name:'TCS',hires:10,avgCTC:7.2 },{ name:'Deloitte',hires:3,avgCTC:10.5 }],
-  'AI&ML': [{ name:'Google',hires:4,avgCTC:24.5 },{ name:'Microsoft',hires:4,avgCTC:18.2 },{ name:'Amazon',hires:3,avgCTC:32.0 },{ name:'TCS',hires:12,avgCTC:7.2 },{ name:'Infosys',hires:8,avgCTC:6.5 },{ name:'Zomato',hires:5,avgCTC:14.5 }],
-  'IT':    [{ name:'TCS',hires:20,avgCTC:7.2 },{ name:'Infosys',hires:15,avgCTC:6.5 },{ name:'Wipro',hires:10,avgCTC:6.0 },{ name:'Amazon',hires:5,avgCTC:32.0 },{ name:'Google',hires:3,avgCTC:24.5 },{ name:'Zomato',hires:4,avgCTC:14.5 }],
-  'ECE':   [{ name:'TCS',hires:18,avgCTC:7.2 },{ name:'Infosys',hires:12,avgCTC:6.5 },{ name:'Wipro',hires:8,avgCTC:6.0 },{ name:'Amazon',hires:3,avgCTC:32.0 },{ name:'Deloitte',hires:2,avgCTC:10.5 }],
-  'EEE':   [{ name:'TCS',hires:16,avgCTC:7.2 },{ name:'Wipro',hires:10,avgCTC:6.0 },{ name:'Infosys',hires:8,avgCTC:6.5 },{ name:'Deloitte',hires:2,avgCTC:10.5 }],
-  'MECH':  [{ name:'TCS',hires:10,avgCTC:7.2 },{ name:'Wipro',hires:8,avgCTC:6.0 },{ name:'Infosys',hires:7,avgCTC:6.5 },{ name:'Deloitte',hires:2,avgCTC:9.0 }],
-  'CYS':   [{ name:'Deloitte',hires:6,avgCTC:10.5 },{ name:'Microsoft',hires:3,avgCTC:18.2 },{ name:'TCS',hires:14,avgCTC:7.2 },{ name:'Google',hires:2,avgCTC:24.5 },{ name:'Amazon',hires:2,avgCTC:32.0 }],
-  'CSBS':  [{ name:'TCS',hires:14,avgCTC:7.2 },{ name:'Zomato',hires:8,avgCTC:14.5 },{ name:'Deloitte',hires:5,avgCTC:10.5 },{ name:'Infosys',hires:6,avgCTC:6.5 },{ name:'Amazon',hires:3,avgCTC:32.0 }],
-  'CCE':   [{ name:'TCS',hires:12,avgCTC:7.2 },{ name:'Infosys',hires:10,avgCTC:6.5 },{ name:'Wipro',hires:7,avgCTC:6.0 },{ name:'Zomato',hires:4,avgCTC:14.5 },{ name:'Amazon',hires:2,avgCTC:32.0 }],
-};
-
-const FALLBACK_COMPANY_DEPTS: Record<string, { name: string; hires: number; avgCTC: number }[]> = {
-  'TCS':       [{ name:'CSE',hires:24,avgCTC:7.2 },{ name:'IT',hires:20,avgCTC:7.2 },{ name:'ECE',hires:18,avgCTC:7.2 },{ name:'EEE',hires:16,avgCTC:7.2 },{ name:'MECH',hires:10,avgCTC:7.2 },{ name:'CSBS',hires:14,avgCTC:7.2 }],
-  'Amazon':    [{ name:'CSE',hires:8,avgCTC:32.0 },{ name:'AI&DS',hires:4,avgCTC:32.0 },{ name:'AI&ML',hires:3,avgCTC:32.0 },{ name:'IT',hires:5,avgCTC:32.0 }],
-  'Google':    [{ name:'CSE',hires:5,avgCTC:24.5 },{ name:'AI&DS',hires:5,avgCTC:24.5 },{ name:'AI&ML',hires:4,avgCTC:24.5 },{ name:'CYS',hires:2,avgCTC:24.5 }],
-  'Microsoft': [{ name:'CSE',hires:4,avgCTC:18.2 },{ name:'AI&ML',hires:4,avgCTC:18.2 },{ name:'AI&DS',hires:3,avgCTC:18.2 },{ name:'CYS',hires:3,avgCTC:18.2 }],
-  'Infosys':   [{ name:'CSE',hires:14,avgCTC:6.5 },{ name:'IT',hires:15,avgCTC:6.5 },{ name:'ECE',hires:12,avgCTC:6.5 },{ name:'EEE',hires:8,avgCTC:6.5 }],
-  'Wipro':     [{ name:'ECE',hires:8,avgCTC:6.0 },{ name:'IT',hires:10,avgCTC:6.0 },{ name:'EEE',hires:10,avgCTC:6.0 },{ name:'MECH',hires:8,avgCTC:6.0 }],
-  'Zomato':    [{ name:'AI&DS',hires:9,avgCTC:14.5 },{ name:'CSE',hires:6,avgCTC:14.5 },{ name:'CSBS',hires:8,avgCTC:14.5 },{ name:'IT',hires:4,avgCTC:14.5 },{ name:'CCE',hires:4,avgCTC:14.5 }],
-  'Deloitte':  [{ name:'CYS',hires:6,avgCTC:10.5 },{ name:'CSBS',hires:5,avgCTC:10.5 },{ name:'ECE',hires:2,avgCTC:10.5 },{ name:'MECH',hires:2,avgCTC:9.0 }],
-};
 
 export async function getDashboardStats() {
-  const [students, companies, drives, offers, placedStudents] = await Promise.all([
+  const [students, companies, drives, offersCount, placedStudents, avgCTCPromise] = await Promise.all([
     supabase.from('students').select('*', { count: 'exact', head: true }),
     supabase.from('companies').select('*', { count: 'exact', head: true }),
     supabase.from('job_drives').select('*', { count: 'exact', head: true }),
     supabase.from('offers').select('*', { count: 'exact', head: true }),
     supabase.from('students').select('*', { count: 'exact', head: true }).eq('placement_status', 'placed'),
+    supabase.rpc('get_average_ctc')
   ]);
+
+  const avgCTC = avgCTCPromise.data || 0;
 
   return {
     totalStudents: students.count || 0,
     totalCompanies: companies.count || 0,
     totalDrives: drives.count || 0,
-    totalOffers: offers.count || 0,
+    totalOffers: offersCount.count || 0,
     placedStudents: placedStudents.count || 0,
+    averagePackage: parseFloat(Number(avgCTC).toFixed(1))
   };
 }
 
@@ -125,16 +86,34 @@ export async function getReportStats() {
   const placedStudents = placed.count || 0;
   const placementRate = totalStudents ? (placedStudents / totalStudents) * 100 : 0;
 
-  const avgCTC = (offers.data || []).reduce((acc, o) => {
-    const val = parseFloat(o.package_ctc.replace(/[^0-9.]/g, ''));
-    return acc + (isNaN(val) ? 0 : val);
-  }, 0) / (offers.data?.length || 1);
+  const offersData = offers.data || [];
+  const avgCTC = offersData.length > 0
+    ? (offersData.reduce((acc, o) => {
+        const val = parseFloat(o.package_ctc.replace(/[^0-9.]/g, ''));
+        return acc + (isNaN(val) ? 0 : val);
+      }, 0) / offersData.length)
+    : 0;
+
+  const [eligibleCount, appliedCount, shortlistedCount, interviewedCount, offeredCount] = await Promise.all([
+    supabase.from('students').select('*', { count: 'exact', head: true }),
+    supabase.from('applications').select('student_id', { count: 'exact', head: true }),
+    supabase.from('applications').select('student_id', { count: 'exact', head: true }).in('status', ['shortlisted', 'interviewing', 'offered']),
+    supabase.from('applications').select('student_id', { count: 'exact', head: true }).in('status', ['interviewing', 'offered']),
+    supabase.from('applications').select('student_id', { count: 'exact', head: true }).eq('status', 'offered'),
+  ]);
 
   return {
     placementRate: placementRate.toFixed(1) + '%',
     avgCTC: avgCTC.toFixed(1) + ' LPA',
-    totalOffers: offers.data?.length || 0,
-    atRisk: 0
+    totalOffers: offersData.length,
+    atRisk: 0,
+    funnel: [
+      { stage: 'Eligible', count: eligibleCount.count || 0, pct: '100%' },
+      { stage: 'Applied', count: appliedCount.count || 0, pct: eligibleCount.count ? ((appliedCount.count || 0) / eligibleCount.count * 100).toFixed(1) + '%' : '0%' },
+      { stage: 'Shortlisted', count: shortlistedCount.count || 0, pct: appliedCount.count ? ((shortlistedCount.count || 0) / appliedCount.count * 100).toFixed(1) + '%' : '0%' },
+      { stage: 'Interviewed', count: interviewedCount.count || 0, pct: shortlistedCount.count ? ((interviewedCount.count || 0) / shortlistedCount.count * 100).toFixed(1) + '%' : '0%' },
+      { stage: 'Offered', count: offeredCount.count || 0, pct: interviewedCount.count ? ((offeredCount.count || 0) / interviewedCount.count * 100).toFixed(1) + '%' : '0%' },
+    ]
   };
 }
 
@@ -146,233 +125,52 @@ export async function getTrendData() {
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
     return (data || []).map((row: any) => {
-      // Parse YYYY-MM-DD format robustly to avoid client/server timezone mismatches
       const parts = row.month_date.split('-');
       const monthIndex = parseInt(parts[1], 10) - 1;
 
       return {
         month: monthNames[monthIndex] || 'Jan',
-        placements: Number(row.placements) + 5, // Base value for visualization
-        offers: Number(row.offers) + 8,
-        drives: Number(row.drives) + 2
+        placements: Number(row.placements),
+        offers: Number(row.offers),
+        drives: Number(row.drives)
       };
     });
   } catch (error) {
     console.error("Trend data aggregation failed:", error);
-    return [
-      { month: 'Jan', placements: 10, offers: 15, drives: 4 },
-      { month: 'Feb', placements: 15, offers: 22, drives: 6 },
-      { month: 'Mar', placements: 12, offers: 18, drives: 5 },
-      { month: 'Apr', placements: 25, offers: 32, drives: 8 },
-      { month: 'May', placements: 20, offers: 28, drives: 7 },
-      { month: 'Jun', placements: 30, offers: 40, drives: 10 },
-    ];
+    return [];
   }
 }
 
 export async function getDepartmentAnalytics() {
   try {
-    const { data: students } = await supabase
-      .from('students')
-      .select('department, placement_status');
-
-    const { data: offers } = await supabase
-      .from('offers')
-      .select('package_ctc, students(department)');
-
-    const deptMap: Record<string, { total: number; placed: number; ctcSum: number; ctcCount: number; maxCTC: number }> = {};
-
-    (students || []).forEach((s: any) => {
-      const dept = s.department || 'Unknown';
-      if (!deptMap[dept]) deptMap[dept] = { total: 0, placed: 0, ctcSum: 0, ctcCount: 0, maxCTC: 0 };
-      deptMap[dept].total++;
-      if (s.placement_status === 'placed') deptMap[dept].placed++;
-    });
-
-    (offers || []).forEach((o: any) => {
-      const dept = (o.students as any)?.department || (o.students as any)?.[0]?.department;
-      if (!dept || !deptMap[dept]) return;
-      const val = parseFloat((o.package_ctc || '0').replace(/[^0-9.]/g, ''));
-      if (!isNaN(val) && val > 0) {
-        deptMap[dept].ctcSum += val;
-        deptMap[dept].ctcCount++;
-        if (val > deptMap[dept].maxCTC) {
-          deptMap[dept].maxCTC = val;
-        }
-      }
-    });
-
-    return Object.entries(deptMap)
-      .map(([name, d]) => ({
-        name,
-        total: d.total,
-        placed: d.placed,
-        unplaced: d.total - d.placed,
-        placementRate: d.total ? Math.round((d.placed / d.total) * 100) : 0,
-        avgCTC: d.ctcCount ? parseFloat((d.ctcSum / d.ctcCount).toFixed(1)) : 0,
-        maxCTC: d.maxCTC || 0,
-      }))
-      .sort((a, b) => b.placementRate - a.placementRate);
-  } catch {
-    return [
-      { name: 'AI&DS', total: 72, placed: 65, unplaced: 7, placementRate: 90, avgCTC: 14.5, maxCTC: 28.5 },
-      { name: 'AI&ML', total: 68, placed: 60, unplaced: 8, placementRate: 88, avgCTC: 14.0, maxCTC: 26.5 },
-      { name: 'CSE',   total: 95, placed: 85, unplaced: 10, placementRate: 89, avgCTC: 12.5, maxCTC: 32.0 },
-      { name: 'CYS',   total: 62, placed: 55, unplaced: 7, placementRate: 88, avgCTC: 11.8, maxCTC: 22.0 },
-      { name: 'CSBS',  total: 58, placed: 50, unplaced: 8, placementRate: 86, avgCTC: 11.0, maxCTC: 20.0 },
-      { name: 'CCE',   total: 55, placed: 48, unplaced: 7, placementRate: 87, avgCTC: 10.5, maxCTC: 18.0 },
-      { name: 'ECE',   total: 88, placed: 72, unplaced: 16, placementRate: 82, avgCTC: 9.2, maxCTC: 16.0 },
-      { name: 'EEE',   total: 72, placed: 60, unplaced: 12, placementRate: 83, avgCTC: 8.5, maxCTC: 14.0 },
-      { name: 'MECH',  total: 60, placed: 45, unplaced: 15, placementRate: 75, avgCTC: 6.8, maxCTC: 12.0 },
-      { name: 'IT',    total: 90, placed: 80, unplaced: 10, placementRate: 89, avgCTC: 12.0, maxCTC: 24.0 },
-    ];
+    const { data, error } = await supabase.rpc('get_department_analytics');
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Department analytics failed:", error);
+    return [];
   }
 }
 
 export async function getCompanyAnalytics() {
   try {
-    const { data: offers } = await supabase
-      .from('offers')
-      .select('package_ctc, companies(name, industry), students(department)');
-
-    const companyMap: Record<string, { name: string; industry: string; hires: number; ctcSum: number; depts: Set<string> }> = {};
-
-    (offers || []).forEach((o: any) => {
-      const name = (o.companies as any)?.name || (o.companies as any)?.[0]?.name || 'Unknown';
-      const industry = (o.companies as any)?.industry || (o.companies as any)?.[0]?.industry || 'Technology';
-      const dept = (o.students as any)?.department || (o.students as any)?.[0]?.department || '';
-      const val = parseFloat((o.package_ctc || '0').replace(/[^0-9.]/g, ''));
-      if (!companyMap[name]) companyMap[name] = { name, industry, hires: 0, ctcSum: 0, depts: new Set() };
-      companyMap[name].hires++;
-      if (!isNaN(val) && val > 0) companyMap[name].ctcSum += val;
-      if (dept) companyMap[name].depts.add(dept);
-    });
-
-    const result = Object.values(companyMap).map(c => ({
-      name: c.name,
-      industry: c.industry,
-      hires: c.hires,
-      avgCTC: c.hires > 0 ? parseFloat((c.ctcSum / c.hires).toFixed(1)) : 0,
-      departments: Array.from(c.depts),
-      departmentCount: c.depts.size,
-    })).sort((a, b) => b.hires - a.hires);
-
-    return result.length > 0 ? result : [
-      { name: 'TCS', industry: 'IT Services', hires: 45, avgCTC: 7.2, departments: ['CSE','IT','ECE'], departmentCount: 3 },
-      { name: 'Zomato', industry: 'E-commerce', hires: 22, avgCTC: 14.5, departments: ['AI&DS','CSE','CSBS'], departmentCount: 3 },
-      { name: 'Amazon', industry: 'E-commerce', hires: 15, avgCTC: 32.0, departments: ['CSE','AI&ML','IT'], departmentCount: 3 },
-      { name: 'Infosys', industry: 'IT Services', hires: 14, avgCTC: 6.5, departments: ['ECE','EEE','MECH'], departmentCount: 3 },
-      { name: 'Google', industry: 'Technology', hires: 12, avgCTC: 24.5, departments: ['CSE','AI&DS'], departmentCount: 2 },
-      { name: 'Microsoft', industry: 'Technology', hires: 8, avgCTC: 18.2, departments: ['CSE','AI&ML'], departmentCount: 2 },
-      { name: 'Wipro', industry: 'IT Services', hires: 8, avgCTC: 6.0, departments: ['ECE','IT','MECH'], departmentCount: 3 },
-      { name: 'Deloitte', industry: 'Consulting', hires: 6, avgCTC: 10.5, departments: ['CSBS','MBA'], departmentCount: 2 },
-    ];
-  } catch {
-    return [
-      { name: 'TCS', industry: 'IT Services', hires: 45, avgCTC: 7.2, departments: ['CSE','IT','ECE'], departmentCount: 3 },
-      { name: 'Zomato', industry: 'E-commerce', hires: 22, avgCTC: 14.5, departments: ['AI&DS','CSE','CSBS'], departmentCount: 3 },
-      { name: 'Amazon', industry: 'E-commerce', hires: 15, avgCTC: 32.0, departments: ['CSE','AI&ML','IT'], departmentCount: 3 },
-      { name: 'Infosys', industry: 'IT Services', hires: 14, avgCTC: 6.5, departments: ['ECE','EEE','MECH'], departmentCount: 3 },
-      { name: 'Google', industry: 'Technology', hires: 12, avgCTC: 24.5, departments: ['CSE','AI&DS'], departmentCount: 2 },
-      { name: 'Microsoft', industry: 'Technology', hires: 8, avgCTC: 18.2, departments: ['CSE','AI&ML'], departmentCount: 2 },
-      { name: 'Wipro', industry: 'IT Services', hires: 8, avgCTC: 6.0, departments: ['ECE','IT','MECH'], departmentCount: 3 },
-      { name: 'Deloitte', industry: 'Consulting', hires: 6, avgCTC: 10.5, departments: ['CSBS','MBA'], departmentCount: 2 },
-    ];
+    const { data, error } = await supabase.rpc('get_company_analytics');
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Company analytics failed:", error);
+    return [];
   }
 }
 
 export async function getYearAnalytics() {
   try {
-    const { data: drives } = await supabase.from('job_drives').select('batch, created_at');
-    const { data: offers } = await supabase.from('offers').select('package_ctc, created_at, job_drives(batch)');
-    const { data: students } = await supabase.from('students').select('placement_status, year, created_at');
-
-    const currentYear = new Date().getFullYear();
-    const years = [currentYear - 3, currentYear - 2, currentYear - 1, currentYear];
-
-    // Map each student to their graduation/batch year and count total/placed
-    const studentCountMap: Record<number, { total: number; placed: number }> = {};
-    (students || []).forEach((s: any) => {
-      if (!s.year) return;
-      const num = Number(s.year);
-      if (isNaN(num)) return;
-      
-      let yr = currentYear;
-      if (num > 2000) {
-        yr = num;
-      } else if (num >= 1 && num <= 4) {
-        // Resolve academic year study to graduation batch endYear (e.g. 4 -> currentYear, 3 -> currentYear + 1)
-        yr = getBatchRangeFromYear(num).endYear;
-      }
-      
-      if (!studentCountMap[yr]) {
-        studentCountMap[yr] = { total: 0, placed: 0 };
-      }
-      studentCountMap[yr].total++;
-      if (s.placement_status === 'placed') {
-        studentCountMap[yr].placed++;
-      }
-    });
-
-    const yearMap: Record<number, { year: number; totalOffers: number; avgCTC: number; ctcSum: number; ctcCount: number; companies: Set<string>; drives: number }> = {};
-
-    years.forEach(y => {
-      yearMap[y] = { year: y, totalOffers: 0, avgCTC: 0, ctcSum: 0, ctcCount: 0, companies: new Set(), drives: 0 };
-    });
-
-    (offers || []).forEach((o: any) => {
-      const batch = (o.job_drives as any)?.batch || (o.job_drives as any)?.[0]?.batch;
-      const yr = batch ? parseInt(batch) : new Date(o.created_at).getFullYear();
-      if (!yearMap[yr]) return;
-      yearMap[yr].totalOffers++;
-      const val = parseFloat((o.package_ctc || '0').replace(/[^0-9.]/g, ''));
-      if (!isNaN(val) && val > 0) {
-        yearMap[yr].ctcSum += val;
-        yearMap[yr].ctcCount++;
-      }
-    });
-
-    (drives || []).forEach((d: any) => {
-      const yr = d.batch ? parseInt(d.batch) : new Date(d.created_at).getFullYear();
-      if (yearMap[yr]) yearMap[yr].drives++;
-    });
-
-    const result = Object.values(yearMap).map(y => {
-      const sData = studentCountMap[y.year];
-      
-      // Calculate actual placement rate if student data exists for this graduating class
-      let placementRate = 0;
-      if (sData && sData.total > 0) {
-        placementRate = Math.round((sData.placed / sData.total) * 100);
-      } else {
-        // Deterministic fallback for historical years without student records
-        // based on a base rate + deterministic offset from the year
-        placementRate = 75 + (y.year % 15);
-      }
-
-      // Fallbacks are fully deterministic (no Math.random()) to eliminate hydration mismatch
-      const fallbackOffers = 80 + (y.year % 10) * 15;
-      const fallbackAvgCTC = parseFloat((9.0 + (y.year % 5) * 0.8).toFixed(1));
-      const fallbackDrives = 15 + (y.year % 6) * 3;
-
-      return {
-        year: String(y.year),
-        totalOffers: y.totalOffers || fallbackOffers,
-        avgCTC: y.ctcCount > 0 ? parseFloat((y.ctcSum / y.ctcCount).toFixed(1)) : fallbackAvgCTC,
-        drives: y.drives || fallbackDrives,
-        placementRate: placementRate,
-      };
-    }).sort((a, b) => parseInt(a.year) - parseInt(b.year));
-
-    return result;
-  } catch {
-    const currentYear = new Date().getFullYear();
-    return [
-      { year: String(currentYear - 3), totalOffers: 98, avgCTC: 9.2, drives: 18, placementRate: 78 },
-      { year: String(currentYear - 2), totalOffers: 118, avgCTC: 10.5, drives: 22, placementRate: 82 },
-      { year: String(currentYear - 1), totalOffers: 135, avgCTC: 11.8, drives: 26, placementRate: 85 },
-      { year: String(currentYear), totalOffers: 158, avgCTC: 13.2, drives: 31, placementRate: 88 },
-    ];
+    const { data, error } = await supabase.rpc('get_year_analytics');
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Year analytics failed:", error);
+    return [];
   }
 }
 
@@ -382,7 +180,7 @@ export async function getCrossAnalytics(filters: { dept?: string; company?: stri
       .from('offers')
       .select('package_ctc, created_at, students(department), companies(name, industry), job_drives(batch)');
 
-    if (error || !offers || offers.length === 0) throw new Error('no data');
+    if (error || !offers || offers.length === 0) return { companies: [], depts: [], years: [] };
 
     const allOffers = offers.map((o: any) => ({
       dept:    o.students?.department    || o.students?.[0]?.department    || '',
@@ -417,28 +215,8 @@ export async function getCrossAnalytics(filters: { dept?: string; company?: stri
       filtered.reduce((acc,o) => { if(o.year){ acc[o.year]=(acc[o.year]||0)+1; } return acc; }, {} as Record<string,number>)
     ).map(([year,hires])=>({ year, hires: hires as number, avgCTC: 0 })).sort((a,b)=>parseInt(a.year)-parseInt(b.year));
 
-    // If results too sparse, fall through to fallbacks
-    if (companies.length < 2 && depts.length < 2 && years.length < 2) throw new Error('sparse');
     return { companies, depts, years };
   } catch {
-    // Smart fallbacks
-    if (filters.dept) {
-      const companies = FALLBACK_DEPT_COMPANIES[filters.dept] || [
-        { name:'TCS',hires:10,avgCTC:7.2 },{ name:'Infosys',hires:8,avgCTC:6.5 },{ name:'Wipro',hires:6,avgCTC:6.0 },
-      ];
-      const totalHires = companies.reduce((s,c)=>s+c.hires,0);
-      return { companies, depts: [], years: _genYears(totalHires, 1) };
-    }
-    if (filters.company) {
-      const depts = FALLBACK_COMPANY_DEPTS[filters.company] || [
-        { name:'CSE',hires:8,avgCTC:7.5 },{ name:'IT',hires:6,avgCTC:7.0 },{ name:'ECE',hires:4,avgCTC:6.5 },
-      ];
-      const totalHires = depts.reduce((s,d)=>s+d.hires,0);
-      return { companies: [], depts, years: _genYears(totalHires, 1) };
-    }
-    if (filters.year) {
-      return { companies: _yearCompanies(filters.year), depts: _yearDepts(filters.year), years: [] };
-    }
     return { companies: [], depts: [], years: [] };
   }
 }

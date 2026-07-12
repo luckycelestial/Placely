@@ -1,6 +1,6 @@
 'use client';
 import { Sk } from "@/components/ui/skeleton";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   LuTrendingUp, LuDownload, LuTarget, LuAward, LuActivity, LuLoader,
   LuChartPie, LuArrowUpRight, LuArrowDownRight, LuLayers, LuBuilding2,
@@ -15,17 +15,18 @@ import {
 } from 'recharts';
 
 import { CompanyLogo } from "@/components/ui/CompanyLogo";
+import { getSettingByKey, DEFAULT_CUSTOM_GROUPS, type CustomGroup } from '@/services/settings';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface ReportStats { placementRate: string; avgCTC: string; totalOffers: string | number; atRisk?: string | number }
+interface ReportStats { placementRate: string; avgCTC: string; totalOffers: string | number; atRisk?: string | number; funnel?: { stage: string; count: number; pct: string }[] }
 interface TrendPoint  { month: string; placements: number; offers: number; drives?: number }
 interface DeptData    { name: string; total: number; placed: number; unplaced: number; placementRate: number; avgCTC: number; maxCTC?: number }
 interface CompanyData { name: string; industry: string; hires: number; avgCTC: number; departments: string[]; departmentCount: number }
 interface YearData    { year: string; totalOffers: number; avgCTC: number; drives: number; placementRate: number }
 interface CrossItem   { name: string; hires: number; avgCTC: number }
 interface CrossData   { companies: CrossItem[]; depts: CrossItem[]; years: (CrossItem & { year: string })[] }
-type AnalyticsTab = 'overview' | 'department' | 'company' | 'year';
-type Selection = { type: 'dept' | 'company' | 'year'; value: string } | null;
+type AnalyticsTab = 'overview' | 'department' | 'company' | 'year' | 'tech_domain' | 'placement_group';
+type Selection = { type: 'dept' | 'company' | 'year' | 'tech_domain' | 'placement_group'; value: string } | null;
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const DEPT_PALETTE = ['#ff383c','#ffd400','#3b82f6','#4ade80','#a855f7','#f97316','#06b6d4','#ec4899','#84cc16','#f59e0b'];
@@ -70,6 +71,97 @@ function TabBtn({ id, active, icon:Icon, label, onClick }: { id:string; active:b
   );
 }
 
+function getClientCrossAnalytics(selected: Selection, students: any[]) {
+  if (!selected) return { companies: [], depts: [], years: [] };
+
+  const filtered = students.filter(s => {
+    if (s.status !== 'Placed') return false;
+    
+    if (selected.type === 'dept') {
+      return s.dept === selected.value;
+    }
+    if (selected.type === 'company') {
+      return s.company === selected.value;
+    }
+    if (selected.type === 'year') {
+      return s.year && s.year.includes(selected.value);
+    }
+    if (selected.type === 'tech_domain') {
+      return s.specializations && s.specializations.includes(selected.value);
+    }
+    if (selected.type === 'placement_group') {
+      let val = "";
+      const rawPref = s.placementGroup || "";
+      if (rawPref.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(rawPref);
+          val = parsed["placement_groups"] || parsed["placement_group"] || "";
+        } catch (e) {}
+      } else {
+        val = rawPref;
+      }
+      return val === selected.value;
+    }
+    return false;
+  });
+
+  const aggregate = (key: 'company' | 'dept' | 'year') => {
+    const map: Record<string, { hires: number; ctcSum: number }> = {};
+    filtered.forEach(s => {
+      let k = "";
+      if (key === 'company') k = s.company || 'Unknown';
+      else if (key === 'dept') k = s.dept || 'Unknown';
+      else if (key === 'year') {
+        const match = s.year ? s.year.match(/^(\d{4}-\d{4})/) : null;
+        k = match ? match[1] : (s.year || 'Unknown');
+      }
+
+      if (!k || k === 'N/A') return;
+      if (!map[k]) map[k] = { hires: 0, ctcSum: 0 };
+      map[k].hires++;
+      const val = parseFloat((s.package_ctc || '').replace(/[^0-9.]/g, ''));
+      if (!isNaN(val) && val > 0) {
+        map[k].ctcSum += val;
+      }
+    });
+
+    return Object.entries(map)
+      .map(([name, d]) => ({
+        name,
+        hires: d.hires,
+        avgCTC: d.hires > 0 ? parseFloat((d.ctcSum / d.hires).toFixed(1)) : 0
+      }))
+      .sort((a, b) => b.hires - a.hires);
+  };
+
+  const companies = aggregate('company');
+  const depts = aggregate('dept');
+  
+  const yearMap: Record<string, { hires: number; ctcSum: number }> = {};
+  filtered.forEach(s => {
+    const match = s.year ? s.year.match(/^(\d{4}-\d{4})/) : null;
+    const yr = match ? match[1] : (s.year || '');
+    if (!yr || yr === 'N/A') return;
+    if (!yearMap[yr]) yearMap[yr] = { hires: 0, ctcSum: 0 };
+    yearMap[yr].hires++;
+    const val = parseFloat((s.package_ctc || '').replace(/[^0-9.]/g, ''));
+    if (!isNaN(val) && val > 0) {
+      yearMap[yr].ctcSum += val;
+    }
+  });
+  
+  const years = Object.entries(yearMap)
+    .map(([year, d]) => ({
+      year,
+      name: year,
+      hires: d.hires,
+      avgCTC: d.hires > 0 ? parseFloat((d.ctcSum / d.hires).toFixed(1)) : 0
+    }))
+    .sort((a, b) => parseInt(a.year) - parseInt(b.year));
+
+  return { companies, depts, years };
+}
+
 // ─── DrillDownPanel ───────────────────────────────────────────────────────────
 function DrillDownPanel({
   selected, data, loading, onClose,
@@ -81,22 +173,31 @@ function DrillDownPanel({
 }) {
   if (!selected) return null;
 
-  const isYear = selected.type === 'year';
+  const showBarList = selected.type === 'year' || selected.type === 'tech_domain' || selected.type === 'placement_group';
   const label = selected.type === 'dept'    ? `${selected.value} Department`
     : selected.type === 'company' ? selected.value
+    : selected.type === 'tech_domain' ? `Tech Domain: ${selected.value}`
+    : selected.type === 'placement_group' ? `Placement Group: ${selected.value}`
     : `${selected.value} Batch`;
 
-  const leftTitle  = selected.type === 'dept'    ? `Companies that hired from ${selected.value}`
+  const leftTitle  = selected.type === 'dept' ? `Companies that hired from ${selected.value}`
     : selected.type === 'company' ? `Departments hired by ${selected.value}`
+    : selected.type === 'tech_domain' ? `Companies that hired for ${selected.value}`
+    : selected.type === 'placement_group' ? `Companies that hired from ${selected.value}`
     : `Department-wise breakdown · ${selected.value}`;
-  const rightTitle = selected.type === 'dept'    ? `Batch-wise trend for ${selected.value}`
+
+  const rightTitle = selected.type === 'dept' ? `Batch-wise trend for ${selected.value}`
     : selected.type === 'company' ? `Batch-wise hiring by ${selected.value}`
+    : selected.type === 'tech_domain' ? `Department distribution for ${selected.value}`
+    : selected.type === 'placement_group' ? `Department distribution for ${selected.value}`
     : `Top companies in ${selected.value} batch`;
 
-  const leftData  = selected.type === 'dept'    ? (data?.companies ?? [])
+  const leftData  = (selected.type === 'dept' || selected.type === 'tech_domain' || selected.type === 'placement_group') ? (data?.companies ?? [])
     : selected.type === 'company' ? (data?.depts ?? [])
     : (data?.depts ?? []);
+
   const rightData = selected.type === 'year' ? (data?.companies ?? [])
+    : (selected.type === 'tech_domain' || selected.type === 'placement_group') ? (data?.depts ?? [])
     : (data?.years ?? []).map(y => ({ ...y, name: y.year }));
 
   const maxLeft  = Math.max(1, ...leftData.map((d:any) => d.hires));
@@ -199,12 +300,12 @@ function DrillDownPanel({
             <p className="text-sm font-black mb-4">{rightTitle}</p>
             {rightData.length === 0 ? (
               <div className="h-40 flex items-center justify-center text-sm font-bold text-muted">No data available</div>
-            ) : isYear ? (
-              /* Year drill-down: right = company bar list */
+            ) : showBarList ? (
+              /* Bar list: right panel */
               <div className="space-y-2.5">
                 {rightData.slice(0, 8).map((d:any, i:number) => (
                   <BarRow key={d.name} d={d} i={i}
-                    palette={Object.values(INDUSTRY_COLOR)} max={maxRight}/>
+                    palette={DEPT_PALETTE} max={maxRight}/>
                 ))}
               </div>
             ) : (
@@ -244,6 +345,194 @@ function DrillDownPanel({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface GroupData { name: string; total: number; placed: number; unplaced: number; placementRate: number; avgCTC: number; maxCTC?: number }
+
+function GroupTab({ 
+  title, 
+  groupName, 
+  data, 
+  selected, 
+  onSelect 
+}: { 
+  title: string; 
+  groupName: string; 
+  data: GroupData[]; 
+  selected: Selection; 
+  onSelect: (v: string) => void 
+}) {
+  const sorted = [...data].sort((a, b) => b.placementRate - a.placementRate);
+  const totalPlaced = data.reduce((a, d) => a + d.placed, 0);
+  const totalStudents = data.reduce((a, d) => a + d.total, 0);
+  const overallRate = totalStudents ? Math.round((totalPlaced / totalStudents) * 100) : 0;
+  const topCTC = data.length > 0 ? Math.max(...data.map(d => d.avgCTC)) : 0;
+
+  return (
+    <div className="space-y-5">
+      <div className="app-card overflow-hidden">
+        {/* Card header */}
+        <div className="px-7 py-5 border-b border-border-subtle">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black tracking-tight">{title}</h2>
+              <p className="text-xs text-muted font-medium mt-1">Click any {groupName.toLowerCase()} to drill down into company &amp; department data</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/8 border border-primary/15">
+                <LuUsers size={12} className="text-primary"/>
+                <span className="text-[11px] font-black text-primary">{totalPlaced} / {totalStudents} Placed</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border-subtle">
+                <LuChartBar size={12} className="text-muted"/>
+                <span className="text-[11px] font-black">{overallRate}% Overall</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                <LuIndianRupee size={12} className="text-emerald-600"/>
+                <span className="text-[11px] font-black text-emerald-700">{topCTC.toFixed(1)} LPA Best</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Column headers */}
+        <div className="flex items-center gap-4 px-7 py-3 border-b border-border-subtle/60 bg-background/50">
+          <div className="w-44 shrink-0">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">{groupName}</span>
+          </div>
+          <div className="flex-1">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Placement Progress</span>
+          </div>
+          <div className="w-36 shrink-0 text-center">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Placed / Total</span>
+          </div>
+          <div className="w-24 shrink-0 text-right">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Avg CTC</span>
+          </div>
+          <div className="w-24 shrink-0 text-right">
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Max CTC</span>
+          </div>
+          <div className="w-5 shrink-0"/>
+        </div>
+
+        {/* Rows */}
+        <div className="divide-y divide-border-subtle/50">
+          {sorted.map((d, i) => {
+            const isActive = selected?.value === d.name;
+            const color = DEPT_PALETTE[data.indexOf(d) % DEPT_PALETTE.length];
+            const fillPct = d.total > 0 ? (d.placed / d.total) * 100 : 0;
+
+            return (
+              <div
+                key={d.name}
+                onClick={() => onSelect(d.name)}
+                className={cn(
+                  'flex items-center gap-4 px-7 py-4 cursor-pointer transition-all group',
+                  isActive ? 'bg-primary/5' : 'hover:bg-background'
+                )}
+              >
+                {/* Name */}
+                <div className="w-44 shrink-0">
+                  <span className={cn(
+                    'text-sm font-black tracking-tight leading-tight block',
+                    isActive ? 'text-primary' : 'text-foreground'
+                  )}>{d.name}</span>
+                  {isActive && (
+                    <span className="text-[8px] font-black text-primary uppercase tracking-widest mt-0.5 block">Selected</span>
+                  )}
+                </div>
+
+                {/* Bar track */}
+                <div className="flex-1 relative">
+                  <div className="h-10 rounded-xl border border-border-subtle bg-background overflow-hidden relative">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-xl transition-all duration-700"
+                      style={{
+                        width: `${fillPct}%`,
+                        backgroundColor: color,
+                        opacity: isActive ? 1 : (selected && !isActive ? 0.35 : 0.85),
+                      }}
+                    />
+                    <div
+                      className="absolute inset-y-0 rounded-r-xl"
+                      style={{
+                        left: `${fillPct}%`,
+                        right: 0,
+                        backgroundColor: `${color}12`,
+                      }}
+                    />
+                    <div className="absolute inset-y-0 left-3 flex items-center">
+                      <span
+                        className="text-[10px] font-black"
+                        style={{ color: fillPct > 20 ? 'rgba(255,255,255,0.9)' : color }}
+                      >
+                        #{i + 1}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Placed / Total */}
+                <div className="w-36 shrink-0 flex items-center gap-2">
+                  <span className="text-sm font-black">
+                    {d.placed}
+                    <span className="text-muted font-bold"> / {d.total}</span>
+                  </span>
+                  <span
+                    className="text-[11px] font-black px-2 py-0.5 rounded-full border"
+                    style={{
+                      color: color,
+                      borderColor: `${color}40`,
+                      backgroundColor: `${color}12`,
+                    }}
+                  >
+                    {d.placementRate}%
+                  </span>
+                </div>
+
+                {/* Avg CTC */}
+                <div className="w-24 shrink-0 flex items-center gap-1.5 justify-end">
+                  <LuIndianRupee
+                    size={13}
+                    className={d.avgCTC > 0 ? 'text-emerald-500 shrink-0' : 'text-muted shrink-0'}
+                  />
+                  <span className={cn(
+                    'text-sm font-black',
+                    d.avgCTC > 0 ? 'text-foreground' : 'text-muted'
+                  )}>
+                    {d.avgCTC > 0 ? `${d.avgCTC} LPA` : '—'}
+                  </span>
+                </div>
+
+                {/* Max CTC */}
+                <div className="w-24 shrink-0 flex items-center gap-1.5 justify-end">
+                  <LuIndianRupee
+                    size={13}
+                    className={(d.maxCTC || 0) > 0 ? 'text-primary shrink-0' : 'text-muted shrink-0'}
+                  />
+                  <span className={cn(
+                    'text-sm font-black',
+                    (d.maxCTC || 0) > 0 ? 'text-foreground' : 'text-muted'
+                  )}>
+                    {(d.maxCTC || 0) > 0 ? `${d.maxCTC} LPA` : '—'}
+                  </span>
+                </div>
+
+                {/* Chevron */}
+                <LuChevronRight
+                  size={15}
+                  className={cn(
+                    'shrink-0 transition-all duration-200',
+                    isActive ? 'text-primary rotate-90' : 'text-muted group-hover:translate-x-0.5'
+                  )}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -769,35 +1058,67 @@ function YearTab({ data, selected, onSelect }: { data:YearData[]; selected:Selec
 }
 
 // ─── Overview Tab ──────────────────────────────────────────────────────────────
-function OverviewTab({ stats, trendData }: { stats:ReportStats|null; trendData:TrendPoint[] }) {
-  const pkgDist = [
-    { range:'3-6 LPA',count:45 },{ range:'6-10 LPA',count:82 },{ range:'10-15 LPA',count:34 },
-    { range:'15-25 LPA',count:12 },{ range:'25+ LPA',count:5 },
+function OverviewTab({ stats, trendData, students, companyData }: { stats:ReportStats|null; trendData:TrendPoint[]; students: any[]; companyData: CompanyData[] }) {
+  const ranges = [
+    { range: '3-6 LPA', min: 3, max: 6, count: 0 },
+    { range: '6-10 LPA', min: 6, max: 10, count: 0 },
+    { range: '10-15 LPA', min: 10, max: 15, count: 0 },
+    { range: '15-25 LPA', min: 15, max: 25, count: 0 },
+    { range: '25+ LPA', min: 25, max: Infinity, count: 0 },
   ];
-  const funnel = [
-    { stage:'Eligible',count:542,pct:'100%' },{ stage:'Applied',count:486,pct:'89.6%' },
-    { stage:'Shortlisted',count:312,pct:'64.2%' },{ stage:'Interviewed',count:156,pct:'50.0%' },
-    { stage:'Offered',count:124,pct:'79.4%' },
+
+  students.forEach(s => {
+    if (s.status === 'Placed' && s.package_ctc) {
+      const val = parseFloat((s.package_ctc || '').replace(/[^0-9.]/g, ''));
+      if (!isNaN(val) && val > 0) {
+        for (const r of ranges) {
+          if (val >= r.min && val < r.max) {
+            r.count++;
+            break;
+          }
+        }
+      }
+    }
+  });
+
+  const pkgDist = ranges.map(r => ({ range: r.range, count: r.count }));
+  const maxPkgCount = Math.max(1, ...pkgDist.map(p => p.count));
+
+  const funnel = stats?.funnel || [
+    { stage: 'Eligible', count: 0, pct: '0%' },
+    { stage: 'Applied', count: 0, pct: '0%' },
+    { stage: 'Shortlisted', count: 0, pct: '0%' },
+    { stage: 'Interviewed', count: 0, pct: '0%' },
+    { stage: 'Offered', count: 0, pct: '0%' },
   ];
-  const topCo = [
-    { name:'Amazon',count:15,pkg:'32.0 LPA',color:'#f97316' },{ name:'Google',count:12,pkg:'24.5 LPA',color:'#3b82f6' },
-    { name:'Microsoft',count:8,pkg:'18.2 LPA',color:'#6366f1' },{ name:'Zomato',count:22,pkg:'14.5 LPA',color:'#ff383c' },
-    { name:'TCS',count:45,pkg:'7.2 LPA',color:'#a855f7' },
-  ];
+
+  const topCompanies = [...(companyData || [])]
+    .sort((a, b) => b.hires - a.hires)
+    .slice(0, 5);
+
+  const topCo = topCompanies.map((c, i) => ({
+    name: c.name,
+    count: c.hires,
+    pkg: `${c.avgCTC.toFixed(1)} LPA`,
+    color: INDUSTRY_COLOR[c.industry] || DEPT_PALETTE[i % DEPT_PALETTE.length]
+  }));
+
+  const maxCoCount = Math.max(1, ...topCo.map(c => c.count));
+
   const distData = [
-    { name:'Placed',value:parseInt(stats?.placementRate||'0') },
-    { name:'Remaining',value:100-parseInt(stats?.placementRate||'0') },
+    { name: 'Placed', value: parseInt(stats?.placementRate || '0') },
+    { name: 'Remaining', value: 100 - parseInt(stats?.placementRate || '0') },
   ];
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label:'Overall Placement',value:stats?.placementRate||'0%',trend:'+4.2%',color:'text-primary' },
-          { label:'Average Package',value:stats?.avgCTC||'0 LPA',trend:'+1.2L',color:'text-emerald-600' },
-          { label:'Total Offers',value:stats?.totalOffers||'0',trend:'+12',color:'text-blue-600' },
-          { label:'At-Risk Students',value:stats?.atRisk||'0',trend:'-2',color:'text-orange-500' },
-        ].map((kpi,i)=><StatChip key={i} label={kpi.label} value={kpi.value} trend={kpi.trend} color={kpi.color}/>)}
+          { label: 'Overall Placement', value: stats?.placementRate || '0%', trend: '+4.2%', color: 'text-primary' },
+          { label: 'Average Package', value: stats?.avgCTC || '0 LPA', trend: '+1.2L', color: 'text-emerald-600' },
+          { label: 'Total Offers', value: stats?.totalOffers || '0', trend: '+12', color: 'text-blue-600' },
+          { label: 'At-Risk Students', value: stats?.atRisk || '0', trend: '-2', color: 'text-orange-500' },
+        ].map((kpi, i) => <StatChip key={i} label={kpi.label} value={kpi.value} trend={kpi.trend} color={kpi.color} />)}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 app-card p-7">
@@ -807,27 +1128,27 @@ function OverviewTab({ stats, trendData }: { stats:ReportStats|null; trendData:T
               <p className="text-xs text-muted font-medium mt-0.5">Offers vs. actual placements · last 6 months</p>
             </div>
             <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest">
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-primary"/><span>Placements</span></div>
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-secondary"/><span>Offers</span></div>
+              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-primary" /><span>Placements</span></div>
+              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-secondary" /><span>Offers</span></div>
             </div>
           </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData} margin={{ top:10, right:10, left:-20, bottom:0 }}>
+              <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gP" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={C.primary} stopOpacity={0.15}/><stop offset="95%" stopColor={C.primary} stopOpacity={0}/>
+                    <stop offset="5%" stopColor={C.primary} stopOpacity={0.15} /><stop offset="95%" stopColor={C.primary} stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="gO" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={C.secondary} stopOpacity={0.2}/><stop offset="95%" stopColor={C.secondary} stopOpacity={0}/>
+                    <stop offset="5%" stopColor={C.secondary} stopOpacity={0.2} /><stop offset="95%" stopColor={C.secondary} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0"/>
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize:11, fontWeight:800, fill:'#8e8e93' }} dy={10}/>
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize:11, fontWeight:800, fill:'#8e8e93' }}/>
-                <Tooltip {...TT}/>
-                <Area type="monotone" dataKey="placements" stroke={C.primary} strokeWidth={3} fillOpacity={1} fill="url(#gP)"/>
-                <Area type="monotone" dataKey="offers" stroke={C.secondary} strokeWidth={3} fillOpacity={1} fill="url(#gO)"/>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 800, fill: '#8e8e93' }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 800, fill: '#8e8e93' }} />
+                <Tooltip {...TT} />
+                <Area type="monotone" dataKey="placements" stroke={C.primary} strokeWidth={3} fillOpacity={1} fill="url(#gP)" />
+                <Area type="monotone" dataKey="offers" stroke={C.secondary} strokeWidth={3} fillOpacity={1} fill="url(#gO)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -839,16 +1160,16 @@ function OverviewTab({ stats, trendData }: { stats:ReportStats|null; trendData:T
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={distData} cx="50%" cy="50%" innerRadius={52} outerRadius={76} paddingAngle={8} dataKey="value">
-                  <Cell fill={C.primary} stroke="none"/><Cell fill="#f3f4f6" stroke="none"/>
+                  <Cell fill={C.primary} stroke="none" /><Cell fill="#f3f4f6" stroke="none" />
                 </Pie>
-                <Tooltip contentStyle={{ borderRadius:'14px', border:'none', boxShadow:'0 4px 20px rgba(0,0,0,0.08)' }}/>
+                <Tooltip contentStyle={{ borderRadius: '14px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
           <div className="grid grid-cols-2 gap-3 mt-3">
-            {distData.map((d,i)=>(
+            {distData.map((d, i) => (
               <div key={i} className="flex items-center gap-2 p-3 bg-background rounded-2xl border border-border-subtle">
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor:i===0?C.primary:'#f3f4f6', border:i===1?'1px solid #e6e6e6':'none' }}/>
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: i === 0 ? C.primary : '#f3f4f6', border: i === 1 ? '1px solid #e6e6e6' : 'none' }} />
                 <div><p className="text-[9px] font-black text-muted uppercase tracking-widest">{d.name}</p><p className="text-sm font-black">{d.value}%</p></div>
               </div>
             ))}
@@ -856,11 +1177,11 @@ function OverviewTab({ stats, trendData }: { stats:ReportStats|null; trendData:T
           <div className="mt-5 pt-4 border-t border-border-subtle">
             <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-3">Package Distribution</p>
             <div className="space-y-2">
-              {pkgDist.map(p=>(
+              {pkgDist.map(p => (
                 <div key={p.range} className="flex items-center gap-3">
                   <span className="text-[10px] font-black text-muted w-16 shrink-0">{p.range}</span>
                   <div className="flex-1 h-1.5 bg-border-subtle rounded-full overflow-hidden">
-                    <div className="h-full bg-secondary rounded-full" style={{ width:`${(p.count/82)*100}%` }}/>
+                    <div className="h-full bg-secondary rounded-full" style={{ width: `${(p.count / maxPkgCount) * 100}%` }} />
                   </div>
                   <span className="text-[10px] font-black w-5 text-right">{p.count}</span>
                 </div>
@@ -873,14 +1194,14 @@ function OverviewTab({ stats, trendData }: { stats:ReportStats|null; trendData:T
         <div className="app-card p-7">
           <div className="flex items-center justify-between mb-6">
             <div><h3 className="text-lg font-black tracking-tight">Placement Funnel</h3><p className="text-xs text-muted font-medium mt-0.5">Eligibility → offer conversion</p></div>
-            <LuLayers className="text-muted" size={20}/>
+            <LuLayers className="text-muted" size={20} />
           </div>
           <div className="space-y-3">
-            {funnel.map((item,idx)=>(
+            {funnel.map((item, idx) => (
               <div key={item.stage} className="flex items-center gap-4">
                 <div className="flex-1">
                   <div className="h-12 border border-border-subtle rounded-2xl flex items-center justify-between px-5 hover:border-primary/30 transition-all"
-                    style={{ width:`${100-idx*5}%`, backgroundColor:`rgba(255,56,60,${0.04+idx*0.04})` }}>
+                    style={{ width: `${100 - idx * 5}%`, backgroundColor: `rgba(255,56,60,${0.04 + idx * 0.04})` }}>
                     <span className="text-[10px] font-black uppercase tracking-widest text-foreground/60">{item.stage}</span>
                     <span className="text-sm font-black">{item.count}</span>
                   </div>
@@ -893,10 +1214,10 @@ function OverviewTab({ stats, trendData }: { stats:ReportStats|null; trendData:T
         <div className="app-card p-7">
           <div className="flex items-center justify-between mb-6">
             <div><h3 className="text-lg font-black tracking-tight">Top Hiring Partners</h3><p className="text-xs text-muted font-medium mt-0.5">Highest recruitment volume</p></div>
-            <LuBuilding2 className="text-muted" size={20}/>
+            <LuBuilding2 className="text-muted" size={20} />
           </div>
           <div className="space-y-4">
-            {topCo.map(c=>(
+            {topCo.map(c => (
               <div key={c.name} className="flex items-center gap-4">
                 <CompanyLogo name={c.name} size={40} rounded="rounded-2xl shadow-sm shrink-0" />
                 <div className="flex-1">
@@ -906,7 +1227,7 @@ function OverviewTab({ stats, trendData }: { stats:ReportStats|null; trendData:T
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-1.5 bg-background rounded-full border border-border-subtle/30 overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width:`${(c.count/50)*100}%`, backgroundColor:c.color }}/>
+                      <div className="h-full rounded-full" style={{ width: `${(c.count / maxCoCount) * 100}%`, backgroundColor: c.color }} />
                     </div>
                     <span className="text-[10px] font-black text-muted w-16 text-right">{c.pkg}</span>
                   </div>
@@ -932,6 +1253,7 @@ export default function ReportsPage() {
   const [students, setStudents]       = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [customGroups, setCustomGroups] = useState<CustomGroup[]>([]);
 
   // Drill-down state
   const [selected, setSelected]       = useState<Selection>(null);
@@ -943,35 +1265,109 @@ export default function ReportsPage() {
     setMounted(true);
     async function load() {
       try {
-        const [s, t, d, c, y, allStuds] = await Promise.all([
+        const [s, t, d, c, y, allStuds, groupsData] = await Promise.all([
           db.getReportStats(), db.getTrendData(),
           db.getDepartmentAnalytics(), db.getCompanyAnalytics(), db.getYearAnalytics(),
           db.getAllStudents(),
+          getSettingByKey<CustomGroup[]>('custom_groups', DEFAULT_CUSTOM_GROUPS),
         ]);
         setStats(s); setTrendData(t);
         setDeptData(d as DeptData[]); setCompanyData(c as CompanyData[]); setYearData(y as YearData[]);
         setStudents(allStuds);
+        
+        let finalGroups = [...groupsData];
+        let neededUpdate = false;
+        const systemGroupIds = ["departments", "batches"];
+        DEFAULT_CUSTOM_GROUPS.forEach(defaultGrp => {
+          if (systemGroupIds.includes(defaultGrp.id) && !finalGroups.some(g => g.id === defaultGrp.id)) {
+            finalGroups.push(defaultGrp);
+            neededUpdate = true;
+          }
+        });
+        setCustomGroups(finalGroups);
       } catch(e) { console.error(e); }
       finally { setLoading(false); }
     }
     load();
   },[]);
 
+  // Memoized analytics for custom groups
+  const techDomainData = useMemo(() => {
+    const group = customGroups.find(g => g.id === 'tech_domains') || DEFAULT_CUSTOM_GROUPS.find(g => g.id === 'tech_domains');
+    if (!group) return [];
+    
+    return group.options.map(option => {
+      const optionStudents = students.filter(s => s.specializations && s.specializations.includes(option));
+      const total = optionStudents.length;
+      const placedStudents = optionStudents.filter(s => s.status === 'Placed');
+      const placed = placedStudents.length;
+      
+      const packages = placedStudents.map(s => parseFloat((s.package_ctc || '').replace(/[^0-9.]/g, ''))).filter(p => !isNaN(p) && p > 0);
+      const avgCTC = packages.length > 0 ? parseFloat((packages.reduce((a, b) => a + b, 0) / packages.length).toFixed(1)) : 0;
+      const maxCTC = packages.length > 0 ? Math.max(...packages) : 0;
+      
+      return {
+        name: option,
+        total,
+        placed,
+        unplaced: total - placed,
+        placementRate: total ? Math.round((placed / total) * 100) : 0,
+        avgCTC,
+        maxCTC
+      };
+    });
+  }, [students, customGroups]);
+
+  const placementGroupData = useMemo(() => {
+    const group = customGroups.find(g => g.id === 'placement_groups' || g.id === 'placement_group') || DEFAULT_CUSTOM_GROUPS.find(g => g.id === 'placement_groups' || g.id === 'placement_group');
+    if (!group) return [];
+
+    return group.options.map(option => {
+      const optionStudents = students.filter(s => {
+        let val = "";
+        const rawPref = s.placementGroup || "";
+        if (rawPref.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(rawPref);
+            val = parsed["placement_groups"] || parsed["placement_group"] || "";
+          } catch (e) {}
+        } else {
+          val = rawPref;
+        }
+        return val === option;
+      });
+
+      const total = optionStudents.length;
+      const placedStudents = optionStudents.filter(s => s.status === 'Placed');
+      const placed = placedStudents.length;
+
+      const packages = placedStudents.map(s => parseFloat((s.package_ctc || '').replace(/[^0-9.]/g, ''))).filter(p => !isNaN(p) && p > 0);
+      const avgCTC = packages.length > 0 ? parseFloat((packages.reduce((a, b) => a + b, 0) / packages.length).toFixed(1)) : 0;
+      const maxCTC = packages.length > 0 ? Math.max(...packages) : 0;
+
+      return {
+        name: option,
+        total,
+        placed,
+        unplaced: total - placed,
+        placementRate: total ? Math.round((placed / total) * 100) : 0,
+        avgCTC,
+        maxCTC
+      };
+    });
+  }, [students, customGroups]);
+
   // Load drill-down when selection changes
   useEffect(()=>{
     if (!selected) { setDrillData(null); return; }
     setDrillLoading(true);
     setDrillData(null);
-    const filter = selected.type==='dept' ? { dept:selected.value }
-      : selected.type==='company' ? { company:selected.value }
-      : { year:selected.value };
-    db.getCrossAnalytics(filter)
-      .then(d=>setDrillData(d as CrossData))
-      .catch(()=>setDrillData({ companies:[], depts:[], years:[] }))
-      .finally(()=>setDrillLoading(false));
-  },[selected]);
+    const data = getClientCrossAnalytics(selected, students);
+    setDrillData(data);
+    setDrillLoading(false);
+  },[selected, students]);
 
-  const handleSelect = useCallback((type:'dept'|'company'|'year', value:string)=>{
+  const handleSelect = useCallback((type:'dept'|'company'|'year'|'tech_domain'|'placement_group', value:string)=>{
     setSelected(prev => prev?.value===value ? null : { type, value });
   },[]);
 
@@ -1020,6 +1416,8 @@ export default function ReportsPage() {
     { id:'department' as const, label:'Department',  icon:LuGraduationCap },
     { id:'company'    as const, label:'Company',     icon:LuBuilding2 },
     { id:'year'       as const, label:'Batch-wise',   icon:LuCalendar },
+    { id:'tech_domain' as const, label:'Tech Domain', icon:LuActivity },
+    { id:'placement_group' as const, label:'Placement Group', icon:LuLayers },
   ];
 
   return (
@@ -1054,7 +1452,7 @@ export default function ReportsPage() {
 
       {/* Tab content */}
       <div className="space-y-6 animate-in fade-in duration-300">
-        {activeTab==='overview' && <OverviewTab stats={stats} trendData={trendData}/>}
+        {activeTab==='overview' && <OverviewTab stats={stats} trendData={trendData} students={students} companyData={companyData}/>}
 
         {activeTab==='department' && (
           <>
@@ -1371,6 +1769,231 @@ export default function ReportsPage() {
                                 </tr>
                               );
                             })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </>
+        )}
+
+        {activeTab==='tech_domain' && (
+          <>
+            <GroupTab title="Tech Domain Performance" groupName="Tech Domain" data={techDomainData} selected={selected} onSelect={v=>handleSelect('tech_domain',v)}/>
+            {selected?.type==='tech_domain' && (() => {
+              const selectedGroupData = techDomainData.find(d => d.name === selected.value);
+              const groupAvg = selectedGroupData?.avgCTC || 0;
+              const groupMax = selectedGroupData?.maxCTC || 0;
+              const placedCount = students.filter(s => s.specializations && s.specializations.includes(selected.value) && s.status === 'Placed').length;
+              return (
+                <>
+                  <DrillDownPanel selected={selected} data={drillData} loading={drillLoading} onClose={()=>setSelected(null)}/>
+                  
+                  {/* Placed Students Directory */}
+                  <div className="app-card border-emerald-500/20 overflow-hidden animate-in slide-in-from-bottom-3 fade-in duration-300 mt-6">
+                    <div className="flex items-center justify-between px-7 py-5 bg-gradient-to-r from-emerald-500/5 to-transparent border-b border-emerald-500/10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-6 bg-emerald-500 rounded-full"/>
+                        <div>
+                          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Directory</p>
+                          <h3 className="text-base font-black tracking-tight">Placed Students · Tech Domain: {selected.value}</h3>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                          <LuAward size={12}/>
+                          <span className="text-[10px] font-black uppercase tracking-wider">
+                            {placedCount} Placed
+                          </span>
+                        </div>
+                        {groupAvg > 0 && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border-subtle">
+                            <LuIndianRupee size={12} className="text-muted"/>
+                            <span className="text-[10px] font-black uppercase tracking-wider">Avg: {groupAvg.toFixed(1)} LPA</span>
+                          </div>
+                        )}
+                        {groupMax > 0 && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary">
+                            <LuIndianRupee size={12} className="text-primary"/>
+                            <span className="text-[10px] font-black uppercase tracking-wider">Max: {groupMax.toFixed(1)} LPA</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-border-subtle bg-background/50">
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Student</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Register Number</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Placed Company</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted text-right">Offered CTC</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border-subtle">
+                          {placedCount === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="px-6 py-12 text-center text-muted font-bold text-sm">
+                                No placed students found in {selected.value} tech domain.
+                              </td>
+                            </tr>
+                          ) : (
+                            students
+                              .filter(s => s.specializations && s.specializations.includes(selected.value) && s.status === 'Placed')
+                              .map((student) => (
+                                <tr key={student.id} className="group hover:bg-emerald-500/[0.01] transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-black text-xs shrink-0">
+                                        {student.name.split(' ').map((n: string) => n[0]).join('')}
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-sm leading-none mb-1 text-foreground group-hover:text-emerald-600 transition-colors">{student.name}</p>
+                                        <p className="text-muted text-[10px] font-medium uppercase tracking-wider">{student.email}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className="text-sm font-bold text-muted-foreground">{student.regNo}</span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2.5">
+                                      <CompanyLogo name={student.company || 'Unknown'} size={28} rounded="rounded-lg shadow-sm" />
+                                      <span className="text-sm font-black text-foreground">{student.company}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg">
+                                      <LuIndianRupee size={11} />
+                                      {student.package_ctc ? `${student.package_ctc} LPA` : '—'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </>
+        )}
+
+        {activeTab==='placement_group' && (
+          <>
+            <GroupTab title="Placement Group Performance" groupName="Placement Group" data={placementGroupData} selected={selected} onSelect={v=>handleSelect('placement_group',v)}/>
+            {selected?.type==='placement_group' && (() => {
+              const selectedGroupData = placementGroupData.find(d => d.name === selected.value);
+              const groupAvg = selectedGroupData?.avgCTC || 0;
+              const groupMax = selectedGroupData?.maxCTC || 0;
+              
+              const isMatch = (s: any) => {
+                let val = "";
+                const rawPref = s.placementGroup || "";
+                if (rawPref.trim().startsWith('{')) {
+                  try {
+                    const parsed = JSON.parse(rawPref);
+                    val = parsed["placement_groups"] || parsed["placement_group"] || "";
+                  } catch (e) {}
+                } else {
+                  val = rawPref;
+                }
+                return val === selected.value;
+              };
+
+              const placedCount = students.filter(s => isMatch(s) && s.status === 'Placed').length;
+              return (
+                <>
+                  <DrillDownPanel selected={selected} data={drillData} loading={drillLoading} onClose={()=>setSelected(null)}/>
+                  
+                  {/* Placed Students Directory */}
+                  <div className="app-card border-emerald-500/20 overflow-hidden animate-in slide-in-from-bottom-3 fade-in duration-300 mt-6">
+                    <div className="flex items-center justify-between px-7 py-5 bg-gradient-to-r from-emerald-500/5 to-transparent border-b border-emerald-500/10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-6 bg-emerald-500 rounded-full"/>
+                        <div>
+                          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Directory</p>
+                          <h3 className="text-base font-black tracking-tight">Placed Students · Placement Group: {selected.value}</h3>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                          <LuAward size={12}/>
+                          <span className="text-[10px] font-black uppercase tracking-wider">
+                            {placedCount} Placed
+                          </span>
+                        </div>
+                        {groupAvg > 0 && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border-subtle">
+                            <LuIndianRupee size={12} className="text-muted"/>
+                            <span className="text-[10px] font-black uppercase tracking-wider">Avg: {groupAvg.toFixed(1)} LPA</span>
+                          </div>
+                        )}
+                        {groupMax > 0 && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary">
+                            <LuIndianRupee size={12} className="text-primary"/>
+                            <span className="text-[10px] font-black uppercase tracking-wider">Max: {groupMax.toFixed(1)} LPA</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-border-subtle bg-background/50">
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Student</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Register Number</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">Placed Company</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted text-right">Offered CTC</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border-subtle">
+                          {placedCount === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="px-6 py-12 text-center text-muted font-bold text-sm">
+                                No placed students found in {selected.value} placement group.
+                              </td>
+                            </tr>
+                          ) : (
+                            students
+                              .filter(s => isMatch(s) && s.status === 'Placed')
+                              .map((student) => (
+                                <tr key={student.id} className="group hover:bg-emerald-500/[0.01] transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-black text-xs shrink-0">
+                                        {student.name.split(' ').map((n: string) => n[0]).join('')}
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-sm leading-none mb-1 text-foreground group-hover:text-emerald-600 transition-colors">{student.name}</p>
+                                        <p className="text-muted text-[10px] font-medium uppercase tracking-wider">{student.email}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className="text-sm font-bold text-muted-foreground">{student.regNo}</span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2.5">
+                                      <CompanyLogo name={student.company || 'Unknown'} size={28} rounded="rounded-lg shadow-sm" />
+                                      <span className="text-sm font-black text-foreground">{student.company}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg">
+                                      <LuIndianRupee size={11} />
+                                      {student.package_ctc ? `${student.package_ctc} LPA` : '—'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))
                           )}
                         </tbody>
                       </table>

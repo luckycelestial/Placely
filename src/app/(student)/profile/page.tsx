@@ -5,7 +5,7 @@ import {
   LuUser, LuMail, LuPhone, LuMapPin, LuGraduationCap, 
   LuBook, LuCalendar, LuFileText, LuUpload, LuExternalLink,
   LuCircleCheck, LuArrowRight, LuGlobe, LuBriefcase, 
-  LuIndianRupee, LuFolderOpen, LuTriangleAlert, LuBadgeCheck,
+  LuFolderOpen, LuTriangleAlert, LuBadgeCheck,
   LuHash, LuX, LuSettings, LuActivity, LuLayers
 } from "react-icons/lu";
 import { SiGithub, SiLeetcode } from "react-icons/si";
@@ -56,6 +56,7 @@ export default function ProfilePage() {
   const [city, setCity] = useState("");
   const [stateVal, setStateVal] = useState("");
   const [pincode, setPincode] = useState("");
+  const [personalEmail, setPersonalEmail] = useState("");
 
   const [customGroups, setCustomGroups] = useState<CustomGroup[]>([]);
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
@@ -118,6 +119,7 @@ export default function ProfilePage() {
         setCity(contactsData.city || "");
         setStateVal(contactsData.state || "");
         setPincode(contactsData.pincode || "");
+        setPersonalEmail(contactsData.personal_email || "");
       } catch (error) {
         console.error("Error loading profile, settings or applications:", error);
       } finally {
@@ -161,7 +163,8 @@ export default function ProfilePage() {
         permanent_address: permAddress || null,
         city: city || null,
         state: stateVal || null,
-        pincode: pincode || null
+        pincode: pincode || null,
+        personal_email: personalEmail || null
       });
 
       setStudent((prev: any) => {
@@ -173,7 +176,8 @@ export default function ProfilePage() {
             permanent_address: permAddress || null,
             city: city || null,
             state: stateVal || null,
-            pincode: pincode || null
+            pincode: pincode || null,
+            personal_email: personalEmail || null
           }];
         } else {
           updatedContacts = {
@@ -182,7 +186,8 @@ export default function ProfilePage() {
             permanent_address: permAddress || null,
             city: city || null,
             state: stateVal || null,
-            pincode: pincode || null
+            pincode: pincode || null,
+            personal_email: personalEmail || null
           };
         }
         return {
@@ -413,7 +418,7 @@ export default function ProfilePage() {
             {/* Identity & Academic Info */}
             <div className="flex-1 text-center lg:text-left">
               <h2 className="font-display text-5xl md:text-6xl font-black tracking-tighter text-foreground">
-                {student?.users?.name || "Student"}
+                {student?.name || student?.users?.name || "Student"}
               </h2>
               <p className="font-display text-2xl font-bold mt-2 text-muted-foreground/80">
                 B.Tech {student?.department || "Department"} ({startYear}-{endYear} : {romanYear})
@@ -491,7 +496,32 @@ export default function ProfilePage() {
 
               {isEditingTop ? (
                 <div className="space-y-3">
-                  <HeaderDetailItem value={student?.users?.email || ""} icon={LuMail} />
+                  <HeaderDetailItem 
+                    icon={LuMail}
+                    value={
+                      <div className="flex flex-col text-left justify-center">
+                        <span className="text-xs font-bold text-foreground leading-snug truncate">{student?.users?.email || ""}</span>
+                        {personalEmail ? (
+                          <span className="text-[11px] font-bold text-muted truncate mt-0.5">{personalEmail} (Personal)</span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground/50 mt-0.5 italic">No personal email</span>
+                        )}
+                      </div>
+                    }
+                  />
+                  
+                  {/* Personal Email Editor */}
+                  <div className="space-y-1 text-left">
+                    <label className="text-[9px] font-black uppercase text-muted tracking-widest">Personal Email</label>
+                    <input
+                      type="email"
+                      value={personalEmail}
+                      onChange={(e) => setPersonalEmail(e.target.value)}
+                      placeholder="Personal email address"
+                      className="w-full px-3 py-2 bg-background border border-border-subtle rounded-xl text-xs font-semibold focus:outline-none"
+                    />
+                  </div>
+                  
                   <HeaderDetailItem value={student?.users?.phone || "+91 ----- -----"} icon={LuPhone} />
                   
                   {/* Address Editor */}
@@ -555,7 +585,19 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <HeaderDetailItem value={student?.users?.email || ""} icon={LuMail} />
+                  <HeaderDetailItem 
+                    icon={LuMail}
+                    value={
+                      <div className="flex flex-col text-left justify-center">
+                        <span className="text-xs font-bold text-foreground leading-snug truncate">{student?.users?.email || ""}</span>
+                        {personalEmail ? (
+                          <span className="text-[11px] font-bold text-muted truncate mt-0.5">{personalEmail} (Personal)</span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground/50 mt-0.5 italic">No personal email</span>
+                        )}
+                      </div>
+                    }
+                  />
                   <HeaderDetailItem value={student?.users?.phone || "+91 ----- -----"} icon={LuPhone} />
                   {physicalAddress ? (
                     <HeaderDetailItem value={physicalAddress} icon={LuMapPin} />
@@ -724,7 +766,6 @@ export default function ProfilePage() {
                 </div>
               )}
               <DetailItem value={`Interest: ${placementInterest}`} icon={LuActivity} />
-              <DetailItem value="12 - 18 LPA" icon={LuIndianRupee} />
               {preferredLocations.length > 0 ? (
                 <DetailItem value={preferredLocations.join(", ")} icon={LuMapPin} />
               ) : (
@@ -752,13 +793,18 @@ export default function ProfilePage() {
                   );
                 } else {
                   let assignedOpt = "";
-                  if (placementGroup) {
+                  if (group.id === "departments") {
+                    assignedOpt = student?.department || "";
+                  } else if (group.id === "batches") {
+                    const range = getBatchRangeFromYear(student?.year);
+                    assignedOpt = range ? `${range.startYear}-${range.endYear}` : (student?.year || "");
+                  } else if (placementGroup) {
                     if (placementGroup.trim().startsWith('{')) {
                       try {
                         const parsed = JSON.parse(placementGroup);
                         assignedOpt = parsed[group.id] || "";
                       } catch (e) {}
-                    } else if (group.id === "placement_groups") {
+                    } else if (group.id === "placement_groups" || group.id === "placement_group") {
                       assignedOpt = placementGroup;
                     }
                   }
@@ -870,13 +916,18 @@ export default function ProfilePage() {
                   );
                 } else {
                   let currentAssigned = "";
-                  if (placementGroup) {
+                  if (group.id === "departments") {
+                    currentAssigned = student?.department || "";
+                  } else if (group.id === "batches") {
+                    const range = getBatchRangeFromYear(student?.year);
+                    currentAssigned = range ? `${range.startYear}-${range.endYear}` : (student?.year || "");
+                  } else if (placementGroup) {
                     if (placementGroup.trim().startsWith('{')) {
                       try {
                         const parsed = JSON.parse(placementGroup);
                         currentAssigned = parsed[group.id] || "";
                       } catch (e) {}
-                    } else if (group.id === "placement_groups") {
+                    } else if (group.id === "placement_groups" || group.id === "placement_group") {
                       currentAssigned = placementGroup;
                     }
                   }
@@ -1082,13 +1133,13 @@ function Chip({ icon: Icon, label, value, highlight }: { icon: any; label: strin
   );
 }
 
-function HeaderDetailItem({ value, icon: Icon }: { value: string; icon: import("react-icons").IconType }) {
+function HeaderDetailItem({ value, icon: Icon }: { value: React.ReactNode; icon: import("react-icons").IconType }) {
   return (
     <div className="flex items-center gap-4 bg-surface/50 border border-border-subtle p-4 rounded-2xl w-full lg:min-w-[340px] shadow-sm hover:shadow-md transition-shadow">
       <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary flex-shrink-0">
         <Icon size={20} />
       </div>
-      <p className="text-sm font-bold text-foreground truncate">{value}</p>
+      <div className="text-sm font-bold text-foreground truncate w-full">{value}</div>
     </div>
   );
 }

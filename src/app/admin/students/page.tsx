@@ -43,12 +43,20 @@ interface ColumnMapping {
 const STUDENT_FIELDS = [
   { id: "register_number", label: "Register Number", required: true, validate: (v: string) => /^[A-Z0-9]{6,12}$/i.test(v) || "Must be 6-12 alphanumeric characters" },
   { id: "name", label: "Full Name", required: true, validate: (v: string) => v?.length >= 3 || "Name too short" },
-  { id: "email", label: "Email Address", required: true, validate: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Invalid email format" },
-  { id: "department", label: "Department", required: true },
+  { id: "email", label: "College Email (Login)", required: true, validate: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Invalid email format" },
+  { id: "personal_email", label: "Personal Email", required: false, validate: (v: string) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Invalid email format" },
+  { id: "department", label: "Department", required: true, validate: (v: string) => ["AI&DS", "AI&ML", "CSE", "CYS", "CSBS", "CCE", "ECE", "EEE", "MECH", "IT"].includes(v) || "Must be one of: AI&DS, AI&ML, CSE, CYS, CSBS, CCE, ECE, EEE, MECH, IT" },
   { id: "year", label: "Batch", required: true, validate: (v: any) => [1, 2, 3, 4].includes(Number(v)) || (Number(v) >= 2000 && Number(v) <= 2100) || "Must be 1-4 or a valid Batch end-year (e.g. 2026)" },
   { id: "roll_number", label: "Roll Number", required: false },
+  { id: "section", label: "Section", required: false },
   { id: "gender", label: "Gender", required: false, validate: (v: string) => ["Male", "Female", "Other", ""].includes(v) || "Must be Male, Female, or Other" },
   { id: "date_of_birth", label: "Date of Birth (YYYY-MM-DD)", required: false },
+  { id: "phone", label: "Mobile Number", required: false },
+  { id: "address", label: "Address", required: false },
+  { id: "permanent_address", label: "Permanent Address", required: false },
+  { id: "city", label: "City", required: false },
+  { id: "state", label: "State", required: false },
+  { id: "pincode", label: "Pincode", required: false },
   { id: "cgpa", label: "CGPA", required: false, validate: (v: any) => (Number(v) >= 0 && Number(v) <= 10) || "Must be 0-10" },
   { id: "tenth_score", label: "10th Score (%)", required: false, validate: (v: any) => (Number(v) >= 0 && Number(v) <= 100) || "Must be 0-100" },
   { id: "twelfth_score", label: "12th Score (%)", required: false, validate: (v: any) => (Number(v) >= 0 && Number(v) <= 100) || "Must be 0-100" },
@@ -56,6 +64,10 @@ const STUDENT_FIELDS = [
   { id: "active_arrears", label: "Active Arrears (Current)", required: false, validate: (v: any) => Number(v) >= 0 || "Cannot be negative" },
   { id: "history_of_arrears", label: "History of Arrears (true/false)", required: false, validate: (v: any) => ["true","false","0","1","yes","no",""].includes(String(v).toLowerCase()) || "Must be true or false" },
   { id: "backlog_count", label: "Total Backlog Count", required: false, validate: (v: any) => Number(v) >= 0 || "Cannot be negative" },
+  { id: "linkedin_url", label: "LinkedIn URL", required: false },
+  { id: "github_url", label: "GitHub URL", required: false },
+  { id: "portfolio_url", label: "Portfolio URL", required: false },
+  { id: "resume_url", label: "Resume URL", required: false },
 ];
 
 interface AdminStudent {
@@ -66,6 +78,7 @@ interface AdminStudent {
   gender?: string;
   dob?: string;
   email?: string;
+  personal_email?: string;
   dept: string;
   year: string;
   cgpa: number;
@@ -158,6 +171,7 @@ function StudentsPageContent() {
   const [newStudent, setNewStudent] = useState({
     name: "",
     email: "",
+    personalEmail: "",
     regNo: "",
     dept: "CSE",
     year: ""
@@ -421,7 +435,7 @@ function StudentsPageContent() {
     try {
       await db.createStudent(newStudent);
       setIsAddModalOpen(false);
-      setNewStudent({ name: "", email: "", regNo: "", dept: "CSE", year: batchOptions[3]?.value || "" });
+      setNewStudent({ name: "", email: "", personalEmail: "", regNo: "", dept: "CSE", year: batchOptions[3]?.value || "" });
       loadStudents(); // Refresh list
     } catch (error) {
       console.error("Failed to add student:", error);
@@ -708,9 +722,14 @@ function StudentsPageContent() {
                         value={editingStudent.name} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Email</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">College Email (Login)</label>
                       <input type="email" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
                         value={editingStudent.email || ''} onChange={e => setEditingStudent({...editingStudent, email: e.target.value})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted">Personal Email</label>
+                      <input type="email" className="w-full px-4 py-3 rounded-xl bg-background border border-border-subtle font-bold text-sm focus:border-primary outline-none transition-all"
+                        value={editingStudent.personal_email || ''} onChange={e => setEditingStudent({...editingStudent, personal_email: e.target.value})} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted">Register Number</label>
@@ -816,6 +835,7 @@ function StudentsPageContent() {
                   onClick={() => handleUpdateProfile(editingStudent.id, {
                     name: editingStudent.name,
                     email: editingStudent.email,
+                    personal_email: editingStudent.personal_email || '',
                     regNo: editingStudent.regNo,
                     rollNo: editingStudent.rollNo,
                     gender: editingStudent.gender,
@@ -914,13 +934,22 @@ function StudentsPageContent() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-muted mb-2">Email Address</label>
+                <label className="block text-xs font-black uppercase tracking-widest text-muted mb-2">College Email (Login)</label>
                 <input 
                   required
                   type="email" 
                   className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background font-medium text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                   value={newStudent.email}
                   onChange={e => setNewStudent({...newStudent, email: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black uppercase tracking-widest text-muted mb-2">Personal Email</label>
+                <input 
+                  type="email" 
+                  className="w-full px-4 py-3 rounded-xl border border-border-subtle bg-background font-medium text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  value={newStudent.personalEmail}
+                  onChange={e => setNewStudent({...newStudent, personalEmail: e.target.value})}
                 />
               </div>
               <div>

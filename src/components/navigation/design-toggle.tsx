@@ -8,6 +8,7 @@ const DESIGN_THEMES = [
   { id: "default", name: "Timespent", class: "" },
   { id: "geometric", name: "Geometric", class: "design-geometric" },
   { id: "hp", name: "HP Enterprise", class: "design-hp" },
+  { id: "sece", name: "SECE Academic", class: "design-sece" },
 ];
 
 const DIcon = ({ className }: { className?: string }) => (

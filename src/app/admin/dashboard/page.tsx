@@ -22,6 +22,7 @@ import {
   LuTriangleAlert
 } from "react-icons/lu";
 import { db } from "@/services/database";
+import { supabase } from "@/lib/supabase";
 import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { cn } from "@/lib/utils";
 import DriveDialog from "../drives/drive-dialog";
@@ -63,6 +64,7 @@ export default function AdminDashboardPage() {
   const [recentDrives, setRecentDrives] = useState<any[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [adminTasks, setAdminTasks] = useState<{ id: string; title: string; count: number }[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isDriveDialogOpen, setIsDriveDialogOpen] = useState(false);
   const currentYear = new Date().getFullYear();
@@ -77,13 +79,15 @@ export default function AdminDashboardPage() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [allDrives, dashboardStats, approvals, activityData, distinctBatches] = await Promise.all([
+      const [allDrives, dashboardStats, approvals, activityData, distinctBatches, tasksResult] = await Promise.all([
         db.getDrives(),   // fetch all, filter client-side so null-batch drives show
         db.getDashboardStats(),
         db.getPendingApprovals(),
         db.getRecentActivity(),
-        db.getDistinctBatches()
+        db.getDistinctBatches(),
+        supabase.from('admin_tasks').select('id, title, count').eq('is_active', true).order('created_at')
       ]);
+      setAdminTasks(tasksResult.data || []);
 
       // Update batch options dynamically (sorted descending: newest first)
       setBatchOptions(distinctBatches);
@@ -104,7 +108,7 @@ export default function AdminDashboardPage() {
         activeDrives: dashboardStats.totalDrives,
         totalOffers: dashboardStats.totalOffers,
         placedStudents: (dashboardStats as any).placedStudents || 0,
-        averagePackage: 8.5,
+        averagePackage: dashboardStats.averagePackage,
         placedPercentage: dashboardStats.totalStudents > 0 
           ? Math.round((((dashboardStats as any).placedStudents || 0) / dashboardStats.totalStudents) * 100) 
           : 0
@@ -383,9 +387,10 @@ export default function AdminDashboardPage() {
           <div className="bg-primary/5 border border-primary/10 rounded-3xl p-6 shadow-inner">
             <h2 className="text-lg font-black tracking-tight text-primary uppercase mb-4">Pending Tasks</h2>
             <div className="space-y-3">
-              <TaskItem title="Verify 2025 student data" count={12} />
-              <TaskItem title="Approve pending registrations" count={45} />
-              <TaskItem title="Update interview results" count={8} />
+              {adminTasks.length > 0
+                ? adminTasks.map(t => <TaskItem key={t.id} title={t.title} count={t.count} />)
+                : <p className="text-xs text-muted font-bold text-center py-2 uppercase">No pending tasks</p>
+              }
             </div>
             <Link 
               href="/admin/data"

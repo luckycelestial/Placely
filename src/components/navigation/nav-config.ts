@@ -5,7 +5,6 @@ import {
   LuUser,
   LuSettings,
   LuFolderOpen,
-  LuBell,
   LuAward,
   LuActivity,
   LuLayers,
@@ -37,9 +36,9 @@ export const STUDENT_NAV_ITEMS = [
     icon: LuActivity,
   },
   {
-    title: "Notifications",
-    href: "/notifications",
-    icon: LuBell,
+    title: "Leaderboard",
+    href: "/leaderboard",
+    icon: LuAward,
   },
   {
     title: "Documents Center",
@@ -59,7 +58,11 @@ export const ADMIN_NAV_ITEMS = [
     href: "/admin/reports",
     icon: LuActivity,
   },
-
+  {
+    title: "Leaderboard",
+    href: "/admin/leaderboard",
+    icon: LuAward,
+  },
   {
     title: "Students",
     href: "/admin/students",
@@ -89,6 +92,11 @@ export const ADMIN_NAV_ITEMS = [
     title: "Notices & Events",
     href: "/admin/notices",
     icon: LuMegaphone,
+  },
+  {
+    title: "Documents Center",
+    href: "/admin/documents",
+    icon: LuFolderOpen,
   },
   {
     title: "Settings",

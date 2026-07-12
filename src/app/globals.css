@@ -22,13 +22,13 @@
   --shadow-tactile: 0 4px 0 0 rgba(0, 0, 0, 0.05);
 }
 
-:root.theme-modern {
+.theme-modern {
   --font-display: var(--font-signika), system-ui, sans-serif;
   --font-sub: var(--font-arya), system-ui, sans-serif;
   --font-sans: var(--font-rubik), system-ui, sans-serif;
 }
 
-:root.design-geometric {
+.design-geometric, html.design-geometric {
   --color-background: #F9FAFB;
   --color-foreground: #1A202C;
   --color-primary: #D35400;
@@ -40,7 +40,7 @@
   --radius-button: 12px;
 }
 
-:root.design-hp {
+.design-hp, html.design-hp {
   --color-background: #ffffff;
   --color-foreground: #1a1a1a;
   --color-primary: #024ad8;
@@ -54,6 +54,383 @@
   --font-sub: var(--font-inter), system-ui, sans-serif;
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --shadow-soft: 0 2px 8px rgba(26, 26, 26, 0.08);
+}
+
+.design-sece, html.design-sece {
+  --color-background: #f1f3f7;
+  --color-foreground: #002556;
+  --color-primary: #0B3A7B;
+  --color-primary-dark: #002556;
+  --color-secondary: #FDB913;
+  --color-surface: #ffffff;
+  --color-muted: #475569;
+  --color-border-subtle: #cbd5e1;
+  --radius-card: 12px;
+  --radius-button: 8px;
+  --font-display: var(--font-ibm-plex), system-ui, sans-serif;
+  --font-sub: var(--font-ibm-plex), system-ui, sans-serif;
+  --font-sans: var(--font-ibm-plex), system-ui, sans-serif;
+  --shadow-soft: 0px 6px 24px rgba(11, 58, 123, 0.12);
+  --shadow-tactile: 0 4px 0 0 rgba(11, 58, 123, 0.15);
+}
+
+/* Sidebar styling for SECE */
+.design-sece aside > div,
+html.design-sece aside > div {
+  background-color: #002556 !important;
+  border-right-color: #0B3A7B !important;
+  color: #ffffff !important;
+}
+.design-sece aside a,
+html.design-sece aside a {
+  color: #d8e2ff !important;
+}
+.design-sece aside a:hover,
+html.design-sece aside a:hover {
+  background-color: rgba(253, 185, 19, 0.15) !important;
+  color: #FDB913 !important;
+}
+.design-sece aside a:hover svg,
+html.design-sece aside a:hover svg {
+  color: #FDB913 !important;
+}
+.design-sece aside a[class*="bg-primary/10"],
+html.design-sece aside a[class*="bg-primary/10"] {
+  background-color: #FDB913 !important;
+  color: #002556 !important;
+}
+.design-sece aside a[class*="bg-primary/10"] svg,
+html.design-sece aside a[class*="bg-primary/10"] svg {
+  color: #002556 !important;
+}
+.design-sece aside a[class*="bg-primary/10"] span,
+html.design-sece aside a[class*="bg-primary/10"] span {
+  color: #002556 !important;
+}
+.design-sece aside .section-label,
+html.design-sece aside .section-label {
+  color: #FDB913 !important;
+}
+.design-sece aside [class*="bg-background"],
+html.design-sece aside [class*="bg-background"] {
+  background-color: #0B3A7B !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+.design-sece aside [class*="bg-background"] p,
+html.design-sece aside [class*="bg-background"] p {
+  color: #ffffff !important;
+}
+.design-sece aside [class*="bg-background"] button,
+html.design-sece aside [class*="bg-background"] button {
+  color: #FDB913 !important;
+}
+
+/* Header styling for SECE */
+.design-sece header,
+html.design-sece header {
+  background-color: #ffffff !important;
+  border-bottom: 2px solid #0B3A7B !important;
+}
+.design-sece header h1, 
+.design-sece header h2, 
+.design-sece header span,
+html.design-sece header h1, 
+html.design-sece header h2, 
+html.design-sece header span {
+  color: #002556 !important;
+}
+.design-sece header [class*="border-l"],
+html.design-sece header [class*="border-l"] {
+  border-left-color: #cbd5e1 !important;
+}
+
+/* Bottom Nav styling for SECE */
+.design-sece nav.fixed.bottom-0,
+html.design-sece nav.fixed.bottom-0 {
+  background-color: #002556 !important;
+  border-top: 2px solid #0B3A7B !important;
+}
+.design-sece nav.fixed.bottom-0 a,
+html.design-sece nav.fixed.bottom-0 a {
+  color: #adc6ff !important;
+}
+.design-sece nav.fixed.bottom-0 a.text-primary,
+html.design-sece nav.fixed.bottom-0 a.text-primary {
+  color: #FDB913 !important;
+}
+
+/* Alternating Card Styles in grids for SECE */
+.design-sece .grid > .app-card:nth-child(4n+1),
+.design-sece .grid > a:nth-child(4n+1) > .app-card,
+.design-sece .grid > div:nth-child(4n+1) > .app-card,
+html.design-sece .grid > .app-card:nth-child(4n+1),
+html.design-sece .grid > a:nth-child(4n+1) > .app-card,
+html.design-sece .grid > div:nth-child(4n+1) > .app-card {
+  background-color: #0B3A7B !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0px 8px 25px rgba(11, 58, 123, 0.25) !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+1) *,
+.design-sece .grid > a:nth-child(4n+1) > .app-card *,
+.design-sece .grid > div:nth-child(4n+1) > .app-card *,
+html.design-sece .grid > .app-card:nth-child(4n+1) *,
+html.design-sece .grid > a:nth-child(4n+1) > .app-card *,
+html.design-sece .grid > div:nth-child(4n+1) > .app-card * {
+  color: #ffffff !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+1) .section-label,
+.design-sece .grid > a:nth-child(4n+1) > .app-card .section-label,
+.design-sece .grid > div:nth-child(4n+1) > .app-card .section-label,
+html.design-sece .grid > .app-card:nth-child(4n+1) .section-label,
+html.design-sece .grid > a:nth-child(4n+1) > .app-card .section-label,
+html.design-sece .grid > div:nth-child(4n+1) > .app-card .section-label {
+  color: #FDB913 !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+1) svg,
+.design-sece .grid > a:nth-child(4n+1) > .app-card svg,
+.design-sece .grid > div:nth-child(4n+1) > .app-card svg,
+html.design-sece .grid > .app-card:nth-child(4n+1) svg,
+html.design-sece .grid > a:nth-child(4n+1) > .app-card svg,
+html.design-sece .grid > div:nth-child(4n+1) > .app-card svg {
+  color: #FDB913 !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+1) [class*="bg-background"],
+.design-sece .grid > a:nth-child(4n+1) > .app-card [class*="bg-background"],
+.design-sece .grid > div:nth-child(4n+1) > .app-card [class*="bg-background"],
+.design-sece .grid > .app-card:nth-child(4n+1) [class*="bg-surface"],
+.design-sece .grid > a:nth-child(4n+1) > .app-card [class*="bg-surface"],
+.design-sece .grid > div:nth-child(4n+1) > .app-card [class*="bg-surface"],
+html.design-sece .grid > .app-card:nth-child(4n+1) [class*="bg-background"],
+html.design-sece .grid > a:nth-child(4n+1) > .app-card [class*="bg-background"],
+html.design-sece .grid > div:nth-child(4n+1) > .app-card [class*="bg-background"],
+html.design-sece .grid > .app-card:nth-child(4n+1) [class*="bg-surface"],
+html.design-sece .grid > a:nth-child(4n+1) > .app-card [class*="bg-surface"],
+html.design-sece .grid > div:nth-child(4n+1) > .app-card [class*="bg-surface"] {
+  background-color: #002556 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.design-sece .grid > .app-card:nth-child(4n+2),
+.design-sece .grid > a:nth-child(4n+2) > .app-card,
+.design-sece .grid > div:nth-child(4n+2) > .app-card,
+html.design-sece .grid > .app-card:nth-child(4n+2),
+html.design-sece .grid > a:nth-child(4n+2) > .app-card,
+html.design-sece .grid > div:nth-child(4n+2) > .app-card {
+  background-color: #FDB913 !important;
+  color: #002556 !important;
+  border: none !important;
+  box-shadow: 0px 8px 25px rgba(253, 185, 19, 0.25) !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+2) *,
+.design-sece .grid > a:nth-child(4n+2) > .app-card *,
+.design-sece .grid > div:nth-child(4n+2) > .app-card *,
+html.design-sece .grid > .app-card:nth-child(4n+2) *,
+html.design-sece .grid > a:nth-child(4n+2) > .app-card *,
+html.design-sece .grid > div:nth-child(4n+2) > .app-card * {
+  color: #002556 !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+2) .section-label,
+.design-sece .grid > a:nth-child(4n+2) > .app-card .section-label,
+.design-sece .grid > div:nth-child(4n+2) > .app-card .section-label,
+html.design-sece .grid > .app-card:nth-child(4n+2) .section-label,
+html.design-sece .grid > a:nth-child(4n+2) > .app-card .section-label,
+html.design-sece .grid > div:nth-child(4n+2) > .app-card .section-label {
+  color: #0B3A7B !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+2) svg,
+.design-sece .grid > a:nth-child(4n+2) > .app-card svg,
+.design-sece .grid > div:nth-child(4n+2) > .app-card svg,
+html.design-sece .grid > .app-card:nth-child(4n+2) svg,
+html.design-sece .grid > a:nth-child(4n+2) > .app-card svg,
+html.design-sece .grid > div:nth-child(4n+2) > .app-card svg {
+  color: #0B3A7B !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+2) [class*="bg-background"],
+.design-sece .grid > a:nth-child(4n+2) > .app-card [class*="bg-background"],
+.design-sece .grid > div:nth-child(4n+2) > .app-card [class*="bg-background"],
+.design-sece .grid > .app-card:nth-child(4n+2) [class*="bg-surface"],
+.design-sece .grid > a:nth-child(4n+2) > .app-card [class*="bg-surface"],
+.design-sece .grid > div:nth-child(4n+2) > .app-card [class*="bg-surface"],
+html.design-sece .grid > .app-card:nth-child(4n+2) [class*="bg-background"],
+html.design-sece .grid > a:nth-child(4n+2) > .app-card [class*="bg-background"],
+html.design-sece .grid > div:nth-child(4n+2) > .app-card [class*="bg-background"],
+html.design-sece .grid > .app-card:nth-child(4n+2) [class*="bg-surface"],
+html.design-sece .grid > a:nth-child(4n+2) > .app-card [class*="bg-surface"],
+html.design-sece .grid > div:nth-child(4n+2) > .app-card [class*="bg-surface"] {
+  background-color: #0B3A7B !important;
+  border-color: rgba(11, 58, 123, 0.1) !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+2) [class*="bg-background"] *,
+.design-sece .grid > a:nth-child(4n+2) > .app-card [class*="bg-background"] *,
+.design-sece .grid > div:nth-child(4n+2) > .app-card [class*="bg-background"] *,
+html.design-sece .grid > .app-card:nth-child(4n+2) [class*="bg-background"] *,
+html.design-sece .grid > a:nth-child(4n+2) > .app-card [class*="bg-background"] *,
+html.design-sece .grid > div:nth-child(4n+2) > .app-card [class*="bg-background"] * {
+  color: #ffffff !important;
+}
+
+.design-sece .grid > .app-card:nth-child(4n+3),
+.design-sece .grid > a:nth-child(4n+3) > .app-card,
+.design-sece .grid > div:nth-child(4n+3) > .app-card,
+html.design-sece .grid > .app-card:nth-child(4n+3),
+html.design-sece .grid > a:nth-child(4n+3) > .app-card,
+html.design-sece .grid > div:nth-child(4n+3) > .app-card {
+  background-color: #d8e2ff !important;
+  color: #0B3A7B !important;
+  border: none !important;
+  box-shadow: 0px 8px 25px rgba(216, 226, 255, 0.4) !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+3) *,
+.design-sece .grid > a:nth-child(4n+3) > .app-card *,
+.design-sece .grid > div:nth-child(4n+3) > .app-card *,
+html.design-sece .grid > .app-card:nth-child(4n+3) *,
+html.design-sece .grid > a:nth-child(4n+3) > .app-card *,
+html.design-sece .grid > div:nth-child(4n+3) > .app-card * {
+  color: #0B3A7B !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+3) .section-label,
+.design-sece .grid > a:nth-child(4n+3) > .app-card .section-label,
+.design-sece .grid > div:nth-child(4n+3) > .app-card .section-label,
+html.design-sece .grid > .app-card:nth-child(4n+3) .section-label,
+html.design-sece .grid > a:nth-child(4n+3) > .app-card .section-label,
+html.design-sece .grid > div:nth-child(4n+3) > .app-card .section-label {
+  color: #1c4586 !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+3) svg,
+.design-sece .grid > a:nth-child(4n+3) > .app-card svg,
+.design-sece .grid > div:nth-child(4n+3) > .app-card svg,
+html.design-sece .grid > .app-card:nth-child(4n+3) svg,
+html.design-sece .grid > a:nth-child(4n+3) > .app-card svg,
+html.design-sece .grid > div:nth-child(4n+3) > .app-card svg {
+  color: #0B3A7B !important;
+}
+.design-sece .grid > .app-card:nth-child(4n+3) [class*="bg-background"],
+.design-sece .grid > a:nth-child(4n+3) > .app-card [class*="bg-background"],
+.design-sece .grid > div:nth-child(4n+3) > .app-card [class*="bg-background"],
+.design-sece .grid > .app-card:nth-child(4n+3) [class*="bg-surface"],
+.design-sece .grid > a:nth-child(4n+3) > .app-card [class*="bg-surface"],
+.design-sece .grid > div:nth-child(4n+3) > .app-card [class*="bg-surface"],
+html.design-sece .grid > .app-card:nth-child(4n+3) [class*="bg-background"],
+html.design-sece .grid > a:nth-child(4n+3) > .app-card [class*="bg-background"],
+html.design-sece .grid > div:nth-child(4n+3) > .app-background [class*="bg-background"],
+html.design-sece .grid > .app-card:nth-child(4n+3) [class*="bg-surface"],
+html.design-sece .grid > a:nth-child(4n+3) > .app-surface [class*="bg-surface"],
+html.design-sece .grid > div:nth-child(4n+3) > .app-surface [class*="bg-surface"] {
+  background-color: #ffffff !important;
+  border-color: rgba(11, 58, 123, 0.1) !important;
+}
+
+.design-sece .grid > .app-card:nth-child(4n),
+.design-sece .grid > a:nth-child(4n) > .app-card,
+.design-sece .grid > div:nth-child(4n) > .app-card,
+html.design-sece .grid > .app-card:nth-child(4n),
+html.design-sece .grid > a:nth-child(4n) > .app-card,
+html.design-sece .grid > div:nth-child(4n) > .app-card {
+  background-color: #ffffff !important;
+  color: #002556 !important;
+  border-top: 4px solid #FDB913 !important;
+  border-left: 1px solid #cbd5e1 !important;
+  border-right: 1px solid #cbd5e1 !important;
+  border-bottom: 1px solid #cbd5e1 !important;
+  box-shadow: 0px 8px 25px rgba(0, 0, 0, 0.05) !important;
+}
+.design-sece .grid > .app-card:nth-child(4n) *,
+.design-sece .grid > a:nth-child(4n) > .app-card *,
+.design-sece .grid > div:nth-child(4n) > .app-card *,
+html.design-sece .grid > .app-card:nth-child(4n) *,
+html.design-sece .grid > a:nth-child(4n) > .app-card *,
+html.design-sece .grid > div:nth-child(4n) > .app-card * {
+  color: #002556 !important;
+}
+.design-sece .grid > .app-card:nth-child(4n) .section-label,
+.design-sece .grid > a:nth-child(4n) > .app-card .section-label,
+.design-sece .grid > div:nth-child(4n) > .app-card .section-label,
+html.design-sece .grid > .app-card:nth-child(4n) .section-label,
+html.design-sece .grid > a:nth-child(4n) > .app-card .section-label,
+html.design-sece .grid > div:nth-child(4n) > .app-card .section-label {
+  color: #475569 !important;
+}
+.design-sece .grid > .app-card:nth-child(4n) svg,
+.design-sece .grid > a:nth-child(4n) > .app-card svg,
+.design-sece .grid > div:nth-child(4n) > .app-card svg,
+html.design-sece .grid > .app-card:nth-child(4n) svg,
+html.design-sece .grid > a:nth-child(4n) > .app-card svg,
+html.design-sece .grid > div:nth-child(4n) > .app-card svg {
+  color: #0B3A7B !important;
+}
+.design-sece .grid > .app-card:nth-child(4n) [class*="bg-background"],
+.design-sece .grid > a:nth-child(4n) > .app-card [class*="bg-background"],
+.design-sece .grid > div:nth-child(4n) > .app-card [class*="bg-background"],
+.design-sece .grid > .app-card:nth-child(4n) [class*="bg-surface"],
+.design-sece .grid > a:nth-child(4n) > .app-card [class*="bg-surface"],
+.design-sece .grid > div:nth-child(4n) > .app-card [class*="bg-surface"],
+html.design-sece .grid > .app-card:nth-child(4n) [class*="bg-background"],
+html.design-sece .grid > a:nth-child(4n) > .app-card [class*="bg-background"],
+html.design-sece .grid > div:nth-child(4n) > .app-background [class*="bg-background"],
+html.design-sece .grid > .app-card:nth-child(4n) [class*="bg-surface"],
+html.design-sece .grid > a:nth-child(4n) > .app-surface [class*="bg-surface"],
+html.design-sece .grid > div:nth-child(4n) > .app-surface [class*="bg-surface"] {
+  background-color: #f8f9fb !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Individual full-width cards */
+.design-sece .app-card:not(.grid > .app-card):not(.grid > a > .app-card):not(.grid > div > .app-card),
+html.design-sece .app-card:not(.grid > .app-card):not(.grid > a > .app-card):not(.grid > div > .app-card) {
+  border-left: 5px solid #0B3A7B !important;
+}
+
+/* SECE buttons customization */
+.design-sece .btn-primary,
+html.design-sece .btn-primary {
+  background-color: #FDB913 !important;
+  color: #002556 !important;
+  box-shadow: 0 4px 14px rgba(253, 185, 19, 0.4) !important;
+  font-family: var(--font-ibm-plex);
+}
+.design-sece .btn-primary:hover,
+html.design-sece .btn-primary:hover {
+  background-color: #e2a50e !important;
+}
+.design-sece .btn-secondary,
+html.design-sece .btn-secondary {
+  background-color: #0B3A7B !important;
+  color: #ffffff !important;
+  border-color: #0B3A7B !important;
+  box-shadow: 0 4px 14px rgba(11, 58, 123, 0.2) !important;
+  font-family: var(--font-ibm-plex);
+}
+.design-sece .btn-secondary:hover,
+html.design-sece .btn-secondary:hover {
+  background-color: #002556 !important;
+}
+
+/* Input elements focus */
+.design-sece input:focus, 
+.design-sece select:focus, 
+.design-sece textarea:focus,
+html.design-sece input:focus, 
+html.design-sece select:focus, 
+html.design-sece textarea:focus {
+  border-color: #0B3A7B !important;
+  box-shadow: 0 0 0 2px rgba(11, 58, 123, 0.15) !important;
+}
+
+/* Headings colors */
+.design-sece h1,
+.design-sece h2,
+.design-sece h3,
+.design-sece h4,
+.design-sece h2 *,
+.design-sece h3 *,
+html.design-sece h1,
+html.design-sece h2,
+html.design-sece h3,
+html.design-sece h4,
+html.design-sece h2 *,
+html.design-sece h3 * {
+  color: #002556;
 }
 
 @layer base {
@@ -200,15 +577,29 @@ select {
   background-color: var(--color-surface);
   color: var(--color-foreground);
   border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
+  padding: 8px 32px 8px 12px;
   font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 0.75rem;
   outline: none;
   transition: all 0.2s ease;
   cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
 }
 
 select:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(255, 56, 60, 0.15);
+}
+
+select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 option {

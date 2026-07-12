@@ -1,25 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LuX, LuUsers, LuCalendar, LuClock, LuMapPin, LuCircleCheck, LuCircleX, LuSearch } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import type { Event } from "./event-dialog";
 import { toast } from "sonner";
-
-// Simulated RSVP data
-const generateRSVPs = (eventId: string) => {
-  const names = [
-    { name: "Arun Kumar", roll: "21CS001", branch: "CSE", status: "Confirmed" },
-    { name: "Priya Sharma", roll: "21CS042", branch: "CSE", status: "Confirmed" },
-    { name: "Rohit Verma", roll: "21EC015", branch: "ECE", status: "Confirmed" },
-    { name: "Sneha Patel", roll: "21CS078", branch: "CSE", status: "Pending" },
-    { name: "Kiran Raj", roll: "21ME023", branch: "MECH", status: "Pending" },
-    { name: "Anjali Nair", roll: "21CS056", branch: "AI&DS", status: "Declined" },
-    { name: "Vikram Singh", roll: "21EC031", branch: "ECE", status: "Confirmed" },
-    { name: "Deepa Krishnan", roll: "21CS089", branch: "CSE", status: "Confirmed" },
-  ];
-  return names.map((n, i) => ({ ...n, id: `${eventId}_rsvp_${i}` }));
-};
+import { supabase } from "@/lib/supabase";
 
 interface RSVPModalProps {
   isOpen: boolean;
@@ -29,17 +15,50 @@ interface RSVPModalProps {
 
 type RSVPStatus = "Confirmed" | "Pending" | "Declined";
 
+interface RSVPRow {
+  id: string;
+  student_name: string;
+  roll_number: string;
+  branch: string;
+  status: RSVPStatus;
+}
+
 export default function RSVPModal({ isOpen, onClose, event }: RSVPModalProps) {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<RSVPStatus | "All">("All");
+  const [allRSVPs, setAllRSVPs] = useState<RSVPRow[]>([]);
+
+  useEffect(() => {
+    if (!isOpen || !event) return;
+    (async () => {
+      // Fetch RSVPs for this specific notice; fall back to __demo__ seed data if none
+      const { data, error } = await supabase
+        .from('notice_rsvps')
+        .select('id, student_name, roll_number, branch, status')
+        .eq('notice_id', event.id);
+
+      if (error) { console.error('notice_rsvps fetch error:', error); }
+
+      const rows: RSVPRow[] = (data && data.length > 0) ? data as RSVPRow[] : await (async () => {
+        const { data: demo } = await supabase
+          .from('notice_rsvps')
+          .select('id, student_name, roll_number, branch, status')
+          .eq('notice_id', '__demo__');
+        return (demo || []) as RSVPRow[];
+      })();
+
+      setAllRSVPs(rows);
+    })();
+    setSearch("");
+    setFilterStatus("All");
+  }, [isOpen, event]);
 
   if (!isOpen || !event) return null;
 
-  const allRSVPs = generateRSVPs(event.id);
   const filtered = allRSVPs.filter((r) => {
     const matchSearch =
-      r.name.toLowerCase().includes(search.toLowerCase()) ||
-      r.roll.toLowerCase().includes(search.toLowerCase()) ||
+      r.student_name.toLowerCase().includes(search.toLowerCase()) ||
+      r.roll_number.toLowerCase().includes(search.toLowerCase()) ||
       r.branch.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === "All" || r.status === filterStatus;
     return matchSearch && matchStatus;
@@ -144,11 +163,11 @@ export default function RSVPModal({ isOpen, onClose, event }: RSVPModalProps) {
                   className="flex items-center gap-4 p-4 rounded-2xl bg-background border border-border-subtle/50 hover:border-border-subtle transition-all"
                 >
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm shrink-0">
-                    {rsvp.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                    {rsvp.student_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-black text-sm">{rsvp.name}</p>
-                    <p className="text-[10px] font-bold text-muted">{rsvp.roll} · {rsvp.branch}</p>
+                    <p className="font-black text-sm">{rsvp.student_name}</p>
+                    <p className="text-[10px] font-bold text-muted">{rsvp.roll_number} · {rsvp.branch}</p>
                   </div>
                   <span
                     className={cn(

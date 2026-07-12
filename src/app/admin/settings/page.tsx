@@ -20,7 +20,9 @@ import {
 import { cn } from "@/lib/utils";
 import { 
   getSystemSettings, 
-  updateSystemSettings 
+  updateSystemSettings,
+  getSettingByKey,
+  updateSettingByKey
 } from "@/services/settings";
 import { getBatchList, getRomanYear } from "@/lib/batch-utils";
 import { toast } from "sonner";
@@ -39,12 +41,27 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState("general");
   const [isCompleted, setIsCompleted] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(true);
+  const [oneStudentOneJob, setOneStudentOneJob] = useState(false);
+  const [defaultAtsStages, setDefaultAtsStages] = useState<any[]>([]);
+  const [newStageInput, setNewStageInput] = useState("");
 
   useEffect(() => {
     async function load() {
       try {
-        const sysData = await getSystemSettings();
+        const [sysData, policyVal, stagesVal] = await Promise.all([
+          getSystemSettings(),
+          getSettingByKey<boolean>('one_student_one_job_policy', false),
+          getSettingByKey<any[]>('default_ats_stages', [
+            { id: "applied", name: "Applied", color: "bg-slate-500" },
+            { id: "shortlisted", name: "Shortlisted", color: "bg-blue-500" },
+            { id: "interview1", name: "Tech Round 1", color: "bg-purple-500" },
+            { id: "interview2", name: "Tech Round 2", color: "bg-indigo-500" },
+            { id: "selection", name: "Selection", color: "bg-emerald-500" },
+          ])
+        ]);
         setIsCompleted(sysData.isAcademicYearCompleted);
+        setOneStudentOneJob(policyVal);
+        setDefaultAtsStages(stagesVal);
       } catch (err) {
         console.error(err);
       } finally {
@@ -54,6 +71,49 @@ export default function SettingsPage() {
     load();
   }, []);
 
+  const handleAddDefaultStage = async () => {
+    if (!newStageInput.trim()) return;
+    const newStageName = newStageInput.trim();
+    const stageId = newStageName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    
+    if (defaultAtsStages.some(s => s.id === stageId)) {
+      toast.error("Stage ID already exists");
+      return;
+    }
+
+    const newStage = {
+      id: stageId,
+      name: newStageName,
+      color: "bg-purple-500"
+    };
+    const nextVal = [...defaultAtsStages, newStage];
+    setDefaultAtsStages(nextVal);
+    setNewStageInput("");
+    try {
+      await updateSettingByKey('default_ats_stages', nextVal);
+      toast.success("Default recruitment stage added");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save default stages");
+    }
+  };
+
+  const handleRemoveDefaultStage = async (id: string) => {
+    if (id === "applied" || id === "selection") {
+      toast.error("Applied and Selection stages cannot be deleted");
+      return;
+    }
+    const nextVal = defaultAtsStages.filter(s => s.id !== id);
+    setDefaultAtsStages(nextVal);
+    try {
+      await updateSettingByKey('default_ats_stages', nextVal);
+      toast.success("Default recruitment stage removed");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save default stages");
+    }
+  };
+
   const handleToggleCompletion = async () => {
     const nextVal = !isCompleted;
     setIsCompleted(nextVal);
@@ -61,6 +121,18 @@ export default function SettingsPage() {
       await updateSystemSettings({ isAcademicYearCompleted: nextVal });
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleTogglePolicy = async () => {
+    const nextVal = !oneStudentOneJob;
+    setOneStudentOneJob(nextVal);
+    try {
+      await updateSettingByKey<boolean>('one_student_one_job_policy', nextVal);
+      toast.success(`One Student One Job Policy ${nextVal ? 'enabled' : 'disabled'}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update policy");
     }
   };
 
@@ -274,26 +346,68 @@ export default function SettingsPage() {
                 <div className="space-y-4">
                   <h4 className="text-xs font-black uppercase tracking-[0.2em] text-primary">Global Preferences</h4>
                   <div className="space-y-3">
-                    {[
-                      { label: "One Student One Job Policy", desc: "Allow students to apply for multiple jobs even after receiving one offer.", enabled: false },
-                      { label: "Dream Company Provision", desc: "Allow students to apply for 'Dream' companies after one regular offer.", enabled: true }
-                    ].map((pref) => (
-                      <div key={pref.label} className="flex items-center justify-between p-4 rounded-2xl border border-border-subtle hover:bg-background transition-colors">
-                        <div>
-                          <p className="text-sm font-bold">{pref.label}</p>
-                          <p className="text-[11px] font-medium text-muted">{pref.desc}</p>
-                        </div>
-                        <div className={cn(
-                          "w-12 h-6 rounded-full relative transition-all cursor-pointer p-1",
-                          pref.enabled ? "bg-primary" : "bg-muted/30"
-                        )}>
-                          <div className={cn(
-                            "h-4 w-4 rounded-full bg-surface transition-all shadow-sm",
-                            pref.enabled ? "ml-6" : "ml-0"
-                          )} />
-                        </div>
+                    <div className="flex items-center justify-between p-4 rounded-2xl border border-border-subtle hover:bg-background transition-colors">
+                      <div>
+                        <p className="text-sm font-bold">One Student One Job Policy</p>
+                        <p className="text-[11px] font-medium text-muted">Prevent students from applying for multiple jobs after receiving a placement offer.</p>
                       </div>
-                    ))}
+                      <div 
+                        onClick={handleTogglePolicy}
+                        className={cn(
+                          "w-12 h-6 rounded-full relative transition-all cursor-pointer p-1",
+                          oneStudentOneJob ? "bg-primary" : "bg-muted/30"
+                        )}
+                      >
+                        <div className={cn(
+                          "h-4 w-4 rounded-full bg-surface transition-all shadow-sm",
+                          oneStudentOneJob ? "ml-6" : "ml-0"
+                        )} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Default Recruitment Stages Editor */}
+                <div className="space-y-4 pt-6 border-t border-border-subtle/50">
+                  <h4 className="text-xs font-black uppercase tracking-[0.2em] text-primary">Default Recruitment Pipeline Stages</h4>
+                  <p className="text-xs text-muted font-medium mb-3">Customize the default tracking stages used for new drives.</p>
+                  
+                  <div className="flex flex-wrap gap-2.5 p-5 bg-background rounded-2xl border border-border-subtle">
+                    {defaultAtsStages.map((stage) => {
+                      const isEssential = stage.id === "applied" || stage.id === "selection";
+                      return (
+                        <div key={stage.id} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border-subtle bg-surface text-xs font-bold shadow-sm">
+                          <span className={cn("h-2.5 w-2.5 rounded-full", stage.color || "bg-purple-500")} />
+                          <span>{stage.name}</span>
+                          {!isEssential && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDefaultStage(stage.id)}
+                              className="text-muted hover:text-red-500 transition-colors ml-1"
+                            >
+                              <LuX size={14} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. Technical Assessment, HR Round"
+                      value={newStageInput}
+                      onChange={(e) => setNewStageInput(e.target.value)}
+                      className="flex-1 px-4 py-3 rounded-xl border border-border-subtle bg-background text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddDefaultStage}
+                      className="flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-tactile hover:bg-primary-dark transition-all cursor-pointer"
+                    >
+                      <LuPlus size={14} /> Add Stage
+                    </button>
                   </div>
                 </div>
               </div>

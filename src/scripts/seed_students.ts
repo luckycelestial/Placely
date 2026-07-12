@@ -92,6 +92,7 @@ async function seedStudents() {
           .from('students')
           .insert([{
             user_id: userData.id,
+            name: fullName,
             register_number: regNo,
             roll_number: rollNo,
             gender: gender,

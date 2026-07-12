@@ -17,6 +17,7 @@ export interface Drive {
     min_cgpa: number;
     backlogs_allowed: number;
     history_of_arrears: boolean;
+    bypass_placement_lock_students?: string[];
   };
   companies: {
     name: string;
@@ -44,6 +45,9 @@ export interface StudentInfo {
   cgpa: number;
   backlogs: number;
   history_of_arrears: boolean;
+  isPlacementLocked?: boolean;
+  registerNumber?: string;
+  id?: string;
 }
 
 export interface DriveFilters {
@@ -67,6 +71,14 @@ export function resolveDriveState(
 
   const rules = drive.eligibility_rules || {};
   const ineligibleReasons: string[] = [];
+
+  // Placement lock check — overrides all eligibility unless whitelisted
+  const bypassList = (rules as any).bypass_placement_lock_students || [];
+  const isBypassed = bypassList.includes(studentInfo.registerNumber || '') || bypassList.includes(studentInfo.id || '');
+
+  if (studentInfo.isPlacementLocked && !isBypassed) {
+    ineligibleReasons.push('Placement Lock is Active — already offered a position');
+  }
 
   if (rules.branches && rules.branches.length > 0 && !rules.branches.includes(studentInfo.branch)) {
     ineligibleReasons.push(`Not open to ${studentInfo.branch} branch`);

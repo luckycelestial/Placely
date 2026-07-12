@@ -15,6 +15,7 @@ interface SearchableSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export function SearchableSelect({
@@ -22,7 +23,8 @@ export function SearchableSelect({
   value,
   onChange,
   placeholder = "Select...",
-  className
+  className,
+  disabled = false
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -40,6 +42,13 @@ export function SearchableSelect({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Close when disabled changes to true
+  useEffect(() => {
+    if (disabled) {
+      setIsOpen(false);
+    }
+  }, [disabled]);
+
   const filteredOptions = options.filter(option => 
     option.label.toLowerCase().includes(search.toLowerCase())
   );
@@ -48,8 +57,12 @@ export function SearchableSelect({
     <div className={cn("relative w-full", className)} ref={dropdownRef}>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between rounded-lg border border-border-subtle bg-background px-3 py-2 text-xs font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-primary/50 transition-colors truncate"
+        className={cn(
+          "w-full flex items-center justify-between rounded-lg border border-border-subtle bg-surface px-3 py-2 text-xs font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-primary/50 transition-colors truncate",
+          disabled ? "opacity-50 cursor-not-allowed" : "hover:border-primary/50"
+        )}
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
@@ -58,7 +71,7 @@ export function SearchableSelect({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-full z-[100] bg-background rounded-xl border border-border-subtle shadow-2xl overflow-hidden flex flex-col max-h-[300px]">
+        <div className="absolute top-full left-0 mt-1 w-full z-[100] bg-surface rounded-xl border border-border-subtle shadow-2xl overflow-hidden flex flex-col max-h-[300px]">
           <div className="p-2 border-b border-border-subtle flex items-center gap-2 bg-surface/50">
             <LuSearch size={14} className="text-muted ml-1" />
             <input
@@ -71,7 +84,7 @@ export function SearchableSelect({
             />
           </div>
           
-          <div className="overflow-y-auto no-scrollbar flex-1 p-1 bg-background">
+          <div className="overflow-y-auto no-scrollbar flex-1 p-1 bg-surface">
             {filteredOptions.length === 0 ? (
               <div className="py-4 text-center text-xs text-muted">
                 No results found

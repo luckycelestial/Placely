@@ -15,9 +15,33 @@ import {
   LuPlus,
   LuX
 } from "react-icons/lu";
-import { cn } from "@/lib/utils";
+import { cn, isStudentInAudience } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { DEV_STUDENT_ID } from "@/lib/dev-config";
+import { toast } from "sonner";
+import { getSystemSettings, getSettingByKey } from "@/services/settings";
+import { getYearFromBatch, getBatchRangeFromYear, getRomanYear } from "@/lib/batch-utils";
+
+function getGoogleDrivePreviewUrl(url: string): string | null {
+  if (!url) return null;
+  const fileIdMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+  if (fileIdMatch && fileIdMatch[1]) {
+    return `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
+  }
+  const docIdMatch = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+  if (docIdMatch && docIdMatch[1]) {
+    return `https://docs.google.com/document/d/${docIdMatch[1]}/preview`;
+  }
+  const sheetIdMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (sheetIdMatch && sheetIdMatch[1]) {
+    return `https://docs.google.com/spreadsheets/d/${sheetIdMatch[1]}/preview`;
+  }
+  const presIdMatch = url.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
+  if (presIdMatch && presIdMatch[1]) {
+    return `https://docs.google.com/presentation/d/${presIdMatch[1]}/preview`;
+  }
+  return null;
+}
 
 interface Document {
   id: string;
@@ -92,8 +116,8 @@ export default function DocumentsCenterPage() {
   const [reference, setReference] = useState("");
   const [isRequired, setIsRequired] = useState(false);
   
-  // File upload state
-  const [uploadingFile, setUploadingFile] = useState(false);
+  const [validatingLink, setValidatingLink] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
 
   const clearForm = () => {
     setTitle("");
@@ -102,12 +126,30 @@ export default function DocumentsCenterPage() {
     setReference("");
     setIsRequired(false);
     setSelectedDoc(null);
-    setUploadingFile(false);
+    setValidatingLink(false);
   };
 
   const fetchDocs = async () => {
     try {
       setLoading(true);
+
+      // Fetch current student details
+      const { data: student, error: studentErr } = await supabase
+        .from('students')
+        .select(`
+          id,
+          year,
+          department,
+          student_profiles (specializations),
+          student_preferences (work_mode_preference)
+        `)
+        .eq('id', DEV_STUDENT_ID)
+        .maybeSingle();
+
+      if (studentErr) {
+        console.warn("Failed to fetch student profile details:", studentErr);
+      }
+
       const { data: existingDocs, error } = await supabase
         .from('student_documents')
         .select('*')
@@ -115,17 +157,72 @@ export default function DocumentsCenterPage() {
 
       if (error) throw error;
 
+      // Fetch active document request notices
+      const { data: noticesData } = await supabase
+        .from('notices')
+        .select('*')
+        .eq('status', 'published');
+
+      // Load system settings to check if academic year is completed
+      const settings = await getSystemSettings();
+      const isCompleted = settings.isAcademicYearCompleted;
+
+      // Prepare student info for matching notice audience
+      let studentBatchLabel = "";
+      let studentSpecializations: string[] = [];
+      let studentPlacementGroup = "";
+
+      if (student) {
+        if (student.year) {
+          const range = getBatchRangeFromYear(student.year);
+          const yearNum = getYearFromBatch(student.year, isCompleted);
+          studentBatchLabel = `${range.startYear} - ${range.endYear} : ${getRomanYear(yearNum)}`;
+        }
+        
+        const profiles = student.student_profiles;
+        if (profiles) {
+          studentSpecializations = (Array.isArray(profiles) ? profiles[0] : profiles)?.specializations || [];
+        }
+
+        const preferences = student.student_preferences;
+        if (preferences) {
+          const rawPref = (Array.isArray(preferences) ? preferences[0] : preferences)?.work_mode_preference || "";
+          if (rawPref.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(rawPref);
+              studentPlacementGroup = parsed["placement_groups"] || parsed["placement_group"] || "";
+            } catch (e) {
+              studentPlacementGroup = rawPref;
+            }
+          } else {
+            studentPlacementGroup = rawPref;
+          }
+        }
+      }
+
+      // Fetch deleted default documents settings
+      let deletedDefaults: string[] = [];
+      try {
+        deletedDefaults = await getSettingByKey<string[]>('deleted_default_documents', []);
+      } catch (err) {
+        console.warn("Failed to load deleted default documents settings:", err);
+      }
+
+      let mapped: Document[] = [];
+
       if (!existingDocs || existingDocs.length === 0) {
         // Seed initial documents in database
-        const initialDocs = INITIAL_DOCUMENTS.map(doc => ({
-          student_id: DEV_STUDENT_ID,
-          title: doc.title,
-          document_type: doc.type,
-          url: doc.reference,
-          storage_path: doc.format === "file" ? doc.reference : "",
-          is_required: doc.isRequired,
-          verification_status: doc.status,
-        }));
+        const initialDocs = INITIAL_DOCUMENTS
+          .filter(d => !deletedDefaults.some(deleted => deleted.toLowerCase() === d.title.toLowerCase()))
+          .map(doc => ({
+            student_id: DEV_STUDENT_ID,
+            title: doc.title,
+            document_type: doc.type,
+            url: doc.reference,
+            storage_path: doc.format === "file" ? doc.reference : "",
+            is_required: doc.isRequired,
+            verification_status: doc.status,
+          }));
         
         const { data: inserted, error: insertError } = await supabase
           .from('student_documents')
@@ -134,7 +231,7 @@ export default function DocumentsCenterPage() {
 
         if (insertError) throw insertError;
         
-        const mapped = (inserted || []).map(doc => ({
+        mapped = (inserted || []).map(doc => ({
           id: doc.id,
           title: doc.title,
           type: doc.document_type,
@@ -144,20 +241,78 @@ export default function DocumentsCenterPage() {
           status: (doc.verification_status === "Verified" || doc.verification_status === "Completed") ? ("Completed" as const) : (doc.verification_status as any),
           isRequired: doc.is_required
         }));
-        setDocumentsList(mapped);
       } else {
-        const mapped = existingDocs.map(doc => ({
-          id: doc.id,
-          title: doc.title,
-          type: doc.document_type,
-          format: doc.storage_path ? ('file' as const) : ('link' as const),
-          reference: doc.url || 'Not Provided',
-          timestamp: doc.updated_at ? new Date(doc.updated_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : 'N/A',
-          status: (doc.verification_status === "Verified" || doc.verification_status === "Completed") ? ("Completed" as const) : (doc.verification_status as any),
-          isRequired: doc.is_required
-        }));
-        setDocumentsList(mapped);
+        mapped = existingDocs
+          .filter(doc => doc.title && !deletedDefaults.some(deleted => deleted.toLowerCase() === doc.title.toLowerCase()))
+          .map(doc => ({
+            id: doc.id,
+            title: doc.title,
+            type: doc.document_type,
+            format: doc.storage_path ? ('file' as const) : ('link' as const),
+            reference: doc.url || 'Not Provided',
+            timestamp: doc.updated_at ? new Date(doc.updated_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : 'N/A',
+            status: (doc.verification_status === "Verified" || doc.verification_status === "Completed") ? ("Completed" as const) : (doc.verification_status as any),
+            isRequired: doc.is_required
+          }));
       }
+
+      // Process document requests
+      const virtualDocs: Document[] = [];
+      if (noticesData) {
+        noticesData
+          .filter(notice => notice.title && notice.title.startsWith('[Document Request]'))
+          .forEach(notice => {
+            const aud = notice.audience || "All Batches";
+            
+            const isTargeted = isStudentInAudience(
+              {
+                department: student?.department || undefined,
+                batch: studentBatchLabel ? studentBatchLabel.split(" : ")[0]?.trim().replace(/\s+/g, '') : undefined,
+                specializations: studentSpecializations,
+                placementGroup: studentPlacementGroup || undefined,
+              },
+              aud
+            );
+
+            if (!isTargeted) return;
+
+            const docTitle = notice.title.replace('[Document Request] ', '').trim();
+            const alreadyExists = mapped.some(
+              d => d.title.toLowerCase() === docTitle.toLowerCase() && d.reference !== "Not Provided"
+            );
+
+            if (!alreadyExists) {
+              let cat = 'Other';
+              const catMatch = notice.body && notice.body.match(/^\[Category:\s*([^\]]+)\]/);
+              if (catMatch && catMatch[1]) {
+                cat = catMatch[1].trim();
+              }
+
+              // Check if there is an empty/Not Provided seeded/placeholder document with same title
+              const existingPlaceholder = mapped.find(
+                d => d.title.toLowerCase() === docTitle.toLowerCase()
+              );
+
+              if (existingPlaceholder) {
+                // Just mark the existing placeholder as required if request specifies it
+                existingPlaceholder.isRequired = true;
+              } else {
+                virtualDocs.push({
+                  id: `req-${notice.id}`,
+                  title: docTitle,
+                  type: cat,
+                  format: 'link',
+                  reference: 'Not Provided',
+                  timestamp: 'Requested by Admin',
+                  status: 'Not Provided',
+                  isRequired: true
+                });
+              }
+            }
+          });
+      }
+
+      setDocumentsList([...mapped, ...virtualDocs]);
     } catch (err) {
       console.error("Failed to load documents from database:", err);
     } finally {
@@ -189,85 +344,115 @@ export default function DocumentsCenterPage() {
     setIsDeleteModalOpen(true);
   };
 
-  // Handle uploading the file to Supabase Storage
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    setUploadingFile(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${DEV_STUDENT_ID}/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('student-documents')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('student-documents')
-        .getPublicUrl(fileName);
-
-      setReference(publicUrl); // Store public URL in reference
-    } catch (err: any) {
-      console.error("File upload failed:", err);
-      alert(err.message || "Failed to upload file to Supabase Storage");
-    } finally {
-      setUploadingFile(false);
-    }
-  };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !reference.trim() || uploadingFile) return;
+    if (!title.trim() || !reference.trim() || validatingLink) return;
 
+    const cleanUrl = reference.trim();
+    if (!cleanUrl.includes('drive.google.com') && !cleanUrl.includes('docs.google.com')) {
+      toast.error('Must be a Google Drive or Google Docs link.');
+      return;
+    }
+
+    setValidatingLink(true);
     try {
+      const res = await fetch(`/api/validate-drive-link?url=${encodeURIComponent(cleanUrl)}`);
+      const valData = await res.json();
+      if (!valData.valid) {
+        toast.error(valData.error || 'Failed to validate Google Drive link.');
+        setValidatingLink(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('student_documents')
         .insert([{
           student_id: DEV_STUDENT_ID,
           title: title.trim(),
           document_type: type,
-          url: reference.trim(),
-          storage_path: format === "file" ? reference.trim() : "",
+          url: cleanUrl,
+          storage_path: "",
           is_required: isRequired,
-          verification_status: "Completed" // Mark as completed on upload!
+          verification_status: "Pending"
         }]);
 
       if (error) throw error;
+      toast.success("Document added successfully.");
       await fetchDocs(); // Reload from DB
       setIsAddModalOpen(false);
       clearForm();
     } catch (err) {
       console.error("Failed to add document:", err);
+      toast.error("Failed to add document.");
+    } finally {
+      setValidatingLink(false);
     }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDoc || !title.trim() || !reference.trim() || uploadingFile) return;
+    if (!selectedDoc || !title.trim() || !reference.trim() || validatingLink) return;
 
+    const cleanUrl = reference.trim();
+    if (!cleanUrl.includes('drive.google.com') && !cleanUrl.includes('docs.google.com')) {
+      toast.error('Must be a Google Drive or Google Docs link.');
+      return;
+    }
+
+    setValidatingLink(true);
     try {
-      const { error } = await supabase
-        .from('student_documents')
-        .update({
-          title: title.trim(),
-          document_type: type,
-          url: reference.trim(),
-          storage_path: format === "file" ? reference.trim() : "",
-          is_required: isRequired,
-          verification_status: "Completed", // Mark as completed on upload!
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedDoc.id);
+      const res = await fetch(`/api/validate-drive-link?url=${encodeURIComponent(cleanUrl)}`);
+      const valData = await res.json();
+      if (!valData.valid) {
+        toast.error(valData.error || 'Failed to validate Google Drive link.');
+        setValidatingLink(false);
+        return;
+      }
+
+      const isVirtual = selectedDoc.id.toString().startsWith('req-');
+
+      let error;
+      if (isVirtual) {
+        const { error: err } = await supabase
+          .from('student_documents')
+          .insert([{
+            student_id: DEV_STUDENT_ID,
+            title: title.trim(),
+            document_type: type,
+            url: cleanUrl,
+            storage_path: "",
+            is_required: isRequired,
+            verification_status: "Pending"
+          }]);
+        error = err;
+      } else {
+        const { error: err } = await supabase
+          .from('student_documents')
+          .update({
+            title: title.trim(),
+            document_type: type,
+            url: cleanUrl,
+            storage_path: "",
+            is_required: isRequired,
+            verification_status: "Pending",
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedDoc.id);
+        error = err;
+      }
 
       if (error) throw error;
+      toast.success("Document updated successfully.");
       await fetchDocs(); // Reload from DB
       setIsEditModalOpen(false);
       clearForm();
     } catch (err) {
       console.error("Failed to update document:", err);
+      toast.error("Failed to update document.");
+    } finally {
+      setValidatingLink(false);
     }
   };
 
@@ -337,6 +522,26 @@ export default function DocumentsCenterPage() {
         </div>
       </section>
 
+      {/* Active Document Notices / Requests */}
+      {documentsList.some(d => d.status === "Not Provided" && d.id.toString().startsWith('req-')) && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-3xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="h-12 w-12 rounded-2xl bg-red-500/15 text-red-500 flex items-center justify-center shrink-0">
+              <LuCircleAlert size={24} />
+            </div>
+            <div>
+              <h4 className="font-display text-lg font-black tracking-tight text-foreground">Action Required: Document Requests</h4>
+              <p className="text-xs font-semibold text-muted leading-relaxed mt-1">
+                Admin has requested you to upload: {documentsList
+                  .filter(d => d.status === "Not Provided" && d.id.toString().startsWith('req-'))
+                  .map(d => `"${d.title}"`)
+                  .join(", ")}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs and Actions */}
       <div className="flex flex-col md:flex-row gap-6 items-center justify-between sticky -top-4 md:-top-6 z-30 bg-background/95 backdrop-blur-md py-2.5 mb-8">
         <div className="flex items-center gap-2 overflow-x-auto pb-1.5 w-full md:w-auto no-scrollbar">
@@ -374,13 +579,16 @@ export default function DocumentsCenterPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
           {filteredDocs.map((doc) => (
-            <div key={doc.id} className="app-card group hover:border-primary/50 transition-all cursor-pointer">
+            <div 
+              key={doc.id} 
+              onClick={() => doc.reference !== "Not Provided" && setPreviewDoc(doc)}
+              className="app-card group hover:border-primary/50 transition-all cursor-pointer"
+            >
               <div className="p-8 flex items-start gap-6">
                 <div className={cn(
-                  "h-20 w-20 rounded-3xl flex items-center justify-center shrink-0 border border-border-subtle transition-all group-hover:scale-105",
-                  doc.format === "link" ? "bg-primary/5 text-primary" : "bg-blue-50 text-blue-500"
+                  "h-20 w-20 rounded-3xl flex items-center justify-center shrink-0 border border-border-subtle transition-all group-hover:scale-105 bg-primary/5 text-primary"
                 )}>
-                  {doc.format === "link" ? <LuLink size={32} /> : <LuFileText size={32} />}
+                  <LuLink size={32} />
                 </div>
                 
                 <div className="flex-1 min-w-0">
@@ -398,7 +606,7 @@ export default function DocumentsCenterPage() {
                   </h4>
                   <div className="flex items-center gap-2 mt-1">
                     <p className="font-sans text-sm font-semibold text-muted/60 truncate">{doc.reference}</p>
-                    {doc.format === "link" && doc.reference !== "Not Provided" && <LuExternalLink size={12} className="text-muted/40" />}
+                    {doc.reference !== "Not Provided" && <LuExternalLink size={12} className="text-muted/40" />}
                   </div>
 
                   <div className="mt-6 flex items-center justify-between">
@@ -408,17 +616,19 @@ export default function DocumentsCenterPage() {
                      </div>
                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                        <button 
-                         onClick={() => handleOpenEditModal(doc)}
+                         onClick={(e) => { e.stopPropagation(); handleOpenEditModal(doc); }}
                          className="h-10 w-10 rounded-xl bg-surface border border-border-subtle flex items-center justify-center text-muted hover:text-primary transition-all cursor-pointer"
                        >
                          <LuPencil size={18} />
                        </button>
-                       <button 
-                         onClick={() => handleOpenDeleteModal(doc)}
-                         className="h-10 w-10 rounded-xl bg-surface border border-border-subtle flex items-center justify-center text-muted hover:text-red-500 transition-all cursor-pointer"
-                       >
-                         <LuTrash2 size={18} />
-                       </button>
+                       {!doc.id.toString().startsWith('req-') && (
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); handleOpenDeleteModal(doc); }}
+                           className="h-10 w-10 rounded-xl bg-surface border border-border-subtle flex items-center justify-center text-muted hover:text-red-500 transition-all cursor-pointer"
+                         >
+                           <LuTrash2 size={18} />
+                         </button>
+                       )}
                      </div>
                   </div>
                 </div>
@@ -431,7 +641,7 @@ export default function DocumentsCenterPage() {
                     Missing critical document
                   </div>
                   <button 
-                    onClick={() => handleOpenEditModal(doc)}
+                    onClick={(e) => { e.stopPropagation(); handleOpenEditModal(doc); }}
                     className="text-[10px] font-black uppercase tracking-widest text-red-600 hover:underline cursor-pointer"
                   >
                     Action Now
@@ -507,67 +717,26 @@ export default function DocumentsCenterPage() {
                 </select>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted">Submission Format</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    type="button" 
-                    onClick={() => { setFormat("link"); setReference(""); }}
-                    className={cn(
-                      "h-12 rounded-xl text-xs font-black uppercase tracking-widest border transition-all cursor-pointer",
-                      format === "link" ? "bg-primary/10 border-primary text-primary" : "bg-surface border-border-subtle text-muted"
-                    )}
-                  >
-                    Shareable Link
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => { setFormat("file"); setReference(""); }}
-                    className={cn(
-                      "h-12 rounded-xl text-xs font-black uppercase tracking-widest border transition-all cursor-pointer",
-                      format === "file" ? "bg-primary/10 border-primary text-primary" : "bg-surface border-border-subtle text-muted"
-                    )}
-                  >
-                    Upload File
-                  </button>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Google Drive Link</label>
+              
+              {validatingLink ? (
+                <div className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 flex items-center justify-center gap-3">
+                  <span className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs font-semibold text-muted">Validating share status...</span>
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted">
-                  {format === "link" ? "URL Reference" : "Choose File to Upload"}
-                </label>
-                
-                {format === "link" ? (
-                  <input 
-                    type="text" 
-                    value={reference} 
-                    onChange={(e) => setReference(e.target.value)}
-                    placeholder="e.g. drive.google.com/resume"
-                    required
-                    className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 text-sm font-semibold focus:border-primary focus:ring-1 focus:ring-primary transition-all text-foreground outline-none"
-                  />
-                ) : uploadingFile ? (
-                  <div className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 flex items-center justify-center gap-3">
-                    <span className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs font-semibold text-muted">Uploading to Supabase Storage...</span>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <input 
-                      type="file" 
-                      onChange={handleFileChange}
-                      required={!reference}
-                      className="w-full text-xs text-muted-foreground file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
-                    />
-                    {reference && (
-                      <p className="text-[10px] font-bold text-emerald-500 truncate">
-                        Uploaded: {reference.split('/').pop()}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
+              ) : (
+                <input 
+                  type="text" 
+                  value={reference} 
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder="e.g. https://drive.google.com/file/d/.../view"
+                  required
+                  className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 text-sm font-semibold focus:border-primary focus:ring-1 focus:ring-primary transition-all text-foreground outline-none"
+                />
+              )}
+              <p className="text-[10px] text-muted-foreground/60 font-medium">Link must be shared as "Anyone with the link can view".</p>
+            </div>
 
               <div className="flex items-center gap-3">
                 <input 
@@ -592,7 +761,7 @@ export default function DocumentsCenterPage() {
                 </button>
                 <button 
                   type="submit" 
-                  disabled={uploadingFile}
+                  disabled={validatingLink}
                   className="flex-1 h-14 btn-primary text-xs uppercase tracking-widest rounded-2xl cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Add Document
@@ -644,65 +813,24 @@ export default function DocumentsCenterPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted">Submission Format</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    type="button" 
-                    onClick={() => { setFormat("link"); setReference(""); }}
-                    className={cn(
-                      "h-12 rounded-xl text-xs font-black uppercase tracking-widest border transition-all cursor-pointer",
-                      format === "link" ? "bg-primary/10 border-primary text-primary" : "bg-surface border-border-subtle text-muted"
-                    )}
-                  >
-                    Shareable Link
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => { setFormat("file"); setReference(""); }}
-                    className={cn(
-                      "h-12 rounded-xl text-xs font-black uppercase tracking-widest border transition-all cursor-pointer",
-                      format === "file" ? "bg-primary/10 border-primary text-primary" : "bg-surface border-border-subtle text-muted"
-                    )}
-                  >
-                    Upload File
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted">
-                  {format === "link" ? "URL Reference" : "Choose File to Upload"}
-                </label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted">Google Drive Link</label>
                 
-                {format === "link" ? (
+                {validatingLink ? (
+                  <div className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 flex items-center justify-center gap-3">
+                    <span className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs font-semibold text-muted">Validating share status...</span>
+                  </div>
+                ) : (
                   <input 
                     type="text" 
                     value={reference} 
                     onChange={(e) => setReference(e.target.value)}
-                    placeholder="e.g. drive.google.com/resume"
+                    placeholder="e.g. https://drive.google.com/file/d/.../view"
                     required
                     className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 text-sm font-semibold focus:border-primary focus:ring-1 focus:ring-primary transition-all text-foreground outline-none"
                   />
-                ) : uploadingFile ? (
-                  <div className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 flex items-center justify-center gap-3">
-                    <span className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs font-semibold text-muted">Uploading to Supabase Storage...</span>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <input 
-                      type="file" 
-                      onChange={handleFileChange}
-                      required={!reference}
-                      className="w-full text-xs text-muted-foreground file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
-                    />
-                    {reference && (
-                      <p className="text-[10px] font-bold text-emerald-500 truncate">
-                        Uploaded: {reference.split('/').pop()}
-                      </p>
-                    )}
-                  </div>
                 )}
+                <p className="text-[10px] text-muted-foreground/60 font-medium">Link must be shared as "Anyone with the link can view".</p>
               </div>
 
               <div className="flex items-center gap-3">
@@ -728,7 +856,7 @@ export default function DocumentsCenterPage() {
                 </button>
                 <button 
                   type="submit" 
-                  disabled={uploadingFile}
+                  disabled={validatingLink}
                   className="flex-1 h-14 btn-primary text-xs uppercase tracking-widest rounded-2xl cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Save Changes
@@ -822,6 +950,67 @@ export default function DocumentsCenterPage() {
                 className="btn-primary py-3 px-8 text-xs uppercase tracking-widest rounded-2xl cursor-pointer"
               >
                 Close & Return
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PREVIEW DOCUMENT MODAL */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-background border border-border-subtle p-8 rounded-[32px] w-full max-w-4xl shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setPreviewDoc(null)}
+              className="absolute top-6 right-6 text-muted hover:text-foreground cursor-pointer z-10"
+            >
+              <LuX size={20} />
+            </button>
+            <h3 className="font-display text-2xl font-black tracking-tight mb-2 truncate pr-10">{previewDoc.title}</h3>
+            <p className="text-xs text-muted font-bold uppercase tracking-widest mb-6">{previewDoc.type}</p>
+            
+            <div className="bg-surface rounded-2xl border border-border-subtle overflow-hidden relative">
+              {getGoogleDrivePreviewUrl(previewDoc.reference) ? (
+                <iframe 
+                  src={getGoogleDrivePreviewUrl(previewDoc.reference)!} 
+                  className="w-full h-[550px] border-0" 
+                  allow="autoplay"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center p-20 text-center space-y-6">
+                  <div className="h-16 w-16 bg-amber-50 text-amber-500 rounded-3xl flex items-center justify-center">
+                    <LuCircleAlert size={32} />
+                  </div>
+                  <div className="space-y-2">
+                    <h5 className="font-display text-xl font-bold">No Direct Preview Available</h5>
+                    <p className="text-sm font-semibold text-muted max-w-sm">This link structure does not support inline embedding, or is formatted incorrectly.</p>
+                  </div>
+                  <a 
+                    href={previewDoc.reference} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="btn-primary flex items-center gap-2 px-6"
+                  >
+                    Open Link in Google Drive <LuExternalLink size={14} />
+                  </a>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center mt-6 pt-4 border-t border-border-subtle/50">
+              <a 
+                href={previewDoc.reference} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-xs font-black uppercase tracking-widest text-primary hover:underline flex items-center gap-1.5"
+              >
+                Open in New Tab <LuExternalLink size={14} />
+              </a>
+              <button 
+                onClick={() => setPreviewDoc(null)}
+                className="bg-surface hover:bg-surface-hover text-muted text-xs font-black uppercase tracking-widest rounded-2xl border border-border-subtle px-6 py-3 cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>

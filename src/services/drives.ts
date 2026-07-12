@@ -15,8 +15,7 @@ export async function getDrives(options: {
         name,
         logo_url,
         theme_color
-      ),
-      applications ( count )
+      )
     `);
 
   // Search filter is processed client-side to avoid PostgREST nested table join syntax errors
@@ -37,7 +36,11 @@ export async function getDrives(options: {
 
   const { data, error } = await query.order('created_at', { ascending: false });
   if (error) throw error;
-  return data;
+
+  return (data || []).map(d => ({
+    ...d,
+    applications: [{ count: d.total_applicants || 0 }]
+  }));
 }
 
 export async function getCompanies(options: { search?: string } = {}) {
@@ -180,6 +183,28 @@ export async function updateDrive(id: string, driveData: any) {
 
 
 export async function deleteDrive(id: string) {
+  // Delete associated offers
+  const { error: offersErr } = await supabase
+    .from('offers')
+    .delete()
+    .eq('drive_id', id);
+  if (offersErr) throw offersErr;
+
+  // Delete associated applications
+  const { error: appsErr } = await supabase
+    .from('applications')
+    .delete()
+    .eq('drive_id', id);
+  if (appsErr) throw appsErr;
+
+  // Delete associated drive_rounds
+  const { error: roundsErr } = await supabase
+    .from('drive_rounds')
+    .delete()
+    .eq('drive_id', id);
+  if (roundsErr) throw roundsErr;
+
+  // Delete the drive itself
   const { error } = await supabase
     .from('job_drives')
     .delete()
@@ -213,6 +238,21 @@ export async function updateCompany(id: string, companyData: any) {
 }
 
 export async function deleteCompany(id: string) {
+  // Fetch associated drives
+  const { data: drives, error: fetchErr } = await supabase
+    .from('job_drives')
+    .select('id')
+    .eq('company_id', id);
+  if (fetchErr) throw fetchErr;
+
+  // Delete each associated drive (with its dependent rounds/applications/offers)
+  if (drives && drives.length > 0) {
+    for (const drive of drives) {
+      await deleteDrive(drive.id);
+    }
+  }
+
+  // Delete the company
   const { error } = await supabase
     .from('companies')
     .delete()

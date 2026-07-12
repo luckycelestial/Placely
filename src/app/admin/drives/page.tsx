@@ -305,7 +305,7 @@ export default function DrivesPage() {
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {["All", "Full-time", "Internship", "Contract"].map(type => (
+          {["All", "Full-time", "Internship", "Contract", "Intern + Full-time"].map(type => (
             <button
               key={type}
               onClick={() => setFilterType(type)}
@@ -592,32 +592,6 @@ export default function DrivesPage() {
                     </div>
                   ))
                 )}
-              </div>
-            </div>
-
-            <div className="bg-surface rounded-[32px] border border-border-subtle p-8">
-              <h4 className="text-sm font-black uppercase tracking-widest text-muted mb-6">Quick Start Presets</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { name: "Product Based", role: "Software Engineer", type: "Full-time", pkg: "10 - 15 LPA", criteria: "B.Tech CSE/AI&DS, 7.5+ CGPA" },
-                  { name: "Service Based", role: "Associate Engineer", type: "Full-time", pkg: "4 - 6 LPA", criteria: "Any Engineer, 6.0+ CGPA" },
-                  { name: "Startup", role: "Full Stack Dev", type: "Full-time", pkg: "8 - 12 LPA", criteria: "Proven projects, No active backlogs" },
-                  { name: "Internship", role: "SDE Intern", type: "Internship", pkg: "30k - 50k /mo", criteria: "Final/Pre-final year" }
-                ].map((preset) => (
-                  <div 
-                    key={preset.name} 
-                    onClick={() => handleUseTemplate({ 
-                      role_title: preset.role, 
-                      drive_type: preset.type, 
-                      package_ctc: preset.pkg, 
-                      eligibility_rules: preset.criteria 
-                    })}
-                    className="p-6 rounded-2xl border border-border-subtle bg-background hover:border-primary/40 transition-all cursor-pointer group"
-                  >
-                    <h5 className="font-black group-hover:text-primary transition-colors mb-1">{preset.name}</h5>
-                    <p className="text-[10px] font-bold text-muted uppercase tracking-tighter">{preset.role}</p>
-                  </div>
-                ))}
               </div>
             </div>
           </div>

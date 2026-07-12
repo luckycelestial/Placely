@@ -1,76 +1,26 @@
 "use client";
 import { Sk } from "@/components/ui/skeleton";
 
-import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
-import { DataGrid, renderTextEditor } from "react-data-grid";
+import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from "react";
+import { DataGrid, renderTextEditor, SelectColumn } from "react-data-grid";
 import type { Column, RenderCellProps, RenderEditCellProps } from "react-data-grid";
 import * as XLSX from "xlsx";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useSearchParams } from "next/navigation";
 import "react-data-grid/lib/styles.css";
-import { 
-  LuUpload, 
-  LuDownload, 
-  LuSave, 
-  LuX, 
-  LuCheck, 
-  LuTriangleAlert,
-  LuFileSpreadsheet,
-  LuDatabase,
-  LuHistory,
-  LuPlus,
-  LuArrowRight,
-  LuSearch,
-  LuFilter,
-  LuChevronRight,
-  LuChevronLeft
-} from "react-icons/lu";
+import { LuTriangleAlert, LuFileSpreadsheet, LuUpload, LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { db } from "@/services/database";
 import { cn } from "@/lib/utils";
 import { getSystemSettings } from "@/services/settings";
 import { getBatchList } from "@/lib/batch-utils";
-
-interface ColumnMapping {
-  source: string;
-  target: string;
-}
-
-const isUUID = (val: any): boolean =>
-  typeof val === 'string' &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-
-const STUDENT_FIELDS = [
-  { id: "register_number", label: "Register Number", required: true, validate: (v: string) => /^[A-Z0-9]{6,12}$/i.test(v) || "Must be 6-12 alphanumeric characters" },
-  { id: "name", label: "Full Name", required: true, validate: (v: string) => v?.length >= 3 || "Name too short" },
-  { id: "email", label: "Email Address", required: true, validate: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Invalid email format" },
-  { id: "department", label: "Department", required: true },
-  { id: "year", label: "Batch", required: true, validate: (v: any) => [1, 2, 3, 4].includes(Number(v)) || (Number(v) >= 2000 && Number(v) <= 2100) || "Must be 1-4 or a valid Batch end-year (e.g. 2026)" },
-  { id: "roll_number", label: "Roll Number", required: false },
-  { id: "gender", label: "Gender", required: false, validate: (v: string) => ["Male", "Female", "Other", ""].includes(v) || "Must be Male, Female, or Other" },
-  { id: "date_of_birth", label: "Date of Birth (YYYY-MM-DD)", required: false },
-  { id: "cgpa", label: "CGPA", required: false, validate: (v: any) => (Number(v) >= 0 && Number(v) <= 10) || "Must be 0-10" },
-  { id: "tenth_score", label: "10th Score (%)", required: false, validate: (v: any) => (Number(v) >= 0 && Number(v) <= 100) || "Must be 0-100" },
-  { id: "twelfth_score", label: "12th Score (%)", required: false, validate: (v: any) => (Number(v) >= 0 && Number(v) <= 100) || "Must be 0-100" },
-  { id: "diploma_score", label: "Diploma Score (%)", required: false, validate: (v: any) => !v || (Number(v) >= 0 && Number(v) <= 100) || "Must be 0-100" },
-  { id: "active_arrears", label: "Active Arrears (Current)", required: false, validate: (v: any) => Number(v) >= 0 || "Cannot be negative" },
-  { id: "history_of_arrears", label: "History of Arrears (true/false)", required: false, validate: (v: any) => ["true","false","0","1","yes","no",""].includes(String(v).toLowerCase()) || "Must be true or false" },
-  { id: "backlog_count", label: "Total Backlog Count", required: false, validate: (v: any) => Number(v) >= 0 || "Cannot be negative" },
-];
-
-const TABLES = [
-  { id: "students", label: "Students", icon: <LuDatabase size={14} /> },
-  { id: "student_academics", label: "Academics", icon: <LuFileSpreadsheet size={14} /> },
-  { id: "student_contacts", label: "Contacts", icon: <LuDatabase size={14} /> },
-  { id: "student_profiles", label: "Profiles", icon: <LuDatabase size={14} /> },
-  { id: "companies", label: "Companies", icon: <LuDatabase size={14} /> },
-  { id: "job_drives", label: "Job Drives", icon: <LuDatabase size={14} /> },
-  { id: "applications", label: "Applications", icon: <LuDatabase size={14} /> },
-  { id: "offers", label: "Offers", icon: <LuDatabase size={14} /> },
-  { id: "joinees", label: "Joinees", icon: <LuDatabase size={14} /> },
-  { id: "notices", label: "Notices", icon: <LuDatabase size={14} /> },
-  { id: "events", label: "Events", icon: <LuDatabase size={14} /> },
-  { id: "users", label: "Users", icon: <LuDatabase size={14} /> },
-];
+import { supabase } from "@/lib/supabase";
+import { STUDENT_FIELDS, TABLES } from "./constants";
+import { isUUID, type ColumnMapping } from "./types";
+import { ColumnMappingSelect } from "./components/ColumnMappingSelect";
+import { DataWorkspaceHeader } from "./components/DataWorkspaceHeader";
+import { MappingPanel } from "./components/MappingPanel";
+import { DeleteDialog } from "./components/DeleteDialog";
+import { ValidationErrorDialog } from "./components/ValidationErrorDialog";
 
 function customRenderTextEditor(props: RenderEditCellProps<any>) {
   const value = props.row[props.column.key];
@@ -97,11 +47,38 @@ function DataWorkspacePageContent() {
   const [hasHeaders, setHasHeaders] = useState<boolean>(true);
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
+  const mappingsRef = useRef<ColumnMapping[]>([]);
+  // Keep ref in sync with state (state is used for validation; ref is read in columns memo)
+  const syncMappings = (next: ColumnMapping[]) => {
+    mappingsRef.current = next;
+    setMappings(next);
+  };
   const [isMappingMode, setIsMappingMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
+  const [importBatchYear, setImportBatchYear] = useState("");
   const [isCompleted, setIsCompleted] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<number, string[]>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalRows, setTotalRows] = useState(0);
+  const pageSize = 50;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTable, searchQuery, selectedYear]);
+
+  const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>("");
+
+  const [selectedRows, setSelectedRows] = useState<ReadonlySet<string>>(new Set());
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isValidationErrorDialogOpen, setIsValidationErrorDialogOpen] = useState(false);
+  const [isDeletingSelected, setIsDeletingSelected] = useState(false);
+
+  useEffect(() => {
+    setSelectedRows(new Set());
+  }, [activeTable, activeTab]);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -111,6 +88,7 @@ function DataWorkspacePageContent() {
         const batches = getBatchList(settings.isAcademicYearCompleted);
         if (batches.length > 0) {
           setSelectedYear(batches[0].value);
+          setImportBatchYear(batches[0].value);
         }
       } catch (error) {
         console.error("Failed to load system settings:", error);
@@ -128,7 +106,7 @@ function DataWorkspacePageContent() {
     const loadMappings = async () => {
       try {
         const [students, companies, drives, offers] = await Promise.all([
-          db.getAllStudents(),
+          db.getAllStudents({ lightweight: true }),
           db.getCompanies(),
           db.getDrives(),
           db.getOffers()
@@ -155,7 +133,7 @@ function DataWorkspacePageContent() {
         const oMap: Record<string, string> = {};
         offers.forEach((o: any) => {
           if (o.id) {
-            const studentName = o.students?.users?.name || o.students?.[0]?.users?.[0]?.name || "Unknown Student";
+            const studentName = o.students?.name || o.students?.users?.name || o.students?.[0]?.name || o.students?.[0]?.users?.[0]?.name || "Unknown Student";
             const companyName = o.companies?.name || o.companies?.[0]?.name || "Unknown Company";
             const role = o.role_title || "Unknown Role";
             oMap[o.id] = `${studentName} (${companyName} - ${role})`;
@@ -231,7 +209,7 @@ function DataWorkspacePageContent() {
     headers.forEach(h => {
       let targetField = "";
       if (activeTable === "students") {
-        const match = STUDENT_FIELDS.find(f => 
+        const match = STUDENT_FIELDS.filter(f => f.id !== "year").find(f => 
           f.label.toLowerCase() === h.toLowerCase() || 
           f.id.toLowerCase() === h.toLowerCase() ||
           h.toLowerCase().includes(f.id.toLowerCase())
@@ -247,8 +225,23 @@ function DataWorkspacePageContent() {
       
       if (targetField) autoMappings.push({ source: h, target: targetField });
     });
-    setMappings(autoMappings);
+    syncMappings(autoMappings);
   }, [activeTable, rows]);
+
+  useEffect(() => {
+    if (workbook && selectedSheet) {
+      const sheet = workbook.Sheets[selectedSheet];
+      if (sheet) {
+        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as any[][];
+        const rawGridData = jsonData.filter(row => row.some(cell => cell !== "" && cell !== null && cell !== undefined));
+        setRawSheetData(rawGridData);
+        
+        const firstCell = String(rawGridData[0]?.[0] || '');
+        const looksLikeData = /^[A-Z0-9]{6,12}$/i.test(firstCell) || /^[0-9]+$/.test(firstCell) || firstCell === '';
+        setHasHeaders(!looksLikeData);
+      }
+    }
+  }, [workbook, selectedSheet]);
 
   useEffect(() => {
     if (rawSheetData.length > 0) {
@@ -260,10 +253,14 @@ function DataWorkspacePageContent() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await db.getTableData(activeTable);
+      const count = await db.getTableCount(activeTable, { search: searchQuery, year: selectedYear });
+      setTotalRows(count);
+
+      const offset = (currentPage - 1) * pageSize;
+      const data = await db.getTableData(activeTable, { limit: pageSize, offset, search: searchQuery, year: selectedYear });
       // If students, join with users to get name/email for compatibility with STUDENT_FIELDS logic
       if (activeTable === "students") {
-        const enriched = await db.getAllStudents();
+        const enriched = await db.getAllStudents({ limit: pageSize, offset, search: searchQuery, year: selectedYear });
         setRows(enriched);
       } else {
         setRows(data);
@@ -273,45 +270,97 @@ function DataWorkspacePageContent() {
     } finally {
       setLoading(false);
     }
-  }, [activeTable]);
+  }, [activeTable, currentPage, searchQuery, selectedYear]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Generate Columns dynamically from data
   const columns = useMemo((): Column<any>[] => {
-    if (activeTab === "staging" && !isMappingMode) {
-      return importHeaders.map((h: string) => ({
-        key: h,
-        name: h,
-        resizable: true,
-        editable: true,
-        renderEditCell: customRenderTextEditor
-      }));
-    }
+    let baseCols: Column<any>[] = [];
+    if (activeTab === "staging") {
+      baseCols = importHeaders.map((h: string, index: number) => {
+        const mapping = mappings.find((m: ColumnMapping) => m.source === h);
+        const columnName = isMappingMode ? (
+          <div className="flex flex-col gap-1 py-1 w-full text-left" onClick={(e) => e.stopPropagation()}>
+            <span className="text-[10px] font-black text-muted uppercase tracking-wider truncate block w-full mb-1">{h}</span>
+            <div className="w-full" style={{ minWidth: "140px" }}>
+              <ColumnMappingSelect
+                options={[
+                  { value: "", label: "Skip Column" },
+                  ...(activeTable === "students"
+                    ? STUDENT_FIELDS.filter(f => f.id !== "year").map(f => ({ value: f.id, label: f.label }))
+                    : Object.keys(rows[0] || {}).filter(k => k !== "id" && k !== "verification_status" && k !== "verification").map(k => ({ value: k, label: k })))
+                ]}
+                defaultValue={mappingsRef.current.find((m: ColumnMapping) => m.source === h)?.target || ""}
+                onChange={(newTarget) => {
+                  // Update ref synchronously — no re-render, so the select stays mounted
+                  const existing = mappingsRef.current.filter((m: ColumnMapping) => m.source !== h);
+                  mappingsRef.current = newTarget
+                    ? [...existing, { source: h, target: newTarget }]
+                    : existing;
+                  // Update state for validation badge only
+                  setMappings([...mappingsRef.current]);
+                }}
+              />
+            </div>
+          </div>
+        ) : h;
 
-    if (rows.length === 0 && stagingData.length === 0) return [];
+        return {
+          key: h,
+          name: columnName,
+          resizable: true,
+          editable: true,
+          frozen: index === 0,
+          renderEditCell: customRenderTextEditor,
+          width: isMappingMode ? 220 : 180,
+          renderCell: (props: RenderCellProps<any>) => {
+            if (props.row.isEmptyPlaceholder) return "";
+            const value = props.row[h];
 
-    const dataToUse = activeTab === "live" ? rows : stagingData;
-    if (dataToUse.length === 0) return [];
+            // In staging, highlight validation errors if mapping is active
+            if (isMappingMode && activeTable === "students" && mapping?.target) {
+              const field = STUDENT_FIELDS.find(f => f.id === mapping.target);
+              if (field?.validate) {
+                const result = field.validate(value);
+                if (result !== true) {
+                  return (
+                    <div 
+                      className="flex items-center gap-1 text-red-600 font-bold w-full h-full cursor-help"
+                      title={`${field.label}: ${result}`}
+                    >
+                      <LuTriangleAlert size={12} className="shrink-0" />
+                      <span className="truncate">{String(value ?? "")}</span>
+                    </div>
+                  );
+                }
+              }
+            }
 
-    let keys = Object.keys(dataToUse[0]).filter(k => k !== "id" && k !== "verification_status" && k !== "verification");
-    
-    // Position student_id / studentId first if present, company_id / companyId if student_id is not present
-    const studentIdIndex = keys.findIndex(k => k.toLowerCase() === "student_id" || k.toLowerCase() === "studentid");
-    if (studentIdIndex > -1) {
-      const [studentIdKey] = keys.splice(studentIdIndex, 1);
-      keys = [studentIdKey, ...keys];
+            return String(value ?? "");
+          }
+        };
+      });
     } else {
-      const companyIdIndex = keys.findIndex(k => k.toLowerCase() === "company_id" || k.toLowerCase() === "companyid");
-      if (companyIdIndex > -1) {
-        const [companyIdKey] = keys.splice(companyIdIndex, 1);
-        keys = [companyIdKey, ...keys];
+      if (rows.length === 0) return [];
+
+      let keys = Object.keys(rows[0]).filter(k => k !== "id" && k !== "verification_status" && k !== "verification");
+      
+      // Position student_id / studentId first if present, company_id / companyId if student_id is not present
+      const studentIdIndex = keys.findIndex(k => k.toLowerCase() === "student_id" || k.toLowerCase() === "studentid");
+      if (studentIdIndex > -1) {
+        const [studentIdKey] = keys.splice(studentIdIndex, 1);
+        keys = [studentIdKey, ...keys];
+      } else {
+        const companyIdIndex = keys.findIndex(k => k.toLowerCase() === "company_id" || k.toLowerCase() === "companyid");
+        if (companyIdIndex > -1) {
+          const [companyIdKey] = keys.splice(companyIdIndex, 1);
+          keys = [companyIdKey, ...keys];
+        }
       }
-    }
-    
-    return keys.map((k, index) => {
+      
+      baseCols = keys.map((k, index) => {
         const isStudentField = activeTable === "students" ? STUDENT_FIELDS.find(f => f.id === k) : undefined;
         const isStudentId = k.toLowerCase() === "student_id" || k.toLowerCase() === "studentid" || k.toLowerCase() === "student";
         const isCompanyId = k.toLowerCase() === "company_id" || k.toLowerCase() === "companyid" || k.toLowerCase() === "company";
@@ -348,22 +397,6 @@ function DataWorkspacePageContent() {
               if (isDriveId) return "Loading Drive...";
               if (isOfferId) return "Loading Offer...";
               return "Loading...";
-            }
-
-            // Validation highlighting in staging mode
-            if (activeTab === "staging" && activeTable === "students") {
-              const field = STUDENT_FIELDS.find(f => f.id === k);
-              if (field?.validate) {
-                const result = field.validate(value);
-                if (result !== true) {
-                  return (
-                    <div className="flex items-center gap-1 text-red-600 font-bold">
-                      <LuTriangleAlert size={12} />
-                      {typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? "")}
-                    </div>
-                  );
-                }
-              }
             }
 
             if (k === "status" || k === "placement_status") {
@@ -407,7 +440,13 @@ function DataWorkspacePageContent() {
           }
         };
       });
-    }, [rows, stagingData, activeTab, importHeaders, isMappingMode, activeTable, studentsMap, companiesMap, drivesMap, offersMap]);
+    }
+
+    if (!isMappingMode) {
+      return [SelectColumn, ...baseCols];
+    }
+    return baseCols;
+  }, [rows, stagingData, activeTab, importHeaders, isMappingMode, activeTable, studentsMap, companiesMap, drivesMap, offersMap]);
 
   // Handle Clipboard Paste
   useEffect(() => {
@@ -442,7 +481,7 @@ function DataWorkspacePageContent() {
       headers.forEach(h => {
         let targetField = "";
         if (activeTable === "students") {
-          const match = STUDENT_FIELDS.find(f => 
+          const match = STUDENT_FIELDS.filter(f => f.id !== "year").find(f => 
             f.label.toLowerCase() === h.toLowerCase() || 
             f.id.toLowerCase() === h.toLowerCase() ||
             h.toLowerCase().includes(f.id.toLowerCase())
@@ -505,30 +544,35 @@ function DataWorkspacePageContent() {
 
       if (isExcel) {
         const buffer = event.target?.result as ArrayBuffer;
-        const workbook = XLSX.read(buffer, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        // Use defval: "" to prevent skipped empty cells and align indices perfectly!
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" }) as any[][];
-        
-        // Filter out completely empty rows
-        rawGridData = jsonData.filter(row => row.some(cell => cell !== "" && cell !== null && cell !== undefined));
+        const wb = XLSX.read(buffer, { type: 'array' });
+        setWorkbook(wb);
+        setSheetNames(wb.SheetNames);
+        const initialSheet = wb.SheetNames[0] || "";
+        setSelectedSheet(initialSheet);
       } else {
         const text = event.target?.result as string;
         const lines = text.split("\n").map(row => row.trim()).filter(row => row);
         rawGridData = lines.map(line => line.split(",").map(cell => cell.trim()));
+
+        setWorkbook(null);
+        setSheetNames([]);
+        setSelectedSheet("");
+
+        if (rawGridData.length === 0) return;
+
+        setRawSheetData(rawGridData);
+        
+        // Auto-detect header: check if the first cell of the first row looks like register number or a index count
+        const firstCell = String(rawGridData[0]?.[0] || '');
+        const looksLikeData = /^[A-Z0-9]{6,12}$/i.test(firstCell) || /^[0-9]+$/.test(firstCell) || firstCell === '';
+        setHasHeaders(!looksLikeData);
       }
-
-      if (rawGridData.length === 0) return;
-
-      setRawSheetData(rawGridData);
-      
-      // Auto-detect header: check if the first cell of the first row looks like register number or a index count
-      const firstCell = String(rawGridData[0]?.[0] || '');
-      const looksLikeData = /^[A-Z0-9]{6,12}$/i.test(firstCell) || /^[0-9]+$/.test(firstCell) || firstCell === '';
-      setHasHeaders(!looksLikeData);
 
       setActiveTab("staging");
       setIsMappingMode(true);
+      setImportBatchYear(selectedYear);
+      
+      e.target.value = "";
     };
 
     if (isExcel) reader.readAsArrayBuffer(file);
@@ -549,12 +593,16 @@ function DataWorkspacePageContent() {
     setImportHeaders([]);
     setIsMappingMode(false);
     setActiveTab("live");
+    setWorkbook(null);
+    setSheetNames([]);
+    setSelectedSheet("");
   };
 
   const handleImportConfirm = async () => {
+    const targetYear = activeTable === "students" && importBatchYear ? parseInt(importBatchYear) : parseInt(selectedYear);
     const mappedData = stagingData.map((row: any) => {
       const newRow: any = { 
-        year: parseInt(selectedYear)
+        year: targetYear
       };
       mappings.forEach((m: ColumnMapping) => {
         newRow[m.target] = row[m.source];
@@ -565,13 +613,20 @@ function DataWorkspacePageContent() {
     try {
       setLoading(true);
       if (activeTable === "students") {
-        const existingRegNos = new Set(rows.map((s: any) => s.regNo || s.register_number));
-        const toUpdate = mappedData.filter((s: any) => existingRegNos.has(s.regNo || s.register_number));
-        const toInsert = mappedData.filter((s: any) => !existingRegNos.has(s.regNo || s.register_number));
+        const existingRegNos = new Set(rows.map((s: any) => String(s.regNo || s.register_number || '').trim().toLowerCase()).filter(Boolean));
+        const toUpdate = mappedData.filter((s: any) => {
+          const reg = String(s.register_number || s.regNo || '').trim().toLowerCase();
+          return reg && existingRegNos.has(reg);
+        });
+        const toInsert = mappedData.filter((s: any) => {
+          const reg = String(s.register_number || s.regNo || '').trim().toLowerCase();
+          return reg && !existingRegNos.has(reg);
+        });
 
         if (toInsert.length > 0) await db.bulkCreateStudents(toInsert);
         for (const student of toUpdate) {
-          const existingId = rows.find((s: any) => (s.regNo || s.register_number) === (student.regNo || student.register_number))?.id;
+          const studentReg = String(student.register_number || student.regNo || '').trim().toLowerCase();
+          const existingId = rows.find((s: any) => String(s.regNo || s.register_number || '').trim().toLowerCase() === studentReg)?.id;
           if (existingId) await db.updateStudentProfile(existingId, student);
         }
       } else {
@@ -581,9 +636,9 @@ function DataWorkspacePageContent() {
       alert(`Successfully processed ${mappedData.length} records.`);
       handleImportCancel();
       loadData();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Bulk import failed:", error);
-      alert("Import failed.");
+      alert(`Import failed: ${error.message || error.details || (typeof error === 'object' ? JSON.stringify(error) : String(error))}`);
     } finally {
       setLoading(false);
     }
@@ -643,22 +698,107 @@ function DataWorkspacePageContent() {
     }
   };
 
-  const filteredRows = useMemo(() => {
-    let data = activeTab === "live" ? rows : stagingData;
-    
-    if (activeTable === "students" && selectedYear) {
-      data = data.filter(r => {
-        if (!r.year) return false;
-        const valStr = String(r.year);
-        return valStr.includes(selectedYear) || valStr === selectedYear;
-      });
-    }
+  const handleCellKeyDown = useCallback((args: any, event: any) => {
+    if (args.mode === "SELECT" && (event.key === "Delete" || event.key === "Backspace")) {
+      event.preventDefault();
+      
+      if (args.row.isEmptyPlaceholder) return;
+      if (args.column.key === "id" || args.column.key === "rdg-select-column" || args.column.frozen) return;
 
+      const dataToUpdate = activeTab === "live" ? rows : stagingData;
+      const updatedRows = dataToUpdate.map((r: any) => {
+        if (r.id === args.row.id) {
+          return {
+            ...r,
+            [args.column.key]: ""
+          };
+        }
+        return r;
+      });
+
+      onRowsChange(updatedRows);
+    }
+  }, [activeTab, rows, stagingData, onRowsChange]);
+
+  const handleDeleteSelected = async () => {
+    setIsDeletingSelected(true);
+    try {
+      const selectedIds = Array.from(selectedRows);
+      
+      if (activeTab === "live") {
+        if (activeTable === "students") {
+          // 1. Fetch user_ids of the students being deleted to delete their users
+          const { data: studentsToDelete, error: fetchError } = await supabase
+            .from('students')
+            .select('user_id')
+            .in('id', selectedIds);
+          
+          if (fetchError) throw fetchError;
+          
+          const userIds = studentsToDelete?.map(s => s.user_id).filter(Boolean) || [];
+          
+          // 2. Delete from users table (cascades to students, student_contacts, student_academics, student_profiles, etc.)
+          if (userIds.length > 0) {
+            const { error: userDeleteError } = await supabase
+              .from('users')
+              .delete()
+              .in('id', userIds);
+            
+            if (userDeleteError) throw userDeleteError;
+          }
+          
+          // 3. Fallback: delete remaining students directly if any didn't have user_id
+          const { error: studentDeleteError } = await supabase
+            .from('students')
+            .delete()
+            .in('id', selectedIds);
+            
+          if (studentDeleteError) throw studentDeleteError;
+
+        } else if (activeTable === "users") {
+          const { error: deleteError } = await supabase
+            .from('users')
+            .delete()
+            .in('id', selectedIds);
+            
+          if (deleteError) throw deleteError;
+
+        } else {
+          // Generic deletion for other tables
+          const { error: deleteError } = await supabase
+            .from(activeTable)
+            .delete()
+            .in('id', selectedIds);
+            
+          if (deleteError) throw deleteError;
+        }
+        
+        await loadData();
+      } else {
+        // Staging tab: just filter out from state
+        setStagingData(prev => prev.filter(r => !selectedRows.has(r.id)));
+      }
+      
+      setSelectedRows(new Set());
+      setIsDeleteDialogOpen(false);
+    } catch (error) {
+      console.error("Bulk deletion failed:", error);
+      alert("Failed to delete records: " + (error as any).message);
+    } finally {
+      setIsDeletingSelected(false);
+    }
+  };
+
+  const filteredRows = useMemo(() => {
+    if (activeTab === "live") {
+      return rows;
+    }
+    let data = stagingData;
     if (!searchQuery) return data;
     return data.filter(r => 
       Object.values(r).some(v => String(v).toLowerCase().includes(searchQuery.toLowerCase()))
     );
-  }, [rows, stagingData, activeTab, searchQuery, activeTable, selectedYear]);
+  }, [rows, stagingData, activeTab, searchQuery]);
 
   const rowsForGrid = useMemo(() => {
     const data = [...filteredRows];
@@ -679,62 +819,19 @@ function DataWorkspacePageContent() {
   return (
     <div className="flex flex-col h-[calc(100vh-176px)] md:h-[calc(100vh-112px)] space-y-4">
       {/* Workspace Header */}
-      <div className="flex items-center justify-between px-2">
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-            <LuFileSpreadsheet size={24} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight">Data Workspace</h1>
-            <p className="text-muted text-xs font-bold uppercase tracking-widest">INSTITUTIONAL RECORDS MANAGEMENT</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-2 bg-surface border border-border-subtle rounded-xl min-w-[180px]">
-            <span className="text-[10px] font-black uppercase text-muted">Batch</span>
-            <SearchableSelect 
-              options={getBatchList(isCompleted).map(b => ({
-                value: b.value,
-                label: b.label
-              }))}
-              value={selectedYear}
-              onChange={setSelectedYear}
-            />
-          </div>
-
-          <div className="relative">
-            <LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={14} />
-            <input 
-              type="text" 
-              placeholder="Search records..." 
-              className="pl-9 pr-4 py-2 bg-surface border border-border-subtle rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 w-48"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          
-          <label className="flex items-center gap-2 rounded-xl bg-primary text-white px-4 py-2 text-xs font-black shadow-tactile hover:bg-primary-dark cursor-pointer transition-all">
-            <LuUpload size={14} />
-            Import Excel/CSV
-            <input 
-              id="file-import-input"
-              type="file" 
-              accept=".csv,.xlsx,.xls" 
-              className="hidden" 
-              onChange={handleFileUpload} 
-            />
-          </label>
-          
-          <button 
-            onClick={handleExportExcel}
-            className="flex items-center gap-2 rounded-xl bg-surface border border-border-subtle px-4 py-2 text-xs font-black shadow-sm hover:bg-background transition-colors"
-          >
-            <LuDownload size={14} />
-            Export Excel
-          </button>
-        </div>
-      </div>
+      {!isMappingMode && (
+        <DataWorkspaceHeader
+          selectedYear={selectedYear}
+          isCompleted={isCompleted}
+          searchQuery={searchQuery}
+          selectedRowsCount={selectedRows.size}
+          onYearChange={setSelectedYear}
+          onSearchChange={setSearchQuery}
+          onDeleteSelected={() => setIsDeleteDialogOpen(true)}
+          onFileUpload={handleFileUpload}
+          onExport={handleExportExcel}
+        />
+      )}
 
       {/* Auto Import Prompt Modal */}
       {autoImportParam === "true" && rawSheetData.length === 0 && (
@@ -767,88 +864,25 @@ function DataWorkspacePageContent() {
         
         {/* Mapping Panel */}
         {isMappingMode && (
-          <div className="bg-primary/5 border-b border-primary/10 p-6 animate-in slide-in-from-top duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-8">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-primary text-white flex items-center justify-center">
-                    <LuFilter size={16} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black uppercase tracking-wider">Map your columns</h3>
-                    <p className="text-[10px] font-bold text-muted uppercase">Align your spreadsheet headers with CareerBridge fields</p>
-                  </div>
-                </div>
-                
-                {/* Reactive Headers Toggle Checkbox */}
-                <label className="flex items-center gap-2 cursor-pointer select-none px-3.5 py-2 bg-white border border-border-subtle rounded-xl shadow-sm hover:bg-background transition-all shrink-0">
-                  <input 
-                    type="checkbox"
-                    checked={hasHeaders}
-                    onChange={(e) => setHasHeaders(e.target.checked)}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20 accent-primary"
-                  />
-                  <span className="text-[10px] font-black uppercase tracking-wider text-muted">First Row Contains Headers</span>
-                </label>
-              </div>
-              <div className="flex items-center gap-2">
-                {Object.keys(validationErrors).length > 0 && (
-                  <div className="flex items-center gap-2 text-red-600 text-[10px] font-bold mr-4">
-                    <LuTriangleAlert size={14} />
-                    {Object.keys(validationErrors).length} Rows have errors
-                  </div>
-                )}
-                <button 
-                  onClick={handleImportCancel}
-                  className="px-4 py-2 rounded-lg bg-white border border-border-subtle text-[10px] font-black uppercase tracking-widest hover:bg-background transition-all"
-                >
-                  Discard
-                </button>
-                <button 
-                  onClick={handleImportConfirm}
-                  disabled={Object.keys(validationErrors).length > 0}
-                  className={cn(
-                    "px-4 py-2 rounded-lg text-white text-[10px] font-black uppercase tracking-widest shadow-tactile transition-all flex items-center gap-2",
-                    Object.keys(validationErrors).length > 0 ? "bg-muted cursor-not-allowed" : "bg-primary hover:bg-primary-dark"
-                  )}
-                >
-                  <LuCheck size={14} />
-                  Finish Import
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 gap-4">
-              {importHeaders.map((header: string) => {
-                const mapping = mappings.find((m: ColumnMapping) => m.source === header);
-                return (
-                  <div key={header} className="p-3 rounded-xl bg-white border border-border-subtle flex items-center justify-between">
-                    <span className="text-xs font-bold truncate max-w-[100px]">{header}</span>
-                    <LuArrowRight size={12} className="text-muted" />
-                    <div className="w-[180px]">
-                      <SearchableSelect 
-                        options={[
-                          { value: "", label: "Skip Column" },
-                          ...(activeTable === "students" 
-                            ? STUDENT_FIELDS.map(f => ({ value: f.id, label: f.label }))
-                            : Object.keys(rows[0] || {}).map(k => ({ value: k, label: k })))
-                        ]}
-                        value={mapping?.target || ""}
-                        onChange={(newTarget) => {
-                          setMappings((prev: ColumnMapping[]) => {
-                            const existing = prev.filter((m: ColumnMapping) => m.source !== header);
-                            if (newTarget) return [...existing, { source: header, target: newTarget }];
-                            return existing;
-                          });
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <MappingPanel
+            sheetNames={sheetNames}
+            selectedSheet={selectedSheet}
+            hasHeaders={hasHeaders}
+            importBatchYear={importBatchYear}
+            isCompleted={isCompleted}
+            activeTable={activeTable}
+            validationErrors={validationErrors}
+            onSheetChange={setSelectedSheet}
+            onHasHeadersChange={setHasHeaders}
+            onBatchYearChange={setImportBatchYear}
+            onDiscard={handleImportCancel}
+            onConfirm={handleImportConfirm}
+            onErrorClick={() => setIsValidationErrorDialogOpen(true)}
+          />
         )}
+
+
+
 
         {/* React Data Grid */}
         <div className="flex-1 flex flex-col min-h-0 w-full bg-white rdg-light custom-rdg">
@@ -866,9 +900,12 @@ function DataWorkspacePageContent() {
               rows={rowsForGrid}
               onRowsChange={onRowsChange}
               rowKeyGetter={(row: any) => row.id || row.register_number || row.email || Math.random().toString()}
-              className="h-full"
+              selectedRows={selectedRows}
+              onSelectedRowsChange={setSelectedRows}
+              onCellKeyDown={handleCellKeyDown}
+              className={cn("h-full", isMappingMode && "custom-rdg-mapping")}
               rowHeight={48}
-              headerRowHeight={48}
+              headerRowHeight={isMappingMode ? 76 : 48}
             />
           )}
         </div>
@@ -910,8 +947,33 @@ function DataWorkspacePageContent() {
             )}
           </div>
 
+          {/* Pagination Controls */}
+          {activeTab === "live" && totalRows > pageSize && (
+            <div className="flex items-center gap-2 select-none">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className="p-1 border border-border-subtle rounded-lg text-muted hover:text-foreground disabled:opacity-35 transition-colors cursor-pointer"
+              >
+                <LuChevronLeft size={12} />
+              </button>
+              <span className="text-[9px] font-black uppercase text-foreground">
+                Page {currentPage} / {Math.ceil(totalRows / pageSize)}
+              </span>
+              <button
+                type="button"
+                disabled={currentPage >= Math.ceil(totalRows / pageSize)}
+                onClick={() => setCurrentPage(p => p + 1)}
+                className="p-1 border border-border-subtle rounded-lg text-muted hover:text-foreground disabled:opacity-35 transition-colors cursor-pointer"
+              >
+                <LuChevronRight size={12} />
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center gap-4 text-[10px] font-bold text-muted uppercase tracking-wider shrink-0 ml-4">
-            <span>{filteredRows.length} Records</span>
+            <span>{activeTab === "live" ? totalRows : filteredRows.length} Records</span>
             <div className="h-4 w-[1px] bg-border-subtle" />
             <span className="flex items-center gap-1">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -920,6 +982,21 @@ function DataWorkspacePageContent() {
           </div>
         </div>
       </div>
+
+      <DeleteDialog
+        isOpen={isDeleteDialogOpen}
+        count={selectedRows.size}
+        isDeleting={isDeletingSelected}
+        onCancel={() => setIsDeleteDialogOpen(false)}
+        onConfirm={handleDeleteSelected}
+      />
+
+      <ValidationErrorDialog
+        isOpen={isValidationErrorDialogOpen}
+        onClose={() => setIsValidationErrorDialogOpen(false)}
+        validationErrors={validationErrors}
+        stagingData={stagingData}
+      />
 
       <style dangerouslySetInnerHTML={{ __html: `
         .no-scrollbar::-webkit-scrollbar {
@@ -944,11 +1021,13 @@ function DataWorkspacePageContent() {
           height: 100% !important;
         }
 
-        .custom-rdg > div,
-        .custom-rdg .rdg,
-        .custom-rdg [class*="rdg-"] {
+        .custom-rdg,
+        .custom-rdg .rdg {
           block-size: 100% !important;
           height: 100% !important;
+        }
+
+        .custom-rdg .rdg {
           scrollbar-width: thin !important;
           scrollbar-color: #d4d4d8 #f9f9f9 !important;
         }
@@ -996,16 +1075,14 @@ function DataWorkspacePageContent() {
           border-inline-end: 1px solid #f2f2f2 !important;
           border-bottom: 1px solid #f2f2f2 !important;
           padding: 0 16px !important;
+          background-color: #ffffff !important;
         }
 
         /* 3. Base state: Force sticky frozen column position & solid white background */
         .rdg-cell-frozen,
         .rdg-7-0-0-beta-58-17a9a6d4,
         [role="row"]:not(.rdg-header-row) .rdg-cell-frozen,
-        [role="row"]:not(.rdg-header-row) > *.rdg-cell-frozen,
-        [role="row"]:not(.rdg-header-row) > [role="gridcell"]:nth-child(1) {
-          position: sticky !important;
-          left: 0 !important;
+        [role="row"]:not(.rdg-header-row) > *.rdg-cell-frozen {
           background-color: #ffffff !important;
           z-index: 10 !important;
           box-shadow: 2px 0 5px -2px rgba(136, 136, 136, 0.3) !important;
@@ -1015,10 +1092,7 @@ function DataWorkspacePageContent() {
         .rdg-header-row .rdg-cell-frozen,
         .rdg-header-row .rdg-7-0-0-beta-58-17a9a6d4,
         [role="row"].rdg-header-row .rdg-cell-frozen,
-        [role="row"].rdg-header-row > *.rdg-cell-frozen,
-        [role="row"].rdg-header-row > [role="columnheader"]:nth-child(1) {
-          position: sticky !important;
-          left: 0 !important;
+        [role="row"].rdg-header-row > *.rdg-cell-frozen {
           background-color: #fcfcfc !important;
           z-index: 20 !important;
           box-shadow: 2px 0 5px -2px rgba(136, 136, 136, 0.3) !important;
@@ -1035,8 +1109,7 @@ function DataWorkspacePageContent() {
         .rdg-row:hover:not(.rdg-header-row) .rdg-cell-frozen,
         .rdg-row:hover:not(.rdg-header-row) .rdg-7-0-0-beta-58-17a9a6d4,
         [role="row"]:hover:not(.rdg-header-row) .rdg-cell-frozen,
-        [role="row"]:hover:not(.rdg-header-row) > *.rdg-cell-frozen,
-        [role="row"]:hover:not(.rdg-header-row) > [role="gridcell"]:nth-child(1) {
+        [role="row"]:hover:not(.rdg-header-row) > *.rdg-cell-frozen {
           background-color: #fff5f5 !important;
           z-index: 10 !important;
         }
@@ -1055,6 +1128,15 @@ function DataWorkspacePageContent() {
         .rdg-checkbox-input:checked + .rdg-checkbox-label {
           background-color: var(--color-primary) !important;
           border-color: var(--color-primary) !important;
+        }
+
+        .custom-rdg-mapping .rdg-header-row {
+          z-index: 30 !important;
+        }
+        .custom-rdg-mapping .rdg-header-row .rdg-cell,
+        .custom-rdg-mapping [role="row"].rdg-header-row [role="columnheader"] {
+          overflow: visible !important;
+          z-index: auto !important;
         }
       ` }} />
     </div>

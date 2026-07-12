@@ -12,7 +12,7 @@ import { toast } from "sonner";
 const templateSchema = z.object({
   name: z.string().min(2, "Template name must be at least 2 characters"),
   roleTitle: z.string().min(2, "Role title must be at least 2 characters"),
-  driveType: z.enum(["Full-time", "Internship", "Contract"]),
+  driveType: z.enum(["Full-time", "Internship", "Contract", "Intern + Full-time"]),
   package: z.string().min(1, "Package details are required"),
   location: z.string().min(1, "Location is required"),
   minCgpa: z.number().min(0).max(10),
@@ -174,14 +174,14 @@ export default function TemplateDialog({ isOpen, onClose, onSuccess, template }:
             {/* Drive Type */}
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted ml-1">Drive Type</label>
-              <div className="flex gap-2 p-1 bg-background rounded-2xl border border-border-subtle">
-                {["Full-time", "Internship", "Contract"].map((type) => (
+              <div className="flex flex-wrap gap-2 p-1.5 bg-background rounded-2xl border border-border-subtle items-center">
+                {["Full-time", "Internship", "Contract", "Intern + Full-time"].map((type) => (
                   <button
                     key={type}
                     type="button"
                     onClick={() => setValue("driveType", type as any)}
                     className={cn(
-                      "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all",
+                      "flex-1 min-w-[80px] py-2 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all",
                       driveType === type ? "bg-surface text-primary shadow-sm" : "text-muted hover:text-foreground"
                     )}
                   >

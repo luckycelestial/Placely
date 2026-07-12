@@ -12,7 +12,7 @@ export async function bulkCreateStudents(studentsData: any[]) {
   // Clean and prepare student data, generating emails & names if missing
   const processedStudents = studentsData.map(s => {
     const regNo = String(s.register_number || s.regNo || '').trim();
-    const email = s.email ? String(s.email).trim() : (regNo ? `${regNo}@careerbridge.com`.toLowerCase() : '');
+    const email = s.email ? String(s.email).trim().toLowerCase() : (regNo ? `${regNo}@careerbridge.com`.toLowerCase() : '');
     const name = s.name ? String(s.name).trim() : `Student ${regNo}`;
     const department = s.department || s.dept || 'General';
     return {
@@ -26,40 +26,41 @@ export async function bulkCreateStudents(studentsData: any[]) {
 
   if (processedStudents.length === 0) return [];
 
-  // Deduplicate and filter out any existing users/emails first to prevent batch collision
+  // 1. Fetch existing users by email to avoid inserting duplicates
   const emails = processedStudents.map(s => s.email).filter(Boolean);
   const { data: existingUsers } = await supabase
     .from('users')
-    .select('email')
+    .select('id, email')
     .in('email', emails);
   
-  const existingEmails = new Set((existingUsers || []).map(u => u.email));
-  const newStudentsData = processedStudents.filter(s => s.email && !existingEmails.has(s.email));
+  const userMap = new Map<string, string>(); // email -> id
+  (existingUsers || []).forEach(u => userMap.set(u.email.toLowerCase(), u.id));
 
-  if (newStudentsData.length === 0) return [];
+  // Determine which students need user records created
+  const studentsNeedUser = processedStudents.filter(s => s.email && !userMap.has(s.email.toLowerCase()));
 
-  // 1. Batch insert users
-  const usersPayload = newStudentsData.map(s => ({
-    name: s.name,
-    email: s.email,
-    role: 'student',
-    status: 'active'
-  }));
+  if (studentsNeedUser.length > 0) {
+    const usersPayload = studentsNeedUser.map(s => ({
+      name: s.name,
+      email: s.email,
+      role: 'student',
+      status: 'active',
+      phone: s.phone || null
+    }));
 
-  const { data: createdUsers, error: userError } = await supabase
-    .from('users')
-    .insert(usersPayload)
-    .select();
+    const { data: createdUsers, error: userError } = await supabase
+      .from('users')
+      .insert(usersPayload)
+      .select();
 
-  if (userError) throw userError;
+    if (userError) throw userError;
 
-  // Create a lookup map of email -> user.id
-  const userMap = new Map<string, string>();
-  (createdUsers || []).forEach(u => userMap.set(u.email, u.id));
+    (createdUsers || []).forEach(u => userMap.set(u.email.toLowerCase(), u.id));
+  }
 
-  // 2. Batch insert students
-  const studentsPayload = newStudentsData.map(s => {
-    const userId = userMap.get(s.email);
+  // 2. Batch insert students (for all processedStudents, using their mapped user_id)
+  const studentsPayload = processedStudents.map(s => {
+    const userId = userMap.get(s.email.toLowerCase());
     let dbYear = parseInt(s.year);
     if (!isNaN(dbYear) && dbYear >= 1 && dbYear <= 4) {
       dbYear = referenceYear + 4 - dbYear;
@@ -67,17 +68,21 @@ export async function bulkCreateStudents(studentsData: any[]) {
 
     return {
       user_id: userId,
+      name: s.name,
       register_number: s.register_number || s.regNo,
       roll_number: s.roll_number || s.rollNo || null,
       gender: s.gender || null,
       date_of_birth: s.date_of_birth || s.dob || null,
       department: s.department || s.dept,
       year: dbYear,
-      placement_status: 'unplaced',
+      section: s.section || null,
+      placement_status: 'not_placed',
       profile_completion: 0,
-      verification_status: 'pending'
+      verification_status: 'verified'
     };
   }).filter(s => s.user_id); // Ensure we have user_id mapped
+
+  if (studentsPayload.length === 0) return [];
 
   const { data: createdStudents, error: studentError } = await supabase
     .from('students')
@@ -90,8 +95,63 @@ export async function bulkCreateStudents(studentsData: any[]) {
   const studentMap = new Map<string, string>();
   (createdStudents || []).forEach(s => studentMap.set(s.register_number, s.id));
 
+  // Batch insert contacts
+  const contactsPayload = processedStudents.map(s => {
+    const regNo = s.register_number || s.regNo;
+    const studentId = studentMap.get(regNo);
+    if (!studentId) return null;
+
+    return {
+      student_id: studentId,
+      college_email: s.email || s.college_email || null,
+      personal_email: s.personal_email || s.personalEmail || null,
+      phone: s.phone || null,
+      address: s.address || null,
+      permanent_address: s.permanent_address || null,
+      city: s.city || null,
+      state: s.state || null,
+      pincode: s.pincode || null,
+      updated_at: new Date().toISOString()
+    };
+  }).filter(Boolean);
+
+  if (contactsPayload.length > 0) {
+    const { error: contactsError } = await supabase
+      .from('student_contacts')
+      .insert(contactsPayload);
+    
+    if (contactsError) throw contactsError;
+  }
+
+  // Batch insert profiles
+  const profilesPayload = processedStudents.map(s => {
+    const regNo = s.register_number || s.regNo;
+    const studentId = studentMap.get(regNo);
+    if (!studentId) return null;
+
+    const hasProfile = s.linkedin_url || s.github_url || s.portfolio_url || s.resume_url;
+    if (!hasProfile) return null;
+
+    return {
+      student_id: studentId,
+      linkedin_url: s.linkedin_url || null,
+      github_url: s.github_url || null,
+      portfolio_url: s.portfolio_url || null,
+      resume_url: s.resume_url || null,
+      updated_at: new Date().toISOString()
+    };
+  }).filter(Boolean);
+
+  if (profilesPayload.length > 0) {
+    const { error: profilesError } = await supabase
+      .from('student_profiles')
+      .insert(profilesPayload);
+    
+    if (profilesError) throw profilesError;
+  }
+
   // 3. Batch upsert academics
-  const academicsPayload = newStudentsData.map(s => {
+  const academicsPayload = processedStudents.map(s => {
     const regNo = s.register_number || s.regNo;
     const studentId = studentMap.get(regNo);
     if (!studentId) return null;

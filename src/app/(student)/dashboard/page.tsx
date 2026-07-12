@@ -22,10 +22,14 @@ import { ActiveDrives } from "@/components/student/active-drives";
 import { NotificationInbox } from "@/components/student/notification-inbox";
 import { db } from "@/services/database";
 import { DEV_STUDENT_ID } from "@/lib/dev-config";
+import { isStudentInAudience } from "@/lib/utils";
+import { getBatchRangeFromYear } from "@/lib/batch-utils";
+import { getSystemSettings } from "@/services/settings";
 
 
 
 interface StudentProfile {
+  name?: string;
   users?: {
     name?: string;
   };
@@ -82,13 +86,47 @@ export default function DashboardPage() {
           db.getEvents()
         ]);
 
+        let filteredNotices = noticesData || [];
+        if (profileData) {
+          let studentBatchLabel = "";
+          if (profileData.year) {
+            const range = getBatchRangeFromYear(profileData.year);
+            studentBatchLabel = `${range.startYear}-${range.endYear}`;
+          }
+
+          const specializations = profileData.student_profiles?.specializations || [];
+          
+          let placementGroup = "";
+          const rawPref = profileData.student_preferences?.work_mode_preference || "";
+          if (rawPref.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(rawPref);
+              placementGroup = parsed["placement_groups"] || parsed["placement_group"] || "";
+            } catch (e) {}
+          } else {
+            placementGroup = rawPref;
+          }
+
+          filteredNotices = (noticesData || []).filter((notice: any) => {
+            return isStudentInAudience(
+              {
+                department: profileData.department || undefined,
+                batch: studentBatchLabel || undefined,
+                specializations,
+                placementGroup: placementGroup || undefined
+              },
+              notice.audience
+            );
+          });
+        }
+
         setStats({
           ...statsData,
-          tasksCount: noticesData.length
+          tasksCount: filteredNotices.length
         });
         setProfile(profileData);
         setActivities(activityData);
-        setBulletin({ notices: noticesData, events: eventsData });
+        setBulletin({ notices: filteredNotices, events: eventsData });
       } catch (error) {
         console.error("Failed to load dashboard data:", error);
       } finally {
@@ -128,7 +166,7 @@ export default function DashboardPage() {
     </div>
   );
 
-  const firstName = profile?.users?.name?.split(' ')[0] || 'Student';
+  const firstName = (profile?.name || profile?.users?.name)?.split(' ')[0] || 'Student';
 
   return (
     <div className="space-y-8 pt-2 pb-6 px-4 max-w-7xl mx-auto">

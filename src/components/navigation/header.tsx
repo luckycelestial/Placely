@@ -95,26 +95,9 @@ export function Header() {
         </Link>
       </div>
 
-      {/* Desktop Title & Toggle */}
+      {/* Desktop Title */}
       <div className="hidden md:flex items-center gap-6">
         <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{title}</h1>
-        
-        {/* Role Toggle */}
-        <div className="flex items-center bg-surface border border-border-subtle rounded-full p-1">
-          <button
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all bg-primary text-background shadow-sm"
-          >
-            <LuUser size={14} />
-            Student
-          </button>
-          <Link
-            href="/admin/dashboard"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all text-muted hover:text-foreground hover:bg-black/5"
-          >
-            <LuShield size={14} />
-            Admin
-          </Link>
-        </div>
       </div>
 
       <div className="flex items-center gap-3">
@@ -128,14 +111,6 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Mobile Role Toggle (Icon only) */}
-          <Link 
-            href="/admin/dashboard"
-            className="md:hidden relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/5 transition-all group border border-border-subtle"
-            title="Switch to Admin"
-          >
-            <LuShield size={18} className="text-primary" />
-          </Link>
 
           <DesignToggle />
           <TypographyToggle />
@@ -249,12 +224,12 @@ export function Header() {
           <div className="flex items-center gap-3 ml-2 pl-4 border-l border-border-subtle">
             <div className="text-right hidden sm:block">
               <p className="text-xs font-black uppercase tracking-tight leading-none">
-                {student?.users?.name || "Loading..."}
+                {student?.name || student?.users?.name || "Loading..."}
               </p>
               <p className="text-[10px] font-bold text-primary uppercase mt-1">Student</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-display text-sm font-bold text-primary overflow-hidden uppercase">
-              {student?.users?.name?.charAt(0) || "S"}
+              {(student?.name || student?.users?.name)?.charAt(0) || "S"}
             </div>
           </div>
         </div>

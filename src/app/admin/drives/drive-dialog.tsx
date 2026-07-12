@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LuX, LuPlus, LuSave, LuBuilding2, LuMapPin, LuIndianRupee, LuCalendar, LuFileText, LuSearch, LuGraduationCap, LuCircleAlert } from "react-icons/lu";
+import { LuX, LuPlus, LuSave, LuBuilding2, LuMapPin, LuIndianRupee, LuCalendar, LuFileText, LuSearch, LuGraduationCap, LuCircleAlert, LuUpload, LuTrash2 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const BATCH_YEARS = [String(CURRENT_YEAR), String(CURRENT_YEAR + 1)];
@@ -15,7 +16,7 @@ const BATCH_YEARS = [String(CURRENT_YEAR), String(CURRENT_YEAR + 1)];
 const driveSchema = z.object({
   companyId: z.string().min(1, "Company is required"),
   roleTitle: z.string().min(2, "Role title must be at least 2 characters"),
-  driveType: z.enum(["Full-time", "Internship", "Contract"]),
+  driveType: z.enum(["Full-time", "Internship", "Contract", "Intern + Full-time"]),
   package: z.string().min(1, "Package details are required"),
   location: z.string().min(1, "Location is required"),
   applicationStart: z.string().min(1, "Start date is required"),
@@ -67,6 +68,11 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
   const selectedBranches = watch("branches");
   const minCgpaValue = watch("minCgpa");
 
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<any[]>([]);
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
+  const [showStudentDropdown, setShowStudentDropdown] = useState(false);
+
   const selectedCompany = companies.find(c => c.id === selectedCompanyId);
   const filteredCompanies = companies.filter(c => 
     c.name.toLowerCase().includes(companySearch.toLowerCase())
@@ -78,10 +84,10 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
   useEffect(() => {
     if (isOpen) {
       loadCompanies();
+      loadStudents();
       if (drive) {
         // drive can come from the drives page (remapped UI names)
         // or from the dashboard (raw DB names) — handle both
-        const rules = drive.eligibility_rules || drive.eligibility || {};
         const startRaw = drive.application_start
           ? new Date(drive.application_start).toISOString().split('T')[0]
           : "";
@@ -89,6 +95,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
           drive.application_end
             ? new Date(drive.application_end).toISOString().split('T')[0]
             : drive.deadline_iso || "";
+        const rules = drive.eligibility_rules || drive.eligibility || {};
         reset({
           companyId: drive.company_id || drive.companyId || "",
           roleTitle: drive.role_title || drive.role || "",
@@ -133,6 +140,80 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
     }
   };
 
+  const loadStudents = async () => {
+    try {
+      const studs = await db.getAllStudents({ lightweight: true });
+      setAllStudents(studs);
+      
+      // If we are in edit mode, resolve the selected students based on whitelist in drive
+      const rules = drive?.eligibility_rules || drive?.eligibility || {};
+      const whitelistRegNos = rules.bypass_placement_lock_students || [];
+      if (Array.isArray(whitelistRegNos) && whitelistRegNos.length > 0) {
+        const initialSelected = studs.filter((s: any) => 
+          whitelistRegNos.includes(String(s.regNo).trim()) || whitelistRegNos.includes(String(s.id).trim())
+        );
+        setSelectedStudents(initialSelected);
+      } else {
+        setSelectedStudents([]);
+      }
+      setStudentSearchQuery("");
+      setShowStudentDropdown(false);
+    } catch (err) {
+      console.error("Failed to load students list:", err);
+    }
+  };
+
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json<any>(ws, { header: 1 });
+        
+        const foundRegNos = new Set<string>();
+        
+        data.forEach(row => {
+          if (Array.isArray(row)) {
+            row.forEach(cell => {
+              if (cell !== undefined && cell !== null) {
+                const str = String(cell).trim();
+                if (str) foundRegNos.add(str);
+              }
+            });
+          }
+        });
+
+        const imported = allStudents.filter(s => 
+          s.regNo && foundRegNos.has(String(s.regNo).trim())
+        );
+
+        if (imported.length === 0) {
+          toast.error("No matching students found in the uploaded file.");
+          return;
+        }
+
+        setSelectedStudents(prev => {
+          const currentIds = new Set(prev.map(s => s.id));
+          const toAdd = imported.filter(s => !currentIds.has(s.id));
+          return [...prev, ...toAdd];
+        });
+
+        toast.success(`Successfully imported ${imported.length} students from ${file.name}`);
+      } catch (err) {
+        console.error("Failed to parse Excel file:", err);
+        toast.error("Failed to parse Excel file. Please ensure it is a valid format.");
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = "";
+  };
+
   const onFormSubmit = async (data: DriveFormValues) => {
     setLoading(true);
     try {
@@ -150,6 +231,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
           min_cgpa: data.minCgpa,
           backlogs_allowed: data.backlogsAllowed,
           history_of_arrears: data.historyOfArrears,
+          bypass_placement_lock_students: selectedStudents.map(s => String(s.regNo || s.register_number).trim()).filter(Boolean),
           stages: drive
             ? (drive.eligibility_rules?.stages || drive.eligibility?.stages)
             : [
@@ -193,7 +275,11 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
         <div className="px-8 py-6 border-b border-border-subtle flex items-center justify-between bg-background/50 shrink-0">
           <div>
             <h2 className="text-xl font-black tracking-tight">{drive ? "Edit Placement Drive" : "Launch New Drive"}</h2>
-            <p className="text-xs font-bold text-muted uppercase tracking-widest mt-1">Recruitment Cycle 2025-26</p>
+            <p className="text-xs font-bold text-muted uppercase tracking-widest mt-1">
+              Recruitment Cycle {batchValue && !isNaN(parseInt(batchValue))
+                ? `${parseInt(batchValue) - 1}-${parseInt(batchValue) % 100}`
+                : "2025-26"}
+            </p>
           </div>
           <button 
             onClick={onClose}
@@ -346,14 +432,14 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
               {/* Drive Type */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted ml-1">Drive Type</label>
-                <div className="flex gap-2 p-2 bg-background rounded-[24px] border border-border-subtle shadow-inner h-[62px]">
-                  {["Full-time", "Internship", "Contract"].map((type) => (
+                <div className="flex flex-wrap gap-2 p-2 bg-background rounded-[24px] border border-border-subtle shadow-inner min-h-[62px] h-auto items-center">
+                  {["Full-time", "Internship", "Contract", "Intern + Full-time"].map((type) => (
                     <button
                       key={type}
                       type="button"
                       onClick={() => setValue("driveType", type as any)}
                       className={cn(
-                        "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all duration-300",
+                        "flex-1 min-w-[90px] py-3 text-[9px] font-black uppercase tracking-wider rounded-2xl transition-all duration-300",
                         driveType === type 
                           ? "bg-surface text-primary shadow-tactile scale-[1.02] border border-primary/10" 
                           : "text-muted hover:text-foreground hover:bg-surface/50"
@@ -461,6 +547,67 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
                 {errors.batch && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.batch.message}</p>}
               </div>
 
+              {/* Eligibility Criteria */}
+              <div className="md:col-span-2 space-y-2 mt-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted ml-1 flex items-center gap-2">
+                  <LuFileText size={12} className="text-primary" />
+                  Eligibility Criteria
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-background rounded-[24px] border border-border-subtle shadow-sm animate-in fade-in duration-300">
+                  {/* Min CGPA */}
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-bold text-muted uppercase tracking-wider ml-1">Minimum CGPA</label>
+                    <input 
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="10"
+                      {...register("minCgpa", { valueAsNumber: true })}
+                      placeholder="e.g. 7.0"
+                      className={cn(
+                        "w-full px-4 py-3 bg-surface border border-border-subtle rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary transition-all",
+                        errors.minCgpa ? "border-red-500" : "border-border-subtle"
+                      )}
+                    />
+                    {errors.minCgpa && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.minCgpa.message}</p>}
+                  </div>
+
+                  {/* Backlogs Allowed */}
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-bold text-muted uppercase tracking-wider ml-1">Max Active Backlogs</label>
+                    <input 
+                      type="number"
+                      min="0"
+                      max="20"
+                      {...register("backlogsAllowed", { valueAsNumber: true })}
+                      placeholder="e.g. 0"
+                      className={cn(
+                        "w-full px-4 py-3 bg-surface border border-border-subtle rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary transition-all",
+                        errors.backlogsAllowed ? "border-red-500" : "border-border-subtle"
+                      )}
+                    />
+                    {errors.backlogsAllowed && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.backlogsAllowed.message}</p>}
+                  </div>
+
+                  {/* History of Arrears */}
+                  <div className="space-y-2 flex flex-col justify-end">
+                    <label className="text-[9px] font-bold text-muted uppercase tracking-wider ml-1">Arrears History</label>
+                    <button
+                      type="button"
+                      onClick={() => setValue("historyOfArrears", !watch("historyOfArrears"))}
+                      className={cn(
+                        "w-full py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest border transition-all flex items-center justify-center gap-2 h-[42px]",
+                        watch("historyOfArrears")
+                          ? "bg-primary text-white border-primary shadow-sm"
+                          : "bg-surface text-muted border-border-subtle hover:bg-background"
+                      )}
+                    >
+                      {watch("historyOfArrears") ? "Arrears Allowed" : "No Arrears"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Target Departments */}
               <div className="md:col-span-2 space-y-2 mt-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted ml-1 flex items-center gap-2">
@@ -490,6 +637,131 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
                       {branch}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Placement Lock Bypass */}
+              <div className="md:col-span-2 space-y-2 mt-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted ml-1 flex items-center gap-2">
+                  <LuCircleAlert size={12} className="text-primary" />
+                  Placement Lock Bypass (Allowed Students)
+                </label>
+                <div className="p-6 bg-background rounded-[24px] border border-border-subtle shadow-sm space-y-4 relative">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {/* Search & Select Input */}
+                    <div className="relative flex-1">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search student by name or register number..."
+                          value={studentSearchQuery}
+                          onChange={(e) => {
+                            setStudentSearchQuery(e.target.value);
+                            setShowStudentDropdown(true);
+                          }}
+                          onFocus={() => setShowStudentDropdown(true)}
+                          className="w-full pl-10 pr-4 py-3 bg-surface border border-border-subtle rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary transition-all"
+                        />
+                        <LuSearch className="absolute left-4.5 top-1/2 -translate-y-1/2 text-muted" size={14} />
+                      </div>
+
+                      {/* Dropdown list */}
+                      {showStudentDropdown && studentSearchQuery.trim() !== "" && (
+                        <div className="absolute left-0 right-0 mt-2 p-2 bg-surface border border-border-subtle rounded-2xl shadow-xl z-50 max-h-48 overflow-y-auto no-scrollbar">
+                          {allStudents
+                            .filter(s => {
+                              const q = studentSearchQuery.toLowerCase();
+                              const isMatch = (s.name || '').toLowerCase().includes(q) || (s.regNo || '').toLowerCase().includes(q);
+                              const isAdded = selectedStudents.some(sel => sel.id === s.id);
+                              return isMatch && !isAdded;
+                            })
+                            .slice(0, 5)
+                            .map(student => (
+                              <button
+                                key={student.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedStudents(prev => [...prev, student]);
+                                  setStudentSearchQuery("");
+                                  setShowStudentDropdown(false);
+                                }}
+                                className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold hover:bg-primary/5 text-foreground transition-all flex items-center justify-between"
+                              >
+                                <span>{student.name}</span>
+                                <span className="text-[10px] text-muted">{student.regNo || "N/A"} • {student.dept || "N/A"}</span>
+                              </button>
+                            ))}
+                          {allStudents.filter(s => {
+                            const q = studentSearchQuery.toLowerCase();
+                            const isMatch = (s.name || '').toLowerCase().includes(q) || (s.regNo || '').toLowerCase().includes(q);
+                            const isAdded = selectedStudents.some(sel => sel.id === s.id);
+                            return isMatch && !isAdded;
+                          }).length === 0 && (
+                            <div className="py-3 text-center text-[10px] font-bold text-muted uppercase tracking-wider">
+                              No matching students found
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Excel Import button */}
+                    <div className="shrink-0 flex items-center">
+                      <label className="flex items-center gap-2 px-4 py-3 bg-surface hover:bg-background border border-border-subtle rounded-xl text-xs font-black uppercase tracking-wider text-primary cursor-pointer hover:border-primary/50 transition-all shadow-sm">
+                        <LuUpload size={14} />
+                        Import Excel
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={handleExcelUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Selected students list */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-muted">
+                        Whitelisted ({selectedStudents.length})
+                      </span>
+                      {selectedStudents.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStudents([])}
+                          className="text-[9px] font-black uppercase tracking-wider text-red-500 hover:text-red-600 transition-colors flex items-center gap-1"
+                        >
+                          <LuTrash2 size={10} />
+                          Clear All
+                        </button>
+                      )}
+                    </div>
+
+                    {selectedStudents.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto p-2 bg-surface rounded-xl border border-border-subtle no-scrollbar">
+                        {selectedStudents.map(student => (
+                          <div
+                            key={student.id}
+                            className="flex items-center gap-2 pl-3 pr-2 py-1.5 bg-background border border-border-subtle rounded-lg text-xs font-bold text-foreground"
+                          >
+                            <span>{student.name} ({student.regNo || "N/A"})</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedStudents(prev => prev.filter(s => s.id !== student.id))}
+                              className="text-muted hover:text-red-500 hover:bg-red-50 rounded p-0.5 transition-colors"
+                            >
+                              <LuX size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-4 text-center border-2 border-dashed border-border-subtle/50 rounded-xl bg-surface/30">
+                        <p className="text-[10px] font-bold text-muted uppercase tracking-wider">No students whitelisted yet</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

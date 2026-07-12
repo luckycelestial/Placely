@@ -8,6 +8,7 @@ import { db } from "@/services/database";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
+import { getSettingByKey } from "@/services/settings";
 import {
   type Stage,
   type Application,
@@ -60,6 +61,8 @@ function ATSTrackerContent() {
           department: activeDept === "All Departments" ? undefined : activeDept,
           startDate: startDate || undefined,
           endDate: endDate || undefined,
+          search: debouncedSearch.trim() || undefined,
+          limit: 1000,
         }),
         db.getDrives(),
         db.getDistinctBatches(),
@@ -108,20 +111,22 @@ function ATSTrackerContent() {
               : drive?.eligibility_rules;
           savedStages = rules?.stages ?? null;
         } catch (e) {
-          console.error("Failed to parse eligibility rules:", e);
+          console.error("Failed to parse stages:", e);
         }
 
-        if (savedStages && Array.isArray(savedStages) && savedStages.length > 0) {
-          setStages(savedStages);
-        } else {
-          const appStageIds = new Set(appsData.map((a: any) => a.current_stage || "applied"));
-          const merged = [...DEFAULT_STAGES];
-          appStageIds.forEach((st) => {
+        const defaultStages = await getSettingByKey<Stage[]>('default_ats_stages', DEFAULT_STAGES);
+        const resolved = (savedStages && savedStages.length > 0) ? savedStages : defaultStages;
+
+        // Verify we have all stages represented
+        const merged = [...resolved];
+        appsData.forEach((app: any) => {
+          const st = app.current_stage;
+          if (st && st !== "applied") {
             if (!merged.find((m) => m.id === st))
               merged.push({ id: st as string, name: st as string, color: "bg-gray-500" });
-          });
-          setStages(merged);
-        }
+          }
+        });
+        setStages(merged);
       } else {
         setStages(GLOBAL_META_STAGES);
       }
@@ -132,7 +137,18 @@ function ATSTrackerContent() {
     }
   };
 
-  useEffect(() => { loadInitialData(); }, [activeDrive, activeBatch, activeDept, startDate, endDate]);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [activeDrive, activeBatch, activeDept, startDate, endDate, debouncedSearch]);
 
   useEffect(() => {
     if (!openMappingDropdown) return;
@@ -169,8 +185,10 @@ function ATSTrackerContent() {
     );
     try {
       await db.updateApplicationStage(id, resolvedStageId);
-    } catch (error) {
-      console.error("Failed to update stage:", error);
+    } catch (error: any) {
+      const msg = error?.message || error?.error_description || JSON.stringify(error) || 'Unknown error';
+      console.error("Failed to update stage:", msg, error);
+      toast.error(`Failed to move card: ${msg}`);
       loadInitialData();
     }
   };

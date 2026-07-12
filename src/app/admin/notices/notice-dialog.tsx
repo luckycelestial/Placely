@@ -7,6 +7,8 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { getSettingByKey, DEFAULT_CUSTOM_GROUPS, type CustomGroup } from "@/services/settings";
+import { CohortSelector } from '@/components/ui/CohortSelector';
 
 export type Notice = {
   id: string;
@@ -29,14 +31,6 @@ interface NoticeDialogProps {
 
 const PRIORITY_OPTIONS = ["Urgent", "Informational", "Reminder"] as const;
 const STATUS_OPTIONS = ["Draft", "Scheduled", "Published"] as const;
-const AUDIENCE_OPTIONS = [
-  "Final Year",
-  "Shortlisted Students",
-  "All CSE/ECE",
-  "All Students",
-  "Pre-Final Year",
-  "MBA Students",
-];
 
 export default function NoticeDialog({ isOpen, onClose, onSave, notice }: NoticeDialogProps) {
   const isEdit = !!notice;
@@ -45,7 +39,8 @@ export default function NoticeDialog({ isOpen, onClose, onSave, notice }: Notice
   const [form, setForm] = useState({
     title: "",
     summary: "",
-    audience: "All Students",
+    selectedCohorts: [] as string[],
+    operator: "OR" as "AND" | "OR",
     customAudience: "",
     showCustomAudience: false,
     priority: "Informational" as Notice["priority"],
@@ -53,35 +48,96 @@ export default function NoticeDialog({ isOpen, onClose, onSave, notice }: Notice
     date: new Date().toISOString().split("T")[0],
     time: "10:00 AM",
   });
-
   useEffect(() => {
-    if (isOpen) {
-      if (notice) {
-        setForm({
-          title: notice.title,
-          summary: notice.summary,
-          audience: AUDIENCE_OPTIONS.includes(notice.audience) ? notice.audience : "Custom",
-          customAudience: AUDIENCE_OPTIONS.includes(notice.audience) ? "" : notice.audience,
-          showCustomAudience: !AUDIENCE_OPTIONS.includes(notice.audience),
-          priority: notice.priority,
-          status: notice.status,
-          date: notice.date,
-          time: notice.time,
+    if (!isOpen) return;
+
+    const loadOptions = async () => {
+      try {
+        const groups = await getSettingByKey<CustomGroup[]>('custom_groups', DEFAULT_CUSTOM_GROUPS);
+        const deptsGroup = groups?.find(g => g.id === 'departments');
+        const batchesGroup = groups?.find(g => g.id === 'batches');
+
+        const depts = deptsGroup?.options || ["CSE", "ECE", "EEE", "MECH", "CIVIL", "IT"];
+        const batches = batchesGroup?.options || [];
+
+        const others: string[] = [];
+        groups?.forEach(g => {
+          if (g.id !== 'departments' && g.id !== 'batches' && g.options) {
+            others.push(...g.options);
+          }
         });
-      } else {
-        setForm({
-          title: "",
-          summary: "",
-          audience: "All Students",
-          customAudience: "",
-          showCustomAudience: false,
-          priority: "Informational",
-          status: "Draft",
-          date: new Date().toISOString().split("T")[0],
-          time: "10:00 AM",
-        });
+
+        if (notice) {
+          const aud = notice.audience || "All Students";
+          let isCustom = true;
+          let cohortList: string[] = [];
+          let opVal: "AND" | "OR" = "OR";
+
+          if (aud === "All Students" || aud === "All Batches | All Groups") {
+            isCustom = false;
+            cohortList = [];
+            opVal = "OR";
+          } else if (aud.startsWith('{') && aud.endsWith('}')) {
+            try {
+              const parsed = JSON.parse(aud);
+              cohortList = parsed.cohorts || [];
+              opVal = parsed.operator || "OR";
+              isCustom = false;
+            } catch (e) {
+              isCustom = true;
+            }
+          } else if (aud.includes(" | ")) {
+            const parts = aud.split(" | ");
+            const batchVal = parts[0]?.trim();
+            const deptVal = parts[1]?.trim();
+            
+            if (batchVal && batchVal !== "All Batches") cohortList.push(batchVal);
+            if (deptVal && deptVal !== "All Groups") cohortList.push(deptVal);
+            opVal = "AND";
+            isCustom = false;
+          } else {
+            const isBatch = batches.includes(aud);
+            const isDept = depts.includes(aud);
+            const isOther = others.includes(aud);
+            if (isBatch || isDept || isOther) {
+              cohortList = [aud];
+              opVal = "OR";
+              isCustom = false;
+            }
+          }
+
+          setForm({
+            title: notice.title,
+            summary: notice.summary,
+            selectedCohorts: cohortList,
+            operator: opVal,
+            customAudience: isCustom ? aud : "",
+            showCustomAudience: isCustom,
+            priority: notice.priority,
+            status: notice.status,
+            date: notice.date,
+            time: notice.time,
+          });
+        } else {
+          setForm({
+            title: "",
+            summary: "",
+            selectedCohorts: [],
+            operator: "OR",
+            customAudience: "",
+            showCustomAudience: false,
+            priority: "Informational",
+            status: "Draft",
+            date: new Date().toISOString().split("T")[0],
+            time: "10:00 AM",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load audience settings:", error);
       }
-    }
+    };
+
+    loadOptions();
   }, [isOpen, notice]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,11 +149,18 @@ export default function NoticeDialog({ isOpen, onClose, onSave, notice }: Notice
     try {
       // Simulate async save
       await new Promise((r) => setTimeout(r, 400));
+      
+      const audienceValue = form.showCustomAudience 
+        ? form.customAudience 
+        : form.selectedCohorts.length === 0
+          ? "All Students"
+          : JSON.stringify({ operator: form.operator, cohorts: form.selectedCohorts });
+
       const saved: Notice = {
         id: notice?.id || `NOT${Date.now()}`,
         title: form.title,
         summary: form.summary,
-        audience: form.showCustomAudience ? form.customAudience : form.audience,
+        audience: audienceValue,
         priority: form.priority,
         status: form.status,
         date: form.date,
@@ -193,52 +256,14 @@ export default function NoticeDialog({ isOpen, onClose, onSave, notice }: Notice
               </div>
             </div>
 
-            {/* Target Audience */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted flex items-center gap-2">
-                <LuUsers size={12} className="text-primary" />
-                Target Audience
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {AUDIENCE_OPTIONS.map((aud) => (
-                  <button
-                    key={aud}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, audience: aud, showCustomAudience: false }))}
-                    className={cn(
-                      "px-3 py-2 rounded-xl text-[10px] font-black transition-all border",
-                      form.audience === aud && !form.showCustomAudience
-                        ? "bg-primary/10 border-primary/30 text-primary"
-                        : "bg-background border-border-subtle text-muted hover:text-foreground hover:border-primary/20"
-                    )}
-                  >
-                    {aud}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setForm((f) => ({ ...f, audience: "Custom", showCustomAudience: true }))}
-                  className={cn(
-                    "px-3 py-2 rounded-xl text-[10px] font-black transition-all border",
-                    form.showCustomAudience
-                      ? "bg-primary/10 border-primary/30 text-primary"
-                      : "bg-background border-border-subtle text-muted hover:text-foreground"
-                  )}
-                >
-                  Custom...
-                </button>
-              </div>
-              {form.showCustomAudience && (
-                <input
-                  type="text"
-                  placeholder="e.g. EEE + Mech Students"
-                  value={form.customAudience}
-                  onChange={(e) => setForm((f) => ({ ...f, customAudience: e.target.value }))}
-                  autoFocus
-                  className="w-full px-4 py-3 rounded-xl border border-primary/30 bg-background text-sm font-bold focus:ring-2 focus:ring-primary/10 outline-none transition-all"
-                />
-              )}
-            </div>
+             {/* Target Audience */}
+             <CohortSelector
+               selectedCohorts={form.selectedCohorts}
+               operator={form.operator}
+               customAudience={form.customAudience}
+               showCustomAudience={form.showCustomAudience}
+               onChange={(data) => setForm(f => ({ ...f, ...data }))}
+             />
 
             {/* Date & Time */}
             <div className="grid grid-cols-2 gap-3">

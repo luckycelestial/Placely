@@ -20,17 +20,29 @@ export async function createStudent(studentData: any) {
     .from('students')
     .insert([{
       user_id: userData.id,
+      name: studentData.name,
       register_number: studentData.regNo,
       department: studentData.dept,
       year: parseInt(studentData.year),
-      placement_status: 'unplaced',
+      placement_status: 'not_placed',
       profile_completion: 0,
-      verification_status: 'pending'
+      verification_status: 'verified'
     }])
     .select()
     .single();
 
   if (studentError) throw studentError;
+
+  // 3. Create Student Contacts
+  const { error: contactError } = await supabase
+    .from('student_contacts')
+    .insert([{
+      student_id: student.id,
+      college_email: studentData.email || null,
+      personal_email: studentData.personalEmail || studentData.personal_email || null
+    }]);
+
+  if (contactError) throw contactError;
 
   return student;
 }
@@ -59,6 +71,7 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
 
   // 3. Update students table
   const studentUpdates: any = {};
+  if ('name' in updatedFields) studentUpdates.name = updatedFields.name;
   if ('regNo' in updatedFields || 'register_number' in updatedFields) {
     studentUpdates.register_number = updatedFields.regNo !== undefined ? updatedFields.regNo : updatedFields.register_number;
   }
@@ -177,6 +190,12 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
   if ('city' in updatedFields) contactUpdates.city = updatedFields.city;
   if ('state' in updatedFields) contactUpdates.state = updatedFields.state;
   if ('pincode' in updatedFields) contactUpdates.pincode = updatedFields.pincode;
+  if ('email' in updatedFields || 'college_email' in updatedFields) {
+    contactUpdates.college_email = updatedFields.email !== undefined ? updatedFields.email : updatedFields.college_email;
+  }
+  if ('personal_email' in updatedFields || 'personalEmail' in updatedFields) {
+    contactUpdates.personal_email = updatedFields.personal_email !== undefined ? updatedFields.personal_email : updatedFields.personalEmail;
+  }
   if ('phone' in updatedFields) {
     // Phone lives on users table
     if (student?.user_id) {
@@ -228,7 +247,9 @@ export async function updateStudentProfile(studentId: string, profileData: any) 
 
     const userUpdates: any = {};
     if (profileData.name) userUpdates.name = profileData.name;
-    if (profileData.email) userUpdates.email = profileData.email;
+    if (profileData.email || profileData.college_email) {
+      userUpdates.email = String(profileData.email || profileData.college_email).trim().toLowerCase();
+    }
     if (Object.keys(userUpdates).length > 0 && studentRecord?.user_id) {
       const { error: userError } = await supabase
         .from('users')
@@ -239,6 +260,9 @@ export async function updateStudentProfile(studentId: string, profileData: any) 
 
     // Update students table
     const studentUpdates: any = {};
+    if (profileData.name) {
+      studentUpdates.name = profileData.name;
+    }
     if (profileData.department || profileData.dept) {
       studentUpdates.department = profileData.department || profileData.dept;
     }
@@ -319,6 +343,12 @@ export async function updateStudentProfile(studentId: string, profileData: any) 
     if (profileData.city !== undefined) contactUpdates.city = profileData.city;
     if (profileData.state !== undefined) contactUpdates.state = profileData.state;
     if (profileData.pincode !== undefined) contactUpdates.pincode = profileData.pincode;
+    if (profileData.email !== undefined || profileData.college_email !== undefined) {
+      contactUpdates.college_email = profileData.email !== undefined ? profileData.email : profileData.college_email;
+    }
+    if (profileData.personal_email !== undefined || profileData.personalEmail !== undefined) {
+      contactUpdates.personal_email = profileData.personal_email !== undefined ? profileData.personal_email : profileData.personalEmail;
+    }
 
     if (Object.keys(contactUpdates).length > 0) {
       const { data: eC } = await supabase.from('student_contacts').select('id').eq('student_id', studentId).single();

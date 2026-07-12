@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { ADMIN_NAV_ITEMS } from "./nav-config";
-import { LuSearch, LuBell, LuShield, LuUser } from "react-icons/lu";
+import { LuSearch, LuBell } from "react-icons/lu";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { TypographyToggle } from "./typography-toggle";
@@ -25,26 +25,9 @@ export function AdminHeader() {
         </Link>
       </div>
 
-      {/* Desktop Title & Toggle */}
+      {/* Desktop Title */}
       <div className="hidden md:flex items-center gap-6">
         <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{title}</h1>
-        
-        {/* Role Toggle */}
-        <div className="flex items-center bg-surface border border-border-subtle rounded-full p-1">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all text-muted hover:text-foreground hover:bg-black/5"
-          >
-            <LuUser size={14} />
-            Student
-          </Link>
-          <button
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all bg-primary text-background shadow-sm"
-          >
-            <LuShield size={14} />
-            Admin
-          </button>
-        </div>
       </div>
 
       <div className="flex items-center gap-3">
@@ -58,14 +41,6 @@ export function AdminHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Mobile Role Toggle (Icon only) */}
-          <Link 
-            href="/dashboard"
-            className="md:hidden relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/5 transition-all group border border-border-subtle"
-            title="Switch to Student"
-          >
-            <LuUser size={18} className="text-primary" />
-          </Link>
 
           <DesignToggle />
           <TypographyToggle />

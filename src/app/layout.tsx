@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Bricolage_Grotesque, Signika, Arya, Rubik } from "next/font/google";
+import { Inter, Bricolage_Grotesque, Signika, Arya, Rubik, IBM_Plex_Sans } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
@@ -13,6 +13,11 @@ const bricolage = Bricolage_Grotesque({
 const signika = Signika({ subsets: ["latin"], variable: "--font-signika" });
 const arya = Arya({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-arya" });
 const rubik = Rubik({ subsets: ["latin"], variable: "--font-rubik" });
+const ibmPlex = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-ibm-plex"
+});
 
 export const metadata: Metadata = {
   title: "CareerBridge | Student Portal",
@@ -27,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${bricolage.variable} ${signika.variable} ${arya.variable} ${rubik.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} ${bricolage.variable} ${signika.variable} ${arya.variable} ${rubik.variable} ${ibmPlex.variable}`} suppressHydrationWarning>
       <head>
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{
           __html: `
@@ -36,6 +41,12 @@ export default function RootLayout({
                 var theme = localStorage.getItem('careerbridge-theme');
                 if (theme === 'modern') {
                   document.documentElement.classList.add('theme-modern');
+                }
+                var design = localStorage.getItem('careerbridge-design');
+                if (design) {
+                  if (design === 'geometric') document.documentElement.classList.add('design-geometric');
+                  else if (design === 'hp') document.documentElement.classList.add('design-hp');
+                  else if (design === 'sece') document.documentElement.classList.add('design-sece');
                 }
               } catch (e) {}
             })();

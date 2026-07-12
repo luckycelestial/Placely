@@ -6,13 +6,17 @@ export async function getApplications(options: {
   department?: string; 
   startDate?: string; 
   endDate?: string; 
+  search?: string;
+  limit?: number;
+  offset?: number;
 } = {}) {
   const hasDeptFilter = options.department && options.department !== "All Departments";
   const hasBatchFilter = options.batch && options.batch !== "All Batches";
+  const hasSearch = options.search && options.search.trim() !== "";
 
-  const studentsSelect = hasDeptFilter
-    ? `students!inner(register_number, department, year, users(name))`
-    : `students(register_number, department, year, users(name))`;
+  const studentsSelect = (hasDeptFilter || hasSearch)
+    ? `students!inner(name, register_number, department, year, users(name))`
+    : `students(name, register_number, department, year, users(name))`;
 
   const drivesSelect = hasBatchFilter
     ? `job_drives!inner(role_title, batch, companies(name))`
@@ -34,6 +38,11 @@ export async function getApplications(options: {
     query = query.eq('students.department', options.department);
   }
 
+  if (hasSearch) {
+    const searchVal = `%${options.search!.trim()}%`;
+    query = query.or(`name.ilike.${searchVal},register_number.ilike.${searchVal}`, { foreignTable: 'students' });
+  }
+
   if (hasBatchFilter) {
     query = query.eq('job_drives.batch', options.batch);
   }
@@ -45,6 +54,13 @@ export async function getApplications(options: {
   if (options.endDate) {
     query = query.lte('applied_at', options.endDate);
   }
+
+  const limit = options.limit !== undefined ? options.limit : 1000;
+  const offset = options.offset !== undefined ? options.offset : 0;
+
+  query = query
+    .order('updated_at', { ascending: false })
+    .range(offset, offset + limit - 1);
 
   const { data, error } = await query;
   if (error) throw error;
@@ -112,6 +128,68 @@ export function resolveStatusFromStage(stageId: string): string {
   return 'In Review';
 }
 
+async function autoCreateOfferAndPlaceStudent(studentId: string, driveId: string) {
+  try {
+    // 1. Get drive details
+    const { data: drive, error: driveErr } = await supabase
+      .from('job_drives')
+      .select('company_id, role_title, package_ctc')
+      .eq('id', driveId)
+      .maybeSingle();
+    
+    if (driveErr || !drive) {
+      console.error('Failed to get drive details for auto-offer:', driveErr);
+      return;
+    }
+
+    // 2. Check if an offer already exists
+    const { data: existing, error: existErr } = await supabase
+      .from('offers')
+      .select('id')
+      .eq('student_id', studentId)
+      .eq('drive_id', driveId)
+      .maybeSingle();
+
+    if (existErr) {
+      console.error('Failed to check existing offer:', existErr);
+    }
+
+    if (!existing) {
+      // 3. Create offer
+      const { error: insertErr } = await supabase
+        .from('offers')
+        .insert([{
+          student_id: studentId,
+          drive_id: driveId,
+          company_id: drive.company_id,
+          role_title: drive.role_title,
+          package_ctc: drive.package_ctc,
+          offer_status: 'offered',
+          acceptance_status: 'pending',
+          verification_status: 'verified'
+        }]);
+      if (insertErr) {
+        console.error('Failed to auto-create offer:', insertErr);
+      }
+    }
+
+    // 4. Update student placement status to 'placed'
+    const { error: studentErr } = await supabase
+      .from('students')
+      .update({ placement_status: 'placed', updated_at: new Date().toISOString() })
+      .eq('id', studentId);
+    
+    if (studentErr) {
+      console.error('Failed to update student placement status to placed:', studentErr);
+    }
+
+    // 5. Assign placement lock
+    await assignPlacementLockIfEnabled(studentId);
+  } catch (err) {
+    console.error('Error in autoCreateOfferAndPlaceStudent:', err);
+  }
+}
+
 export async function updateApplicationStage(id: string, stageId: string) {
   const status = resolveStatusFromStage(stageId);
   const { error } = await supabase
@@ -122,6 +200,19 @@ export async function updateApplicationStage(id: string, stageId: string) {
     })
     .eq('id', id);
   if (error) throw error;
+
+  // Auto-assign Offer & Placement Lock when moved to Offered or Joined stage
+  if (status === 'Offered' || status === 'Joined') {
+    const { data: app } = await supabase
+      .from('applications')
+      .select('student_id, drive_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (app?.student_id && app?.drive_id) {
+      await autoCreateOfferAndPlaceStudent(app.student_id, app.drive_id);
+    }
+  }
+
   return { success: true };
 }
 
@@ -135,6 +226,22 @@ export async function bulkUpdateApplicationStage(ids: string[], stageId: string)
     })
     .in('id', ids);
   if (error) throw error;
+
+  // Auto-assign Offer & Placement Lock when moved to Offered or Joined stage
+  if (status === 'Offered' || status === 'Joined') {
+    const { data: apps } = await supabase
+      .from('applications')
+      .select('student_id, drive_id')
+      .in('id', ids);
+    if (apps && apps.length > 0) {
+      await Promise.all(apps.map(async (app: any) => {
+        if (app.student_id && app.drive_id) {
+          await autoCreateOfferAndPlaceStudent(app.student_id, app.drive_id);
+        }
+      }));
+    }
+  }
+
   return { success: true };
 }
 
@@ -145,6 +252,7 @@ export async function getOffers() {
       *,
       students (
         id,
+        name,
         register_number,
         users (
           name
@@ -197,6 +305,53 @@ export async function updateOfferStatus(id: string, status: string) {
 
 export async function updateOfferVerification(id: string, status: string) {
   return updateOffer(id, { verification_status: status });
+}
+
+/**
+ * Stamps the given student's custom-group preference with { placement_lock: "Active" }.
+ * Uses the security-definer RPC to bypass RLS restrictions.
+ * Falls back to direct write if RPC is unavailable.
+ */
+async function assignPlacementLockIfEnabled(studentId: string) {
+  // Primary path: use security-definer RPC (bypasses RLS)
+  const { error: rpcError } = await supabase.rpc('assign_placement_lock', { p_student_id: studentId });
+  if (!rpcError) return;
+
+  // Fallback: direct write
+  console.warn('assign_placement_lock RPC unavailable, falling back to direct write:', rpcError.message);
+  try {
+    const { data: pref } = await supabase
+      .from('student_preferences')
+      .select('id, work_mode_preference')
+      .eq('student_id', studentId)
+      .maybeSingle();
+
+    let map: Record<string, string> = {};
+    const raw = pref?.work_mode_preference || '';
+    if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+      try { map = JSON.parse(raw); } catch (e) { /* ignore */ }
+    } else if (raw) {
+      map['placement_group'] = raw;
+    }
+
+    map['placement_lock'] = 'Active';
+    const newPref = JSON.stringify(map);
+
+    if (pref?.id) {
+      const { error: updErr } = await supabase
+        .from('student_preferences')
+        .update({ work_mode_preference: newPref, updated_at: new Date().toISOString() })
+        .eq('id', pref.id);
+      if (updErr) console.error('placement lock update error:', updErr.message);
+    } else {
+      const { error: insErr } = await supabase
+        .from('student_preferences')
+        .insert([{ student_id: studentId, work_mode_preference: newPref, updated_at: new Date().toISOString() }]);
+      if (insErr) console.error('placement lock insert error:', insErr.message);
+    }
+  } catch (err) {
+    console.error('assignPlacementLockIfEnabled fallback error:', err);
+  }
 }
 
 export async function bulkCreateOffers(offersData: any[]) {
@@ -269,7 +424,7 @@ export async function bulkCreateOffers(offersData: any[]) {
       acceptance_status: item.status || 'accepted',
       joining_date: item.joiningDate || new Date().toISOString().split('T')[0],
       offer_status: item.outcome || 'accepted',
-      verification_status: item.verification || 'pending'
+      verification_status: item.verification || 'verified'
     };
   }).filter(Boolean);
 
@@ -282,6 +437,13 @@ export async function bulkCreateOffers(offersData: any[]) {
     .select();
 
   if (offerError) throw offerError;
+
+  // Apply placement lock for each student who received an offer
+  const placedStudentIds = Array.from(new Set(
+    (offersPayload as any[]).map((o: any) => o.student_id).filter(Boolean)
+  ));
+  await Promise.all(placedStudentIds.map(id => assignPlacementLockIfEnabled(id)));
+
   return createdOffers || [];
 }
 
@@ -358,6 +520,9 @@ export async function acceptOffer(
     })
     .eq('id', applicationId);
   if (appError) throw appError;
+
+  // Apply placement lock if policy is enabled
+  await assignPlacementLockIfEnabled(studentId);
 
   return { success: true, offerId };
 }

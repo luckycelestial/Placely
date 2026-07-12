@@ -20,14 +20,58 @@ export async function upsertTableData(tableName: string, data: any[]) {
   return result;
 }
 
-export async function getTableData(tableName: string) {
-  const { data, error } = await supabase
+export async function getTableData(tableName: string, options?: { limit?: number; offset?: number; search?: string; year?: string }) {
+  let query = supabase
     .from(tableName)
-    .select('*')
-    .order('created_at', { ascending: false });
+    .select('*');
 
+  if (tableName === "students") {
+    if (options?.year) {
+      query = query.ilike('year', `%${options.year}%`);
+    }
+    if (options?.search) {
+      query = query.or(`name.ilike.%${options.search}%,register_number.ilike.%${options.search}%,roll_number.ilike.%${options.search}%`);
+    }
+  } else if (options?.search && tableName !== "settings") {
+    if (tableName === "companies" || tableName === "job_drives" || tableName === "users") {
+      query = query.ilike('name', `%${options.search}%`);
+    }
+  }
+
+  query = query.order('created_at', { ascending: false });
+
+  if (options?.limit !== undefined) {
+    const from = options.offset || 0;
+    const to = from + options.limit - 1;
+    query = query.range(from, to);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
+}
+
+export async function getTableCount(tableName: string, options?: { search?: string; year?: string }) {
+  let query = supabase
+    .from(tableName)
+    .select('*', { count: 'exact', head: true });
+
+  if (tableName === "students") {
+    if (options?.year) {
+      query = query.ilike('year', `%${options.year}%`);
+    }
+    if (options?.search) {
+      query = query.or(`name.ilike.%${options.search}%,register_number.ilike.%${options.search}%,roll_number.ilike.%${options.search}%`);
+    }
+  } else if (options?.search && tableName !== "settings") {
+    if (tableName === "companies" || tableName === "job_drives" || tableName === "users") {
+      query = query.ilike('name', `%${options.search}%`);
+    }
+  }
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return count || 0;
 }
 
 export async function updateTableCell(tableName: string, id: string, updatedFields: any) {
@@ -49,6 +93,7 @@ export async function getPendingApprovals() {
       created_at,
       companies (name),
       students (
+        name,
         department,
         users (name)
       )
@@ -61,10 +106,9 @@ export async function getPendingApprovals() {
   return data.map(o => ({
     id: o.id,
     type: 'Offer Letter',
-    target: `${(o.students as any)?.users?.name || (o.students as any)?.[0]?.users?.[0]?.name || 'Unknown'} (${(o.students as any)?.department || (o.students as any)?.[0]?.department || 'N/A'})`,
+    target: `${(o.students as any)?.name || (o.students as any)?.users?.name || (o.students as any)?.[0]?.name || (o.students as any)?.[0]?.users?.[0]?.name || 'Unknown'} (${(o.students as any)?.department || (o.students as any)?.[0]?.department || 'N/A'})`,
     company: (o.companies as any)?.name || (o.companies as any)?.[0]?.name || 'N/A',
     time: formatRelativeTime(o.created_at),
     status: 'pending'
   }));
 }
-

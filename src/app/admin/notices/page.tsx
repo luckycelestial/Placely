@@ -17,7 +17,7 @@ import {
   LuX,
   LuFileText,
 } from "react-icons/lu";
-import { cn } from "@/lib/utils";
+import { cn, formatAudienceDisplay } from "@/lib/utils";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import type { Notice } from "./notice-dialog";
@@ -456,7 +456,7 @@ export default function NoticesPage() {
                           {notice.priority}
                         </span>
                         <span className="text-[10px] font-black uppercase tracking-widest text-muted bg-black/5 px-2 py-0.5 rounded-md">
-                          Target: {notice.audience}
+                          Target: {formatAudienceDisplay(notice.audience)}
                         </span>
                         <div className="flex items-center gap-1.5 text-muted">
                           <LuClock size={12} />
