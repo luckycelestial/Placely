@@ -21,6 +21,12 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
 export default function TenantEntryPage() {
+  const showDemo = 
+    process.env.NEXT_PUBLIC_APP_ENV === "local" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "dev" ||
+    process.env.NEXT_PUBLIC_VERCEL_ENV === "preview" ||
+    process.env.NEXT_PUBLIC_VERCEL_ENV === "development";
+
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [students, setStudents] = useState<any[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
@@ -56,11 +62,27 @@ export default function TenantEntryPage() {
     }
   };
 
+  const [activeTab, setActiveTab] = useState<"student" | "admin">("student");
+
   const handleProfileSignIn = (studentId: string) => {
     setIsLoggingIn(true);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("active_admin_email");
+    }
     setLoggedStudentId(studentId);
     setTimeout(() => {
       router.push("/dashboard");
+    }, 800);
+  };
+
+  const handleAdminSignIn = () => {
+    setIsLoggingIn(true);
+    setLoggedStudentId("");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("active_admin_email", "admin@careerbridge.com");
+    }
+    setTimeout(() => {
+      router.push("/admin/dashboard");
     }, 800);
   };
 
@@ -160,54 +182,123 @@ export default function TenantEntryPage() {
               </button>
             </div>
             
-            {/* Student Profiles Selector */}
-            <div className="space-y-4 pt-6 border-t border-border-subtle/50">
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center gap-2">
-                  <LuUser size={14} className="text-primary" />
-                  Select Student Profile to Enter
-                </h3>
-                <p className="text-[10px] text-muted mt-1 font-medium">Click on any profile card to instantly login as that student.</p>
+            {/* Tab Switcher */}
+            {showDemo && (
+              <div className="flex gap-2 p-1 bg-surface/50 border border-border-subtle/50 rounded-[20px]">
+                <button
+                  onClick={() => setActiveTab("student")}
+                  className={cn(
+                    "flex-1 py-3 rounded-[16px] text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2",
+                    activeTab === "student"
+                      ? "bg-background text-primary shadow-sm border border-border-subtle/30"
+                      : "text-muted hover:text-foreground"
+                  )}
+                >
+                  <LuUser size={14} />
+                  Student Portal
+                </button>
+                <button
+                  onClick={() => setActiveTab("admin")}
+                  className={cn(
+                    "flex-1 py-3 rounded-[16px] text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2",
+                    activeTab === "admin"
+                      ? "bg-background text-primary shadow-sm border border-border-subtle/30"
+                      : "text-muted hover:text-foreground"
+                  )}
+                >
+                  <LuShieldCheck size={14} />
+                  Admin Portal
+                </button>
               </div>
+            )}
+            
+            {/* Profiles Selector */}
+            {showDemo && (
+              <div className="space-y-4 pt-6 border-t border-border-subtle/50">
+                {activeTab === "student" ? (
+                  <>
+                    <div>
+                      <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center gap-2 animate-in fade-in duration-300">
+                        <LuUser size={14} className="text-primary" />
+                        Select Student Profile to Enter
+                      </h3>
+                      <p className="text-[10px] text-muted mt-1 font-medium animate-in fade-in duration-300">Click on any profile card to instantly login as that student.</p>
+                    </div>
 
-              {loadingStudents ? (
-                <div className="space-y-3">
-                  <div className="h-14 rounded-2xl bg-surface animate-pulse" />
-                  <div className="h-14 rounded-2xl bg-surface animate-pulse" />
-                </div>
-              ) : students.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3 max-h-[220px] overflow-y-auto pr-1.5 no-scrollbar">
-                  {students.map((student) => {
-                    const avatar = (student.name || "U").split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
-                    return (
+                    {loadingStudents ? (
+                      <div className="space-y-3">
+                        <div className="h-14 rounded-2xl bg-surface animate-pulse" />
+                        <div className="h-14 rounded-2xl bg-surface animate-pulse" />
+                      </div>
+                    ) : students.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3 max-h-[220px] overflow-y-auto pr-1.5 no-scrollbar animate-in fade-in duration-300">
+                        {students.map((student) => {
+                          const avatar = (student.name || "U").split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+                          return (
+                            <button
+                              key={student.id}
+                              onClick={() => handleProfileSignIn(student.id)}
+                              disabled={isLoggingIn}
+                              className="w-full p-4 rounded-2xl border border-border-subtle bg-surface/50 text-left hover:border-primary/40 hover:bg-surface transition-all flex items-center justify-between group active:scale-[0.99] disabled:opacity-70 disabled:pointer-events-none cursor-pointer shadow-sm hover:shadow-md"
+                            >
+                              <div className="flex items-center gap-4 min-w-0">
+                                <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-xs shrink-0 group-hover:scale-105 transition-transform">
+                                  {avatar}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-sm text-foreground leading-none mb-1 group-hover:text-primary transition-colors truncate">{student.name}</p>
+                                  <p className="text-[9px] font-black text-muted uppercase tracking-tighter flex items-center gap-1">
+                                    {student.regNo}
+                                    <span className="h-1 w-1 rounded-full bg-muted/40" />
+                                    <span className="text-primary">{student.dept}</span>
+                                  </p>
+                                </div>
+                              </div>
+                              <LuMoveRight size={16} className="text-muted/40 group-hover:text-primary transition-all translate-x-0 group-hover:translate-x-1" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] font-semibold text-muted text-center py-4 animate-in fade-in duration-300">No student profiles registered in system.</p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center gap-2 animate-in fade-in duration-300">
+                        <LuShieldCheck size={14} className="text-primary" />
+                        Select Admin Profile to Enter
+                      </h3>
+                      <p className="text-[10px] text-muted mt-1 font-medium animate-in fade-in duration-300">Click on the card to instantly login as a system administrator.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 animate-in fade-in duration-300">
                       <button
-                        key={student.id}
-                        onClick={() => handleProfileSignIn(student.id)}
+                        onClick={handleAdminSignIn}
                         disabled={isLoggingIn}
                         className="w-full p-4 rounded-2xl border border-border-subtle bg-surface/50 text-left hover:border-primary/40 hover:bg-surface transition-all flex items-center justify-between group active:scale-[0.99] disabled:opacity-70 disabled:pointer-events-none cursor-pointer shadow-sm hover:shadow-md"
                       >
                         <div className="flex items-center gap-4 min-w-0">
                           <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-xs shrink-0 group-hover:scale-105 transition-transform">
-                            {avatar}
+                            AD
                           </div>
                           <div className="min-w-0">
-                            <p className="font-bold text-sm text-foreground leading-none mb-1 group-hover:text-primary transition-colors truncate">{student.name}</p>
+                            <p className="font-bold text-sm text-foreground leading-none mb-1 group-hover:text-primary transition-colors truncate">System Administrator</p>
                             <p className="text-[9px] font-black text-muted uppercase tracking-tighter flex items-center gap-1">
-                              {student.regNo}
+                              admin@careerbridge.com
                               <span className="h-1 w-1 rounded-full bg-muted/40" />
-                              <span className="text-primary">{student.dept}</span>
+                              <span className="text-primary">TPO Admin</span>
                             </p>
                           </div>
                         </div>
                         <LuMoveRight size={16} className="text-muted/40 group-hover:text-primary transition-all translate-x-0 group-hover:translate-x-1" />
                       </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-[10px] font-semibold text-muted text-center py-4">No student profiles registered in system.</p>
-              )}
-            </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between pt-4">

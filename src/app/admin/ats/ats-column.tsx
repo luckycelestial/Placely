@@ -9,13 +9,13 @@ import {
   GLOBAL_META_STAGES,
   getMetaStageId,
   parseDriveStages,
-  resolveStagesForDrive,
 } from "./types";
 import { AtsCandidateCard } from "./ats-candidate-card";
 
 interface AtsColumnProps {
   stage: Stage;
   stages: Stage[];
+  defaultStages: Stage[];
   filteredApps: Application[];
   drives: any[];
   activeDrive: string;
@@ -38,6 +38,7 @@ interface AtsColumnProps {
 export function AtsColumn({
   stage,
   stages,
+  defaultStages,
   filteredApps,
   drives,
   activeDrive,
@@ -57,6 +58,11 @@ export function AtsColumn({
   onUpdateStageMapping,
 }: AtsColumnProps) {
   const isGlobalView = activeDrive === "All Drives";
+
+  const resolveStages = (driveObj: any) => {
+    const parsed = parseDriveStages(driveObj);
+    return parsed.length > 0 ? parsed : defaultStages;
+  };
 
   const stageApps = filteredApps.filter((c) => {
     if (isGlobalView) {
@@ -180,7 +186,7 @@ export function AtsColumn({
                 d.id === activeDrive ||
                 `${d.companies?.name} - ${d.role_title}` === `${candidate.company} - ${candidate.role}`
             );
-            const driveStages = resolveStagesForDrive(driveObj);
+            const driveStages = resolveStages(driveObj);
             const actualStageName =
               driveStages.find((s) => s.id === candidate.stage)?.name || candidate.stage;
 

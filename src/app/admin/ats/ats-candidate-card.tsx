@@ -94,19 +94,23 @@ export function AtsCandidateCard({
         <div className="flex items-center gap-2">
           {/* Inline CTC editor */}
           {showCtc && (
-            <div onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-1">
               {editingCtcId === candidate.id ? (
-                <input
-                  autoFocus
-                  type="text"
-                  defaultValue={candidate.ctc || ""}
-                  placeholder="12 LPA"
-                  className="w-16 bg-background border border-emerald-500 text-emerald-600 dark:text-emerald-400 rounded px-1.5 py-0.5 text-[9px] font-bold focus:outline-none"
-                  onBlur={(e) => onEditCtcEnd(candidate.id, e.target.value, candidate.ctc || "")}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") e.currentTarget.blur();
-                  }}
-                />
+                <>
+                  <input
+                    autoFocus
+                    type="number"
+                    step="any"
+                    defaultValue={candidate.ctc || ""}
+                    placeholder="12"
+                    className="w-12 bg-background border border-emerald-500 text-emerald-600 dark:text-emerald-400 rounded px-1.5 py-0.5 text-[9px] font-bold focus:outline-none"
+                    onBlur={(e) => onEditCtcEnd(candidate.id, e.target.value, candidate.ctc || "")}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                    }}
+                  />
+                  <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">LPA</span>
+                </>
               ) : (
                 <div
                   onClick={() => onEditCtcStart(candidate.id)}
@@ -117,7 +121,7 @@ export function AtsCandidateCard({
                       : "bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/50"
                   )}
                 >
-                  {candidate.ctc || "+ CTC"}
+                  {candidate.ctc ? `${candidate.ctc} LPA` : "+ CTC"}
                 </div>
               )}
             </div>

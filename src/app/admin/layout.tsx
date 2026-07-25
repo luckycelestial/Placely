@@ -16,6 +16,14 @@ export default function AdminLayout({
   useEffect(() => {
     async function checkAdmin() {
       try {
+        if (typeof window !== 'undefined') {
+          const demoAdminEmail = localStorage.getItem('active_admin_email');
+          if (demoAdminEmail) {
+            setIsAdmin(true);
+            return;
+          }
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           router.push("/");

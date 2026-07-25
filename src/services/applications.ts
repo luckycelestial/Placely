@@ -245,6 +245,20 @@ export async function bulkUpdateApplicationStage(ids: string[], stageId: string)
   return { success: true };
 }
 
+export async function resetApplicationsStage(driveId: string, oldStageId: string, newStageId: string = 'applied') {
+  const status = resolveStatusFromStage(newStageId);
+  const { error } = await supabase
+    .from('applications')
+    .update({ 
+      current_stage: newStageId,
+      status: status 
+    })
+    .eq('drive_id', driveId)
+    .eq('current_stage', oldStageId);
+  if (error) throw error;
+  return { success: true };
+}
+
 export async function getOffers() {
   const { data, error } = await supabase
     .from('offers')

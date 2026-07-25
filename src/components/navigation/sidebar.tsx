@@ -70,6 +70,17 @@ export function Sidebar() {
             <button className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline w-full">
               Open Support
             </button>
+            <button 
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem('active_student_id');
+                  window.location.href = "/";
+                }
+              }}
+              className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:underline w-full mt-2 pt-2 border-t border-border-subtle cursor-pointer"
+            >
+              Sign Out
+            </button>
           </div>
           <div className="absolute -right-4 -bottom-4 h-24 w-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors" />
         </div>

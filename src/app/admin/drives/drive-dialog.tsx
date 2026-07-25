@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { LuX, LuPlus, LuSave, LuBuilding2, LuMapPin, LuIndianRupee, LuCalendar, LuFileText, LuSearch, LuGraduationCap, LuCircleAlert, LuUpload, LuTrash2 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
+import { getSettingByKey } from "@/services/settings";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -72,6 +73,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
   const [selectedStudents, setSelectedStudents] = useState<any[]>([]);
   const [studentSearchQuery, setStudentSearchQuery] = useState("");
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
+  const [defaultAtsStages, setDefaultAtsStages] = useState<any[]>([]);
 
   const selectedCompany = companies.find(c => c.id === selectedCompanyId);
   const filteredCompanies = companies.filter(c => 
@@ -85,6 +87,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
     if (isOpen) {
       loadCompanies();
       loadStudents();
+      loadDefaultStages();
       if (drive) {
         // drive can come from the drives page (remapped UI names)
         // or from the dashboard (raw DB names) — handle both
@@ -163,6 +166,21 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
     }
   };
 
+  const loadDefaultStages = async () => {
+    try {
+      const defaultStages = await getSettingByKey<any[]>('default_ats_stages', [
+        { id: "applied", name: "Applied", color: "bg-slate-500" },
+        { id: "shortlisted", name: "Shortlisted", color: "bg-blue-500" },
+        { id: "interview1", name: "Tech Round 1", color: "bg-purple-500" },
+        { id: "interview2", name: "Tech Round 2", color: "bg-indigo-500" },
+        { id: "selection", name: "Selection", color: "bg-emerald-500" }
+      ]);
+      setDefaultAtsStages(defaultStages);
+    } catch (err) {
+      console.error("Failed to load default stages:", err);
+    }
+  };
+
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -234,13 +252,15 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
           bypass_placement_lock_students: selectedStudents.map(s => String(s.regNo || s.register_number).trim()).filter(Boolean),
           stages: drive
             ? (drive.eligibility_rules?.stages || drive.eligibility?.stages)
-            : [
-                { id: "applied", name: "Applied", color: "bg-slate-500" },
-                { id: "shortlisted", name: "Shortlisted", color: "bg-blue-500" },
-                { id: "interview1", name: "Tech Round 1", color: "bg-purple-500" },
-                { id: "interview2", name: "Tech Round 2", color: "bg-indigo-500" },
-                { id: "selection", name: "Selection", color: "bg-emerald-500" }
-              ]
+            : defaultAtsStages.length > 0
+              ? defaultAtsStages
+              : [
+                  { id: "applied", name: "Applied", color: "bg-slate-500" },
+                  { id: "shortlisted", name: "Shortlisted", color: "bg-blue-500" },
+                  { id: "interview1", name: "Tech Round 1", color: "bg-purple-500" },
+                  { id: "interview2", name: "Tech Round 2", color: "bg-indigo-500" },
+                  { id: "selection", name: "Selection", color: "bg-emerald-500" }
+                ]
         },
         status: data.status,
         title: `${selectedCompany?.name || 'Company'} Recruitment ${data.batch}`

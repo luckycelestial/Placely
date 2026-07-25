@@ -45,6 +45,7 @@ function ATSTrackerContent() {
 
   // Stages
   const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES);
+  const [defaultStages, setDefaultStages] = useState<Stage[]>(DEFAULT_STAGES);
   const [showAddStageModal, setShowAddStageModal] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const [stageToRemove, setStageToRemove] = useState<string | null>(null);
@@ -84,7 +85,7 @@ function ATSTrackerContent() {
             company: company?.name || "Unknown",
             role: drive?.role_title || "N/A",
             stage: app.current_stage || "applied",
-            ctc: app.outcome || "",
+            ctc: app.outcome ? String(app.outcome).replace(/[^0-9.]/g, "") : "",
             updated: db.formatRelativeTime(app.updated_at),
             avatar: (user?.name || "U")
               .split(" ")
@@ -100,6 +101,9 @@ function ATSTrackerContent() {
       setBatches(batchesData);
       setDepartments(deptsData);
 
+      const defaultStagesData = await getSettingByKey<Stage[]>('default_ats_stages', DEFAULT_STAGES);
+      setDefaultStages(defaultStagesData);
+
       // Resolve stages for the selected drive
       if (activeDrive !== "All Drives") {
         const drive = drivesData.find((d: any) => d.id === activeDrive);
@@ -114,8 +118,7 @@ function ATSTrackerContent() {
           console.error("Failed to parse stages:", e);
         }
 
-        const defaultStages = await getSettingByKey<Stage[]>('default_ats_stages', DEFAULT_STAGES);
-        const resolved = (savedStages && savedStages.length > 0) ? savedStages : defaultStages;
+        const resolved = (savedStages && savedStages.length > 0) ? savedStages : defaultStagesData;
 
         // Verify we have all stages represented
         const merged = [...resolved];
@@ -237,36 +240,36 @@ function ATSTrackerContent() {
 
   // ---------- Stage management ----------
   const handleAddStage = async () => {
-    if (!newStageName.trim()) return;
+    if (activeDrive === "All Drives" || !newStageName.trim()) return;
     const id = newStageName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const newStages = [...stages, { id, name: newStageName.trim(), color: "bg-slate-500" }];
     setStages(newStages);
     setShowAddStageModal(false);
     setNewStageName("");
     try {
-      activeDrive !== "All Drives"
-        ? await db.updateDriveStages(activeDrive, newStages)
-        : await db.updateAllDriveStages(newStages);
+      await db.updateDriveStages(activeDrive, newStages);
     } catch (err) {
       console.error("Failed to save stage:", err);
     }
   };
 
   const handleExecuteRemoveStage = async () => {
-    if (!stageToRemove) return;
-    const newStages = stages.filter((s) => s.id !== stageToRemove);
+    if (activeDrive === "All Drives" || !stageToRemove) return;
+    const stageId = stageToRemove;
+    const newStages = stages.filter((s) => s.id !== stageId);
     setStages(newStages);
     setStageToRemove(null);
     try {
-      activeDrive !== "All Drives"
-        ? await db.updateDriveStages(activeDrive, newStages)
-        : await db.updateAllDriveStages(newStages);
+      await db.updateDriveStages(activeDrive, newStages);
+      await db.resetApplicationsStage(activeDrive, stageId);
+      await loadInitialData();
     } catch (err) {
       console.error("Failed to save stage removal:", err);
     }
   };
 
   const handleMoveStageColumn = async (stageId: string, direction: "left" | "right") => {
+    if (activeDrive === "All Drives") return;
     const idx = stages.findIndex((s) => s.id === stageId);
     if (idx === -1) return;
     if (direction === "left" && idx === 0) return;
@@ -276,9 +279,7 @@ function ATSTrackerContent() {
     [newStages[idx], newStages[swapIdx]] = [newStages[swapIdx], newStages[idx]];
     setStages(newStages);
     try {
-      activeDrive !== "All Drives"
-        ? await db.updateDriveStages(activeDrive, newStages)
-        : await db.updateAllDriveStages(newStages);
+      await db.updateDriveStages(activeDrive, newStages);
     } catch (err) {
       console.error("Failed to save stage reorder:", err);
     }
@@ -446,6 +447,7 @@ function ATSTrackerContent() {
               key={stage.id}
               stage={stage}
               stages={stages}
+              defaultStages={defaultStages}
               filteredApps={filteredApps}
               drives={drives}
               activeDrive={activeDrive}
