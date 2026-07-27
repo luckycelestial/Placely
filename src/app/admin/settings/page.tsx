@@ -237,17 +237,17 @@ export default function SettingsPage() {
               <div className="bg-surface rounded-3xl border border-border-subtle shadow-soft overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="p-8 border-b border-border-subtle">
                   <h3 className="text-lg font-black tracking-tight mb-1">Academic Year Batch Control</h3>
-                  <p className="text-sm font-medium text-muted">Manage progression of active batches and incoming enrollments.</p>
+                  <p className="text-sm font-medium text-muted">Manage progression of active batches and incoming enrollments based on term completion.</p>
                 </div>
                 <div className="p-8 space-y-8">
                   <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 rounded-2xl bg-primary/[0.03] border border-primary/10">
                     <div className="space-y-1 max-w-xl">
                       <p className="text-sm font-black flex items-center gap-2">
                         <LuCalendar size={18} className="text-primary" />
-                        Academic Year Completion Status
+                        Academic Term Status: <span className={cn("px-2 py-0.5 rounded-full text-xs uppercase font-black tracking-wider ml-1", isCompleted ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20")}>{isCompleted ? "Term Completed (Shifted)" : "Term In-Progress (Normal)"}</span>
                       </p>
                       <p className="text-xs text-muted-foreground/80 font-medium leading-relaxed mt-1">
-                        Toggling this transitions the college's active year. When enabled, final year students are marked as graduated and the incoming student batch becomes active.
+                        Toggling this transitions the college's active year. When "Complete Term" is clicked, all active batches advance by 1 academic year (e.g. 3rd Year becomes 4th Year, 4th Year graduates).
                       </p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
@@ -258,8 +258,10 @@ export default function SettingsPage() {
                             setIsCompleted(false);
                             try {
                               await updateSystemSettings({ isAcademicYearCompleted: false });
+                              toast.success("Academic year set to In-Progress");
                             } catch (err) {
                               console.error(err);
+                              toast.error("Failed to update setting");
                             }
                           }
                         }}
@@ -272,7 +274,7 @@ export default function SettingsPage() {
                         )}
                       >
                         <LuChevronLeft size={16} />
-                        Revert Batch
+                        Revert Term
                       </button>
 
                       {/* Advance/Forward Button */}
@@ -282,8 +284,10 @@ export default function SettingsPage() {
                             setIsCompleted(true);
                             try {
                               await updateSystemSettings({ isAcademicYearCompleted: true });
+                              toast.success("Academic year marked as Completed");
                             } catch (err) {
                               console.error(err);
+                              toast.error("Failed to update setting");
                             }
                           }
                         }}
@@ -302,13 +306,14 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-primary">Active Batches Live Preview</h4>
+                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-primary">Active Batches vs. Year of Study Live Mapping</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                       {activeBatches.map((batch) => (
                         <div key={batch.value} className="p-4 rounded-2xl border border-border-subtle bg-background hover:shadow-md transition-shadow">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-muted">{getRomanYear(batch.yearNum)} Year</p>
-                          <p className="text-lg font-black mt-2 text-foreground tracking-tight">{batch.label.split(' ')[0]}</p>
-                          <span className="inline-block mt-2 text-[9px] font-black uppercase tracking-widest bg-primary/5 text-primary px-2 py-0.5 rounded-full">Active</span>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted">Year of Study: {getRomanYear(batch.yearNum)} Year</p>
+                          <p className="text-lg font-black mt-1 text-foreground tracking-tight">Batch {batch.graduationYear}</p>
+                          <p className="text-xs font-semibold text-muted mt-0.5">{batch.label.split(' ')[0]}</p>
+                          <span className="inline-block mt-2 text-[9px] font-black uppercase tracking-widest bg-primary/5 text-primary px-2.5 py-0.5 rounded-full border border-primary/10">Active Student Batch</span>
                         </div>
                       ))}
                     </div>

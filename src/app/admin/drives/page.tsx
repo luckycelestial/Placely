@@ -29,6 +29,8 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
+import { ExportDropdown } from "@/components/ui/ExportDropdown";
+import { exportToExcel, exportToPDF } from "@/lib/export-utils";
 
 const DriveDialog = dynamic(() => import("./drive-dialog"), { ssr: false });
 const CompanyDialog = dynamic(() => import("./company-dialog"), { ssr: false });
@@ -234,6 +236,101 @@ export default function DrivesPage() {
       }
     }
   };
+  const handleExportExcel = async () => {
+    const toastId = toast.loading("Exporting Excel...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      let exportRows: any[] = [];
+      let filename = `${activeTab}_Report`;
+      
+      if (activeTab === "Drives") {
+        exportRows = drives.map(d => ({
+          "Company": d.company,
+          "Role": d.role,
+          "Package (CTC)": d.package,
+          "Location": d.location,
+          "Deadline": d.deadline,
+          "Batch": d.batch || "All",
+          "Status": d.status,
+          "Applicants": d.applications
+        }));
+      } else if (activeTab === "Companies") {
+        exportRows = companies.map(c => ({
+          "Company Name": c.name,
+          "Industry": c.industry || "Technology",
+          "Website": c.website || "N/A",
+          "HR Email": c.hr_email || "N/A",
+          "HR Phone": c.hr_phone || "N/A"
+        }));
+      } else if (activeTab === "Templates") {
+        exportRows = templates.map(t => ({
+          "Template Name": t.name,
+          "Role": t.role_title,
+          "Type": t.drive_type,
+          "Package (CTC)": t.package_ctc,
+          "Location": t.location
+        }));
+      }
+
+      exportToExcel(exportRows, filename, activeTab);
+      toast.success("Excel exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export Excel");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    const toastId = toast.loading("Exporting PDF...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      let headers: string[] = [];
+      let rows: any[][] = [];
+      let filename = `${activeTab}_Report`;
+
+      if (activeTab === "Drives") {
+        headers = ["Company", "Role", "Package", "Location", "Deadline", "Batch", "Status", "Applied"];
+        rows = drives.map(d => [
+          d.company,
+          d.role,
+          d.package,
+          d.location,
+          d.deadline,
+          d.batch || "All",
+          d.status,
+          String(d.applications)
+        ]);
+      } else if (activeTab === "Companies") {
+        headers = ["Company Name", "Industry", "Website", "HR Email", "HR Phone"];
+        rows = companies.map(c => [
+          c.name,
+          c.industry || "Technology",
+          c.website || "N/A",
+          c.hr_email || "N/A",
+          c.hr_phone || "N/A"
+        ]);
+      } else if (activeTab === "Templates") {
+        headers = ["Template Name", "Role", "Type", "Package", "Location"];
+        rows = templates.map(t => [
+          t.name,
+          t.role_title,
+          t.drive_type,
+          t.package_ctc,
+          t.location
+        ]);
+      }
+
+      await exportToPDF(`${activeTab} List`, headers, rows, filename);
+      toast.success("PDF exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export PDF");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
 
   return (
     <div className="space-y-6 pb-20">
@@ -256,6 +353,10 @@ export default function DrivesPage() {
             <LuHistory size={16} />
             {showPastDrives ? "Showing Past" : "Past Drives"}
           </button>
+          <ExportDropdown
+            onExportExcel={handleExportExcel}
+            onExportPDF={handleExportPDF}
+          />
           <button 
             onClick={handleCreate}
             className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-tactile hover:bg-primary-dark transition-all"

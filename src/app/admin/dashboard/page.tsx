@@ -29,6 +29,8 @@ import DriveDialog from "../drives/drive-dialog";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ExportDropdown } from "@/components/ui/ExportDropdown";
+import { exportToExcel } from "@/lib/export-utils";
 
 interface DashboardStats {
   totalStudents: number;
@@ -149,6 +151,30 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleExportExcel = async () => {
+    const toastId = toast.loading("Generating Excel report...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      const summaryData = [
+        { "Metric": "Total Registered Students", "Value": stats.totalStudents },
+        { "Metric": "Active Placement Drives", "Value": stats.activeDrives },
+        { "Metric": "Placed Students", "Value": stats.placedStudents },
+        { "Metric": "Unplaced Students", "Value": stats.totalStudents - stats.placedStudents },
+        { "Metric": "Placement Percentage", "Value": `${stats.placedPercentage}%` },
+        { "Metric": "Average Package (LPA)", "Value": `${stats.averagePackage} LPA` },
+        { "Metric": "Total Recruiters (Companies)", "Value": stats.totalCompanies },
+        { "Metric": "Total Offers Issued", "Value": stats.totalOffers },
+      ];
+      exportToExcel(summaryData, `System_Dashboard_Summary_${new Date().toISOString().split('T')[0]}`);
+      toast.success("Excel summary downloaded!");
+    } catch (error) {
+      console.error("Error generating Excel report:", error);
+      toast.error("Failed to generate Excel report");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
   if (loading) return (
     <div className="space-y-8">
       {/* Header Area */}
@@ -191,13 +217,10 @@ export default function AdminDashboardPage() {
           <p className="text-muted text-sm font-medium">Monitor placement drives, student analytics, and overall performance.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button 
-            onClick={handleExport}
-            className="flex items-center gap-2 rounded-xl bg-surface border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors"
-          >
-            <LuDownload size={16} />
-            Export Report
-          </button>
+          <ExportDropdown
+            onExportExcel={handleExportExcel}
+            onExportPDF={handleExport}
+          />
           <button 
             onClick={() => setIsDriveDialogOpen(true)}
             className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-tactile hover:bg-primary-dark transition-all"

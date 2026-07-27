@@ -7,7 +7,8 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { db } from "@/services/database";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-
+import { ExportDropdown } from "@/components/ui/ExportDropdown";
+import { exportToPDF } from "@/lib/export-utils";
 import { getSettingByKey } from "@/services/settings";
 import {
   type Stage,
@@ -314,7 +315,9 @@ function ATSTrackerContent() {
   };
 
   // ---------- Export ----------
-  const handleExportData = () => {
+  const handleExportData = async () => {
+    const toastId = toast.loading("Exporting Excel...");
+    await new Promise(resolve => setTimeout(resolve, 50));
     try {
       const exportData = filteredApps.map((app) => ({
         "Candidate Name": app.name,
@@ -335,8 +338,41 @@ function ATSTrackerContent() {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Applications");
       XLSX.writeFile(workbook, `ATS_Report_${new Date().getTime()}.xlsx`);
+      toast.success("Excel exported successfully!");
     } catch (error) {
       console.error("Failed to download report:", error);
+      toast.error("Failed to export Excel");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    const toastId = toast.loading("Exporting PDF...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      const headers = ["Candidate Name", "Reg No", "Dept", "Batch", "Company", "Role", "Stage", "Last Updated"];
+      const rows = filteredApps.map((app) => [
+        app.name,
+        app.regNo,
+        app.dept,
+        app.batch,
+        app.company,
+        app.role,
+        (activeDrive === "All Drives"
+          ? stages.find((s) => s.id === getMetaStageId(app.stage))?.name
+          : stages.find((s) => s.id === app.stage)?.name) ||
+        app.stage ||
+        "Applied",
+        app.updated
+      ]);
+      await exportToPDF("ATS Pipeline Report", headers, rows, `ATS_Report_${new Date().getTime()}`);
+      toast.success("PDF exported successfully!");
+    } catch (error) {
+      console.error("Failed to export PDF:", error);
+      toast.error("Failed to export PDF");
+    } finally {
+      toast.dismiss(toastId);
     }
   };
 
@@ -366,13 +402,10 @@ function ATSTrackerContent() {
               Move Selected ({selectedApps.size})
             </button>
           )}
-          <button
-            onClick={handleExportData}
-            className="flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-2 text-sm font-bold shadow-sm hover:bg-primary/90 transition-colors"
-          >
-            <LuDownload size={16} />
-            Export Data
-          </button>
+          <ExportDropdown
+            onExportExcel={handleExportData}
+            onExportPDF={handleExportPDF}
+          />
         </div>
       </div>
 

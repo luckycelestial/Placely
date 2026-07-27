@@ -23,6 +23,8 @@ import {
   type CustomGroup 
 } from "@/services/settings";
 import { BroadcastModal } from "./components/BroadcastModal";
+import { ExportDropdown } from "@/components/ui/ExportDropdown";
+import { exportToExcel, exportToPDF } from "@/lib/export-utils";
 import { EditModal } from "./components/EditModal";
 import { DeleteConfirmationModal } from "./components/DeleteConfirmationModal";
 import { DetailsModal } from "./components/DetailsModal";
@@ -472,6 +474,63 @@ export default function AdminDocumentsPage() {
     })
     .filter(group => group.filteredStudents.length > 0);
 
+  const handleExportExcel = async () => {
+    const toastId = toast.loading("Exporting Excel...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      const exportRows: any[] = [];
+      filteredGrouped.forEach(group => {
+        group.filteredStudents.forEach(std => {
+          exportRows.push({
+            "Document Title": group.title,
+            "Category": group.type || "Academic Proof",
+            "Student Name": std.name,
+            "Register Number": std.registerNumber,
+            "Department": std.department,
+            "Verification Status": std.status
+          });
+        });
+      });
+
+      exportToExcel(exportRows, "Documents_Verification_Report", "Documents");
+      toast.success("Excel exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export Excel");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    const toastId = toast.loading("Exporting PDF...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      const headers = ["Document Title", "Category", "Student Name", "Reg No", "Dept", "Status"];
+      const rows: any[][] = [];
+      filteredGrouped.forEach(group => {
+        group.filteredStudents.forEach(std => {
+          rows.push([
+            group.title,
+            group.type || "Academic Proof",
+            std.name,
+            std.registerNumber,
+            std.department,
+            std.status
+          ]);
+        });
+      });
+
+      await exportToPDF("Documents Verification Report", headers, rows, "Documents_Verification_Report");
+      toast.success("PDF exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export PDF");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Header */}
@@ -480,13 +539,19 @@ export default function AdminDocumentsPage() {
           <h1 className="text-2xl font-black tracking-tight text-foreground">Documents Management</h1>
           <p className="text-xs font-bold text-muted uppercase tracking-widest mt-1">Review and verify student credentials</p>
         </div>
-        <button
-          onClick={() => setIsBroadcastModalOpen(true)}
-          className="btn-primary py-2.5 px-6 h-auto text-[10px] uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-tactile shrink-0"
-        >
-          <LuFolderOpen size={16} />
-          Broadcast Upload Notice
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <ExportDropdown
+            onExportExcel={handleExportExcel}
+            onExportPDF={handleExportPDF}
+          />
+          <button
+            onClick={() => setIsBroadcastModalOpen(true)}
+            className="btn-primary py-2.5 px-6 h-auto text-[10px] uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-tactile"
+          >
+            <LuFolderOpen size={16} />
+            Broadcast Upload Notice
+          </button>
+        </div>
       </div>
 
       {/* Controls */}

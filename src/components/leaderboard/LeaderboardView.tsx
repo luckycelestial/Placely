@@ -15,6 +15,9 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { Sk } from "@/components/ui/skeleton";
+import { ExportDropdown } from "@/components/ui/ExportDropdown";
+import { exportToExcel, exportToPDF } from "@/lib/export-utils";
+import { toast } from "sonner";
 
 interface StudentLeaderboardRow {
   id: string;
@@ -121,6 +124,92 @@ export function LeaderboardView() {
     return list;
   }, [rows, tab, searchQuery, deptFilter, batchFilter]);
 
+  const handleExportExcel = async () => {
+    const toastId = toast.loading("Exporting Excel...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      let exportRows: any[] = [];
+      const filename = `Leaderboard_${tab}_Report`;
+      
+      sortedAndFilteredRows.forEach((row, idx) => {
+        const base = {
+          "Rank": idx + 1,
+          "Student Name": row.name,
+          "Department": row.department,
+          "Batch Year": row.year
+        };
+
+        if (tab === "coding") {
+          exportRows.push({ ...base, "LeetCode Solved": row.leetcodeCount });
+        } else if (tab === "drives") {
+          exportRows.push({
+            ...base,
+            "Offers Secured": row.offersCount,
+            "Applications Submitted": row.applicationsCount
+          });
+        } else if (tab === "projects") {
+          exportRows.push({ ...base, "Projects Count": row.projectsCount });
+        }
+      });
+
+      exportToExcel(exportRows, filename, tab.toUpperCase());
+      toast.success("Excel exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export Excel");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    const toastId = toast.loading("Exporting PDF...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      let headers: string[] = ["Rank", "Student Name", "Department", "Batch"];
+      let rows: any[][] = [];
+      const filename = `Leaderboard_${tab}_Report`;
+
+      if (tab === "coding") {
+        headers.push("LeetCode Solved");
+        rows = sortedAndFilteredRows.map((row, idx) => [
+          String(idx + 1),
+          row.name,
+          row.department,
+          String(row.year),
+          String(row.leetcodeCount)
+        ]);
+      } else if (tab === "drives") {
+        headers.push("Offers", "Applications");
+        rows = sortedAndFilteredRows.map((row, idx) => [
+          String(idx + 1),
+          row.name,
+          row.department,
+          String(row.year),
+          String(row.offersCount),
+          String(row.applicationsCount)
+        ]);
+      } else if (tab === "projects") {
+        headers.push("Projects Count");
+        rows = sortedAndFilteredRows.map((row, idx) => [
+          String(idx + 1),
+          row.name,
+          row.department,
+          String(row.year),
+          String(row.projectsCount)
+        ]);
+      }
+
+      await exportToPDF(`Leaderboard - ${tab.toUpperCase()}`, headers, rows, filename);
+      toast.success("PDF exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export PDF");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-8 p-4">
@@ -217,6 +306,10 @@ export function LeaderboardView() {
               ))}
             </select>
           </div>
+          <ExportDropdown
+            onExportExcel={handleExportExcel}
+            onExportPDF={handleExportPDF}
+          />
         </div>
       </div>
 

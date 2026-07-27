@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { getSystemSettings } from '@/services/settings';
-import { getYearFromBatch, getBatchRangeFromYear, formatYearOfStudy } from '@/lib/batch-utils';
+import { getYearFromBatch, getBatchRangeFromYear, formatYearOfStudy, getBatchDetails } from '@/lib/batch-utils';
 
 export async function getStudents(options: { 
   page?: number; 
@@ -141,14 +141,17 @@ export async function getStudents(options: {
   const isCompleted = settings.isAcademicYearCompleted;
 
   const formatted = (data || []).map(s => {
-    const yearNum = getYearFromBatch(s.year, isCompleted);
-    const range = getBatchRangeFromYear(s.year);
+    const batchInfo = getBatchDetails(s.year, isCompleted);
     return {
       id: s.id,
       name: s.name || (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
       regNo: s.register_number,
       dept: s.department,
-      year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
+      year: batchInfo.formatLabel,
+      batchYear: batchInfo.batchRange,
+      graduationYear: batchInfo.graduationYear,
+      yearOfStudy: batchInfo.yearOfStudy,
+      yearOfStudyLabel: batchInfo.yearOfStudyLabel,
       cgpa: (s.student_academics as any)?.[0]?.cgpa || (s.student_academics as any)?.cgpa || 0,
       leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
       specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],

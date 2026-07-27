@@ -37,8 +37,15 @@ export default function TenantEntryPage() {
       try {
         const { data } = await db.getStudents({ pageSize: 15 });
         setStudents(data || []);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load profiles:", err);
+        console.error("Error details:", {
+          message: err?.message,
+          code: err?.code,
+          details: err?.details,
+          hint: err?.hint,
+          stack: err?.stack
+        });
       } finally {
         setLoadingStudents(false);
       }

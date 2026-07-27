@@ -32,6 +32,8 @@ import {
 } from "@/services/settings";
 import { toast } from "sonner";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { ExportDropdown } from "@/components/ui/ExportDropdown";
+import { exportToExcel, exportToPDF } from "@/lib/export-utils";
 
 export default function AdminGroupsPage() {
   const [customGroups, setCustomGroups] = useState<CustomGroup[]>([]);
@@ -818,6 +820,56 @@ export default function AdminGroupsPage() {
     }
   };
 
+  const handleExportExcel = async () => {
+    if (!activeGroup) return;
+    const toastId = toast.loading("Exporting Excel...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      const exportRows = filteredStudents.map(s => {
+        const selections = getStudentSelectionsInGroup(s, activeGroup);
+        return {
+          "Student Name": s.name,
+          "Email": s.email || "N/A",
+          "Register Number": s.regNo,
+          "Department": s.dept || "N/A",
+          "Cohort Mapping Option": selections.join(', ') || 'Unassigned'
+        };
+      });
+      exportToExcel(exportRows, `Cohort_${activeGroup.name.replace(/\s+/g, '_')}_Report`, activeGroup.name.substring(0, 31));
+      toast.success("Excel exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export Excel");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!activeGroup) return;
+    const toastId = toast.loading("Exporting PDF...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      const headers = ["Student Name", "Register Number", "Dept", "Cohort Option Mapping"];
+      const rows = filteredStudents.map(s => {
+        const selections = getStudentSelectionsInGroup(s, activeGroup);
+        return [
+          s.name,
+          s.regNo,
+          s.dept || "N/A",
+          selections.join(', ') || 'Unassigned'
+        ];
+      });
+      await exportToPDF(`Cohort Mapping: ${activeGroup.name}`, headers, rows, `Cohort_${activeGroup.name.replace(/\s+/g, '_')}_Report`);
+      toast.success("PDF exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export PDF");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
   if (isLoading && customGroups.length === 0) {
     return (
       <div className="flex h-[60vh] w-full items-center justify-center">
@@ -908,6 +960,10 @@ export default function AdminGroupsPage() {
           >
             <LuSettings size={14} /> Configure Cohort
           </button>
+          <ExportDropdown
+            onExportExcel={handleExportExcel}
+            onExportPDF={handleExportPDF}
+          />
         </div>
 
         {/* Mapped stats */}

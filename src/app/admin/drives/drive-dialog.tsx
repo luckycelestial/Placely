@@ -12,7 +12,12 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
 const CURRENT_YEAR = new Date().getFullYear();
-const BATCH_YEARS = [String(CURRENT_YEAR), String(CURRENT_YEAR + 1)];
+const BATCH_YEARS = [
+  String(CURRENT_YEAR), 
+  String(CURRENT_YEAR + 1), 
+  String(CURRENT_YEAR + 2), 
+  String(CURRENT_YEAR + 3)
+];
 
 const driveSchema = z.object({
   companyId: z.string().min(1, "Company is required"),
@@ -545,7 +550,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted ml-1 flex items-center gap-2">
                   <LuCalendar size={12} className="text-primary" />
-                  Batch Year
+                  Eligible Graduation Batch (Year)
                 </label>
                 <div className="flex gap-2 p-2 bg-background rounded-[24px] border border-border-subtle shadow-inner h-[62px]">
                   {BATCH_YEARS.map((year) => (

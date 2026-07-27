@@ -16,6 +16,9 @@ import {
 
 import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { getSettingByKey, DEFAULT_CUSTOM_GROUPS, type CustomGroup } from '@/services/settings';
+import { ExportDropdown } from "@/components/ui/ExportDropdown";
+import { exportToExcel } from "@/lib/export-utils";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ReportStats { placementRate: string; avgCTC: string; totalOffers: string | number; atRisk?: string | number; funnel?: { stage: string; count: number; pct: string }[] }
@@ -1373,6 +1376,79 @@ export default function ReportsPage() {
 
   const handleTabChange = (tab:AnalyticsTab) => { setActiveTab(tab); setSelected(null); };
 
+  const handleExportExcel = async () => {
+    const toastId = toast.loading("Exporting Excel...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      let exportRows: any[] = [];
+      let filename = `Analytics_${activeTab}_Report`;
+      let sheetName = activeTab.substring(0, 31).toUpperCase();
+
+      if (activeTab === "overview") {
+        exportRows = trendData.map(t => ({
+          "Month": t.month,
+          "Placements": t.placements,
+          "Offers": t.offers,
+          "Drives": t.drives || 0
+        }));
+      } else if (activeTab === "department") {
+        exportRows = deptData.map(d => ({
+          "Department": d.name,
+          "Total Students": d.total,
+          "Placed": d.placed,
+          "Unplaced": d.unplaced,
+          "Placement Rate": `${d.placementRate}%`,
+          "Average CTC (LPA)": d.avgCTC,
+          "Max CTC (LPA)": d.maxCTC || 0
+        }));
+      } else if (activeTab === "company") {
+        exportRows = companyData.map(c => ({
+          "Company": c.name,
+          "Industry": c.industry,
+          "Hires": c.hires,
+          "Average CTC (LPA)": c.avgCTC,
+          "Departments Reached": c.departments.join(', ')
+        }));
+      } else if (activeTab === "year") {
+        exportRows = yearData.map(y => ({
+          "Batch Year": y.year,
+          "Total Offers": y.totalOffers,
+          "Average CTC (LPA)": y.avgCTC,
+          "Drives Conducted": y.drives,
+          "Placement Rate": `${y.placementRate}%`
+        }));
+      } else if (activeTab === "tech_domain") {
+        exportRows = techDomainData.map(td => ({
+          "Domain": td.name,
+          "Total Students": td.total,
+          "Placed": td.placed,
+          "Unplaced": td.unplaced,
+          "Placement Rate": `${td.placementRate}%`,
+          "Average CTC (LPA)": td.avgCTC,
+          "Max CTC (LPA)": td.maxCTC
+        }));
+      } else if (activeTab === "placement_group") {
+        exportRows = placementGroupData.map(pg => ({
+          "Placement Group": pg.name,
+          "Total Students": pg.total,
+          "Placed": pg.placed,
+          "Unplaced": pg.unplaced,
+          "Placement Rate": `${pg.placementRate}%`,
+          "Average CTC (LPA)": pg.avgCTC,
+          "Max CTC (LPA)": pg.maxCTC
+        }));
+      }
+
+      exportToExcel(exportRows, filename, sheetName);
+      toast.success("Excel exported successfully!");
+    } catch (error) {
+      console.error("Failed to export Excel:", error);
+      toast.error("Failed to export Excel");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
   if (loading || !mounted) {
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -1428,12 +1504,17 @@ export default function ReportsPage() {
           <h1 className="text-4xl font-black tracking-tight mb-2">Reports &amp; Analytics</h1>
           <p className="text-muted font-medium">Cross-dimensional placement insights — click any row to drill-down.</p>
         </div>
-        <button onClick={()=>{ setIsExporting(true); setTimeout(()=>{ window.print(); setIsExporting(false); },800); }}
-          disabled={isExporting}
-          className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-tactile hover:scale-[1.02] transition-all disabled:opacity-70 self-start md:self-auto">
-          {isExporting ? <LuLoader className="animate-spin" size={16}/> : <LuDownload size={16}/>}
-          <span>{isExporting?'Preparing…':'Download PDF'}</span>
-        </button>
+        <ExportDropdown
+          onExportExcel={handleExportExcel}
+          onExportPDF={() => {
+            setIsExporting(true);
+            setTimeout(() => {
+              window.print();
+              setIsExporting(false);
+            }, 800);
+          }}
+          className="self-start md:self-auto"
+        />
       </div>
 
       {/* Print header */}

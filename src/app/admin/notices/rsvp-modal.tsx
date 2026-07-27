@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import type { Event } from "./event-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { ExportDropdown } from "@/components/ui/ExportDropdown";
+import { exportToExcel, exportToPDF } from "@/lib/export-utils";
 
 interface RSVPModalProps {
   isOpen: boolean;
@@ -68,8 +70,45 @@ export default function RSVPModal({ isOpen, onClose, event }: RSVPModalProps) {
   const pending = allRSVPs.filter((r) => r.status === "Pending").length;
   const declined = allRSVPs.filter((r) => r.status === "Declined").length;
 
-  const handleExport = () => {
-    toast.success("RSVP list exported as CSV!");
+  const handleExportExcel = async () => {
+    const toastId = toast.loading("Exporting Excel...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      const exportRows = filtered.map(r => ({
+        "Student Name": r.student_name,
+        "Roll Number": r.roll_number,
+        "Branch": r.branch,
+        "Status": r.status
+      }));
+      exportToExcel(exportRows, `RSVP_${event.title.replace(/\s+/g, '_')}_Report`, "RSVPs");
+      toast.success("Excel exported successfully!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to export Excel");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    const toastId = toast.loading("Exporting PDF...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      const headers = ["Student Name", "Roll Number", "Branch", "Status"];
+      const rows = filtered.map(r => [
+        r.student_name,
+        r.roll_number,
+        r.branch,
+        r.status
+      ]);
+      await exportToPDF(`RSVP List - ${event.title}`, headers, rows, `RSVP_${event.title.replace(/\s+/g, '_')}_Report`);
+      toast.success("PDF exported successfully!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to export PDF");
+    } finally {
+      toast.dismiss(toastId);
+    }
   };
 
   const handleRemind = () => {
@@ -197,12 +236,12 @@ export default function RSVPModal({ isOpen, onClose, event }: RSVPModalProps) {
           >
             Remind Pending ({pending})
           </button>
-          <button
-            onClick={handleExport}
-            className="flex-1 py-3.5 rounded-2xl bg-primary text-white text-sm font-black uppercase tracking-widest shadow-tactile hover:bg-primary-dark transition-all"
-          >
-            Export CSV
-          </button>
+          <ExportDropdown
+            onExportExcel={handleExportExcel}
+            onExportPDF={handleExportPDF}
+            className="flex-1 [&>button]:w-full [&>button]:justify-center [&>button]:py-3.5 [&>button]:rounded-2xl [&>button]:bg-primary [&>button]:text-white [&>button]:hover:bg-primary-dark [&>button]:shadow-tactile [&>button]:border-none"
+            buttonText="Export RSVPs"
+          />
         </div>
       </div>
     </div>

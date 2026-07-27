@@ -31,6 +31,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useMemo, useCallback } from "react";
 import { getSystemSettings } from "@/services/settings";
 import { getBatchList, getBatchRangeFromYear } from "@/lib/batch-utils";
+import { ExportDropdown } from "@/components/ui/ExportDropdown";
+import { exportToExcel, exportToPDF } from "@/lib/export-utils";
+import { toast } from "sonner";
 
 const DEPARTMENTS = ["All Departments", "AI&DS", "AI&ML", "CSE", "CYS", "CSBS", "CCE", "ECE", "EEE", "MECH", "IT"];
 const STATUSES = ["All Statuses", "Placed", "Unplaced", "Applied", "In-Process"];
@@ -386,6 +389,88 @@ function StudentsPageContent() {
     return matchesSearch;
   });
 
+  const fetchAllForExport = async () => {
+    try {
+      const { data } = await db.getStudents({
+        page: 1,
+        pageSize: 10000,
+        dept: deptFilter,
+        status: statusFilter,
+        ...advancedFilters
+      });
+      return data.filter(student => 
+        student.name.toLowerCase().includes(search.toLowerCase()) || 
+        student.regNo.toLowerCase().includes(search.toLowerCase())
+      );
+    } catch (err) {
+      console.error("Export fetch failed:", err);
+      toast.error("Failed to fetch data for export");
+      return [];
+    }
+  };
+
+  const handleExportExcel = async () => {
+    const toastId = toast.loading("Exporting Excel...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      const data = await fetchAllForExport();
+      if (data.length === 0) {
+        toast.error("No data to export");
+        return;
+      }
+      const exportRows = data.map(s => ({
+        "Name": s.name,
+        "Register Number": s.regNo,
+        "Department": s.dept,
+        "Batch": s.year,
+        "CGPA": s.cgpa,
+        "LeetCode Solved": s.leetcode,
+        "Status": s.status,
+        "Company": s.company,
+        "Package (CTC)": s.package_ctc,
+        "Email": s.personal_email
+      }));
+      exportToExcel(exportRows, "Students_Report");
+      toast.success("Excel exported successfully!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to export Excel");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    const toastId = toast.loading("Exporting PDF...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
+      const data = await fetchAllForExport();
+      if (data.length === 0) {
+        toast.error("No data to export");
+        return;
+      }
+      const headers = ["Name", "Reg No", "Dept", "Batch", "CGPA", "LeetCode", "Status", "Company", "CTC"];
+      const rows = data.map(s => [
+        s.name,
+        s.regNo,
+        s.dept,
+        s.year,
+        String(s.cgpa),
+        String(s.leetcode),
+        s.status,
+        s.company,
+        s.package_ctc || "N/A"
+      ]);
+      await exportToPDF("Students Directory", headers, rows, "Students_Report");
+      toast.success("PDF exported successfully!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to export PDF");
+    } finally {
+      toast.dismiss(toastId);
+    }
+  };
+
   const handleVerify = async (studentId: string, status: 'verified' | 'pending' | 'rejected') => {
     try {
       await db.updateStudentVerification(studentId, status);
@@ -454,10 +539,10 @@ function StudentsPageContent() {
           <p className="text-muted text-sm font-medium">Manage and monitor placement readiness across all departments.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 rounded-xl bg-surface border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors">
-            <LuDownload size={16} />
-            Export CSV
-          </button>
+          <ExportDropdown
+            onExportExcel={handleExportExcel}
+            onExportPDF={handleExportPDF}
+          />
           <button 
             onClick={() => {
               setBulkType("students");
