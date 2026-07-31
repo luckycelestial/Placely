@@ -27,7 +27,8 @@ export async function getTableData(tableName: string, options?: { limit?: number
 
   if (tableName === "students") {
     if (options?.year) {
-      query = query.ilike('year', `%${options.year}%`);
+      const yearNum = parseInt(options.year, 10);
+      if (!isNaN(yearNum)) query = query.eq('year', yearNum);
     }
     if (options?.search) {
       query = query.or(`name.ilike.%${options.search}%,register_number.ilike.%${options.search}%,roll_number.ilike.%${options.search}%`);
@@ -58,7 +59,8 @@ export async function getTableCount(tableName: string, options?: { search?: stri
 
   if (tableName === "students") {
     if (options?.year) {
-      query = query.ilike('year', `%${options.year}%`);
+      const yearNum = parseInt(options.year, 10);
+      if (!isNaN(yearNum)) query = query.eq('year', yearNum);
     }
     if (options?.search) {
       query = query.or(`name.ilike.%${options.search}%,register_number.ilike.%${options.search}%,roll_number.ilike.%${options.search}%`);

@@ -265,8 +265,8 @@ function DataWorkspacePageContent() {
       } else {
         setRows(data);
       }
-    } catch (error) {
-      console.error("Failed to load table data:", error);
+    } catch (error: any) {
+      console.error("Failed to load table data:", error?.message || error?.details || error);
     } finally {
       setLoading(false);
     }

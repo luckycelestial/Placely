@@ -38,6 +38,7 @@ import { db } from "@/services/database";
 import { DEV_STUDENT_ID } from "@/lib/dev-config";
 import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { toast } from "sonner";
+import { CompletedProblemsView } from "@/components/coding/CompletedProblemsView";
 import { supabase } from "@/lib/supabase";
 
 const formatCapitalized = (str: string) => {
@@ -1080,6 +1081,9 @@ export default function ProgressPage() {
               </div>
             ))}
           </div>
+
+          {/* Completed Problem Numbers across all students */}
+          <CompletedProblemsView currentStudentId={DEV_STUDENT_ID} />
         </div>
       )}
 
