@@ -44,6 +44,12 @@ export default function AuthCallbackPage() {
         if (userData.role === 'admin') {
           router.push("/admin/dashboard");
         } else {
+          // Student portal disabled — block student login
+          if (process.env.NEXT_PUBLIC_DISABLE_STUDENT_PORTAL === "true") {
+            setErrorMsg("The student portal is currently unavailable. Please contact the placement cell.");
+            return;
+          }
+
           // Find student ID
           const { data: studentData, error: studentError } = await supabase
             .from('students')
