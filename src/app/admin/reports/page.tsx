@@ -868,10 +868,10 @@ function CompanyTab({ data, selected, onSelect }: { data:CompanyData[]; selected
                       </span>
                     </div>
                     {/* Dept tags inside bar — far right of fill */}
-                    {fillPct > 35 && (
+                    {fillPct > 35 && Array.isArray(c.departments) && c.departments.length > 0 && (
                       <div className="absolute inset-y-0 right-3 flex items-center">
                         <span className="text-[9px] font-black text-white/70 truncate max-w-[100px]">
-                          {c.departments.slice(0, 2).join(' · ')}{c.departmentCount > 2 ? ` +${c.departmentCount - 2}` : ''}
+                          {c.departments.slice(0, 2).join(' · ')}{((c.departmentCount || c.departments.length) > 2) ? ` +${(c.departmentCount || c.departments.length) - 2}` : ''}
                         </span>
                       </div>
                     )}
@@ -933,15 +933,16 @@ function CompanyTab({ data, selected, onSelect }: { data:CompanyData[]; selected
 function YearTab({ data, selected, onSelect }: { data:YearData[]; selected:Selection; onSelect:(v:string)=>void }) {
   const latest = data[data.length-1];
   const prev   = data[data.length-2];
-  const offerGrowth = prev ? (((latest?.totalOffers-prev.totalOffers)/prev.totalOffers)*100).toFixed(1) : '0';
+  const offerGrowth = prev && prev.totalOffers > 0 ? (((latest?.totalOffers-prev.totalOffers)/prev.totalOffers)*100).toFixed(1) : '0';
+  const bestBatchYear = data.length > 0 ? data.reduce((a,b)=>a.placementRate>b.placementRate?a:b).year : 'N/A';
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatChip label="Batches Tracked" value={data.length} color="text-foreground"/>
         <StatChip label="Offer Growth" value={`${offerGrowth}%`} color="text-emerald-600" trend={`+${offerGrowth}%`}/>
-        <StatChip label="Best Batch" value={data.reduce((a,b)=>a.placementRate>b.placementRate?a:b).year} color="text-primary"/>
-        <StatChip label="Latest Avg CTC" value={`${latest?.avgCTC} LPA`} color="text-blue-600" trend="+1.4L"/>
+        <StatChip label="Best Batch" value={bestBatchYear} color="text-primary"/>
+        <StatChip label="Latest Avg CTC" value={latest?.avgCTC ? `${latest.avgCTC} LPA` : '0 LPA'} color="text-blue-600" trend="+1.4L"/>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1100,9 +1101,9 @@ function OverviewTab({ stats, trendData, students, companyData }: { stats:Report
     .slice(0, 5);
 
   const topCo = topCompanies.map((c, i) => ({
-    name: c.name,
-    count: c.hires,
-    pkg: `${c.avgCTC.toFixed(1)} LPA`,
+    name: c.name || 'Unknown',
+    count: c.hires || 0,
+    pkg: `${(c.avgCTC || 0).toFixed(1)} LPA`,
     color: INDUSTRY_COLOR[c.industry] || DEPT_PALETTE[i % DEPT_PALETTE.length]
   }));
 

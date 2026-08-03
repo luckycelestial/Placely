@@ -1,6 +1,8 @@
 /**
- * Utility functions to manage Batch (Graduation Year) calculations and Year of Study mapping.
- * Accounts for whether the academic year has been marked as completed.
+ * MANDATORY SYSTEM STANDARD:
+ * - Database: Store ONLY graduation year (e.g. 2027).
+ * - UI Format: Must ALWAYS render as `2023 - 2027 • IV Year` (or `2023 - 2027 • Alumni`).
+ * - Use `getBatchDetails(graduationYear, isCompleted).formatLabel`.
  */
 
 export function isValidBatchInput(input: string | number | null | undefined): boolean {
@@ -103,9 +105,9 @@ export function getBatchDetails(
   const isAlumni = range.endYear < referenceYear;
 
   const roman = getRomanYear(yearNum);
-  const yearOfStudyLabel = isAlumni ? "Graduated (Alumni)" : `${roman} Year (${yearNum}${getOrdinalSuffix(yearNum)} Year)`;
-  const batchRange = `${range.startYear}-${range.endYear}`;
-  const formatLabel = `${batchRange} • ${yearOfStudyLabel}`;
+  const yearOfStudyLabel = isAlumni ? "Alumni" : `${roman} Year`;
+  const batchRange = `${range.startYear} - ${range.endYear}`;
+  const formatLabel = isAlumni ? `${batchRange} • Alumni` : `${batchRange} • ${roman} Year`;
 
   return {
     graduationYear: range.endYear,
@@ -144,7 +146,7 @@ export function getBatchList(
     const startYear = endYear - 4;
     batches.push({
       value: String(endYear),
-      label: `${startYear}-${endYear} (${getRomanYear(yr)} Year)`,
+      label: `${startYear} - ${endYear} • ${getRomanYear(yr)} Year`,
       yearNum: yr,
       graduationYear: endYear
     });

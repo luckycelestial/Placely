@@ -145,7 +145,16 @@ export async function getDepartmentAnalytics() {
   try {
     const { data, error } = await supabase.rpc('get_department_analytics');
     if (error) throw error;
-    return data || [];
+    return (data || []).map((r: any) => ({
+      name: r.dept || 'Unknown',
+      dept: r.dept || 'Unknown',
+      total: Number(r.total || 0),
+      placed: Number(r.placed || 0),
+      unplaced: Number(r.total || 0) - Number(r.placed || 0),
+      placementRate: Number(r.rate || 0),
+      avgCTC: 0,
+      topCTC: 0
+    }));
   } catch (error) {
     console.error("Department analytics failed:", error);
     return [];
@@ -156,7 +165,17 @@ export async function getCompanyAnalytics() {
   try {
     const { data, error } = await supabase.rpc('get_company_analytics');
     if (error) throw error;
-    return data || [];
+    return (data || []).map((r: any) => ({
+      name: r.company || 'Unknown',
+      company: r.company || 'Unknown',
+      hires: Number(r.offers || 0),
+      offers: Number(r.offers || 0),
+      avgCTC: Number(r.avg_ctc || 0),
+      topCTC: Number(r.avg_ctc || 0),
+      industry: 'Technology',
+      departments: [],
+      departmentCount: 0
+    }));
   } catch (error) {
     console.error("Company analytics failed:", error);
     return [];
@@ -167,7 +186,14 @@ export async function getYearAnalytics() {
   try {
     const { data, error } = await supabase.rpc('get_year_analytics');
     if (error) throw error;
-    return data || [];
+    return (data || []).map((r: any) => ({
+      year: String(r.year || ''),
+      totalStudents: Number(r.total || 0),
+      totalOffers: Number(r.placed || 0),
+      placed: Number(r.placed || 0),
+      placementRate: Number(r.rate || 0),
+      avgCTC: 0
+    }));
   } catch (error) {
     console.error("Year analytics failed:", error);
     return [];

@@ -34,12 +34,19 @@ import { toast } from "sonner";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { ExportDropdown } from "@/components/ui/ExportDropdown";
 import { exportToExcel, exportToPDF } from "@/lib/export-utils";
+import { getBatchDetails } from "@/lib/batch-utils";
+import { getSystemSettings } from "@/services/settings";
 
 export default function AdminGroupsPage() {
   const [customGroups, setCustomGroups] = useState<CustomGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCompleted, setIsCompleted] = useState(false);
+
+  useEffect(() => {
+    getSystemSettings().then(sys => setIsCompleted(sys.isAcademicYearCompleted)).catch(() => {});
+  }, []);
 
   // Configuration Drawer and Switcher states
   const [isConfigDrawerOpen, setIsConfigDrawerOpen] = useState(false);
@@ -1174,18 +1181,11 @@ export default function AdminGroupsPage() {
                             
                             {/* Dept & Batch */}
                             <td className="p-4">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="px-1.5 py-0.5 bg-background border border-border-subtle text-[10px] font-bold text-foreground/80 rounded-md">
-                                  {s.dept || "N/A"}
-                                </span>
-                                {s.year && (
-                                  <span className="text-[9px] font-black uppercase tracking-wider text-primary bg-primary/5 border border-primary/10 px-1.5 py-0.5 rounded-md">
-                                    {(() => {
-                                      const m = s.year.match(/\(([^)]+)\)/);
-                                      return m ? m[1] : s.year;
-                                    })()}
-                                  </span>
-                                )}
+                              <div>
+                                <p className="text-xs font-bold text-foreground">{s.dept || "N/A"}</p>
+                                <p className="text-[10px] font-medium text-muted mt-0.5">
+                                  {getBatchDetails(s.year, isCompleted).formatLabel}
+                                </p>
                               </div>
                             </td>
 

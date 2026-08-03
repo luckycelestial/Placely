@@ -272,7 +272,7 @@ export default function AdminDocumentsPage() {
       // Fetch all students
       const { data: studentsData, error: studentsErr } = await supabase
         .from("students")
-        .select("id, name, register_number, department")
+        .select("id, name, register_number, department, student_profiles(resume_url)")
         .order("name", { ascending: true });
 
       if (studentsErr) throw studentsErr;
@@ -316,11 +316,7 @@ export default function AdminDocumentsPage() {
 
       // Seed with initial default documents
       const INITIAL_TITLES = [
-        { title: "Primary Placement Resume", type: "Resume" },
-        { title: "10th Standard Marksheet", type: "Academic Proof" },
-        { title: "6th Semester Marksheet", type: "Academic Proof" },
-        { title: "AWS Certified Developer", type: "Certification" },
-        { title: "GitHub Portfolio", type: "Profile Link" }
+        { title: "Primary Placement Resume", type: "Resume" }
       ].filter(d => !deletedDefaults.some(deleted => deleted.toLowerCase() === d.title.toLowerCase()));
       INITIAL_TITLES.forEach(d => uniqueDocs.set(d.title.toLowerCase(), d));
 
@@ -366,23 +362,31 @@ export default function AdminDocumentsPage() {
 
       uniqueDocs.forEach((docInfo) => {
         const studentStatuses: StudentStatus[] = students.map((std) => {
+          const profileObj = Array.isArray(std.student_profiles) ? std.student_profiles[0] : std.student_profiles;
+          const resumeUrlFromProfile = profileObj?.resume_url;
+          const isResumeType = docInfo.type.toLowerCase() === 'resume' || docInfo.title.toLowerCase().includes('resume');
+
           const upload = docsData?.find(
             (d) => d.student_id === std.id && d.title.toLowerCase() === docInfo.title.toLowerCase()
           );
 
-          if (upload && upload.url && upload.url !== "Not Provided") {
-            const mappedStatus = (upload.verification_status === "Verified" || upload.verification_status === "Completed")
+          const finalUrl = (upload && upload.url && upload.url !== "Not Provided") 
+            ? upload.url 
+            : (isResumeType && resumeUrlFromProfile && resumeUrlFromProfile.startsWith('http') ? resumeUrlFromProfile : null);
+
+          if (finalUrl) {
+            const mappedStatus = (upload?.verification_status === "Verified" || upload?.verification_status === "Completed" || (!upload && isResumeType))
               ? ("Completed" as const)
-              : (upload.verification_status as any || "Pending");
+              : (upload?.verification_status as any || "Pending");
             return {
               studentId: std.id,
               name: std.name || "Unknown Student",
               registerNumber: std.register_number || "N/A",
               department: std.department || "N/A",
-              submissionId: upload.id,
-              url: upload.url,
+              submissionId: upload?.id || std.id,
+              url: finalUrl,
               status: mappedStatus,
-              updatedAt: upload.updated_at ? new Date(upload.updated_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : "N/A"
+              updatedAt: upload?.updated_at ? new Date(upload.updated_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : "Verified"
             };
           }
 

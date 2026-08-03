@@ -31,7 +31,7 @@ const SECTIONS = [
   { id: "general", title: "General", icon: LuSettings, description: "College identity and basic info." },
   { id: "groups", title: "Groups & Domains", icon: LuLayers, description: "Manage dynamic domains & placement groups." },
   { id: "branding", title: "Branding", icon: LuPalette, description: "Logos, colors and portal theme." },
-  { id: "policy", title: "Placement Policy", icon: LuBriefcase, description: "Rules, eligibility and thresholds." },
+  // { id: "policy", title: "Placement Policy", icon: LuBriefcase, description: "Rules, eligibility and thresholds." },
   { id: "roles", title: "Roles & Access", icon: LuShield, description: "Manage staff roles and permissions." },
   { id: "notifications", title: "Notifications", icon: LuBell, description: "Email and SMS templates." },
   { id: "security", title: "Security", icon: LuLock, description: "Authentication and session rules." }
@@ -146,15 +146,6 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-black tracking-tight">System Settings</h1>
           <p className="text-muted text-sm font-medium">Configure portal behavior and institutional policies.</p>
         </div>
-        <button
-          onClick={() => {
-            toast.info("This settings module is managed dynamically. Changes are saved automatically.");
-          }}
-          className="flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-tactile hover:bg-primary-dark transition-all cursor-pointer"
-        >
-          <LuSave size={18} />
-          Save Changes
-        </button>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -190,6 +181,7 @@ export default function SettingsPage() {
         <div className="flex-1 space-y-6">
           {activeSection === "general" && (
             <div className="space-y-6">
+              {/* COMMENTED OUT: General Configuration
               <div className="bg-surface rounded-3xl border border-border-subtle shadow-soft overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="p-8 border-b border-border-subtle">
                   <h3 className="text-lg font-black tracking-tight mb-1">General Configuration</h3>
@@ -232,92 +224,133 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+              */}
 
               {/* Academic Year Completion Control */}
               <div className="bg-surface rounded-3xl border border-border-subtle shadow-soft overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
-                <div className="p-8 border-b border-border-subtle">
-                  <h3 className="text-lg font-black tracking-tight mb-1">Academic Year Batch Control</h3>
-                  <p className="text-sm font-medium text-muted">Manage progression of active batches and incoming enrollments based on term completion.</p>
+                <div className="p-8 sm:p-10 border-b border-border-subtle">
+                  <h3 className="text-xl font-black tracking-tight mb-1">Academic Year &amp; Batch Progression</h3>
+                  <p className="text-sm font-medium text-muted">Manage active student cohorts and transition term progression dynamically across the department.</p>
                 </div>
-                <div className="p-8 space-y-8">
-                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 rounded-2xl bg-primary/[0.03] border border-primary/10">
-                    <div className="space-y-1 max-w-xl">
-                      <p className="text-sm font-black flex items-center gap-2">
-                        <LuCalendar size={18} className="text-primary" />
-                        Academic Term Status: <span className={cn("px-2 py-0.5 rounded-full text-xs uppercase font-black tracking-wider ml-1", isCompleted ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20")}>{isCompleted ? "Term Completed (Shifted)" : "Term In-Progress (Normal)"}</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground/80 font-medium leading-relaxed mt-1">
-                        Toggling this transitions the college's active year. When "Complete Term" is clicked, all active batches advance by 1 academic year (e.g. 3rd Year becomes 4th Year, 4th Year graduates).
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {/* Revert/Backward Button */}
-                      <button
-                        onClick={async () => {
-                          if (isCompleted) {
-                            setIsCompleted(false);
-                            try {
-                              await updateSystemSettings({ isAcademicYearCompleted: false });
-                              toast.success("Academic year set to In-Progress");
-                            } catch (err) {
-                              console.error(err);
-                              toast.error("Failed to update setting");
-                            }
-                          }
-                        }}
-                        disabled={!isCompleted}
-                        className={cn(
-                          "flex items-center gap-2 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-wider transition-all shadow-sm shrink-0 border",
-                          !isCompleted
-                            ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
-                            : "bg-white text-foreground border-border-subtle hover:bg-slate-50 hover:scale-105 active:scale-95 cursor-pointer"
-                        )}
-                      >
-                        <LuChevronLeft size={16} />
-                        Revert Term
-                      </button>
+                <div className="p-8 sm:p-10 space-y-10">
+                  
+                  {/* Status & Controls Bar */}
+                  <div className="p-6 sm:p-8 rounded-3xl bg-background border border-border-subtle space-y-5 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-xs font-black uppercase tracking-widest text-muted">Academic Term Status:</span>
+                        <span className={cn(
+                          "px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border flex items-center gap-2",
+                          isCompleted 
+                            ? "bg-amber-500/10 text-amber-600 border-amber-500/20" 
+                            : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                        )}>
+                          <span className={cn("h-2 w-2 rounded-full shrink-0", isCompleted ? "bg-amber-500 animate-pulse" : "bg-emerald-500")} />
+                          {isCompleted ? "Term Completed (Shifted)" : "Term In-Progress"}
+                        </span>
+                      </div>
 
-                      {/* Advance/Forward Button */}
-                      <button
-                        onClick={async () => {
-                          if (!isCompleted) {
-                            setIsCompleted(true);
-                            try {
-                              await updateSystemSettings({ isAcademicYearCompleted: true });
-                              toast.success("Academic year marked as Completed");
-                            } catch (err) {
-                              console.error(err);
-                              toast.error("Failed to update setting");
+                      <div className="flex items-center gap-3 shrink-0">
+                        {/* Revert/Backward Button */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (isCompleted) {
+                              setIsCompleted(false);
+                              try {
+                                await updateSystemSettings({ isAcademicYearCompleted: false });
+                                toast.success("Academic year set to In-Progress");
+                              } catch (err) {
+                                console.error(err);
+                                toast.error("Failed to update setting");
+                              }
                             }
-                          }
-                        }}
-                        disabled={isCompleted}
-                        className={cn(
-                          "flex items-center gap-2 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-wider transition-all shadow-sm shrink-0 border",
-                          isCompleted
-                            ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
-                            : "bg-primary text-white border-primary hover:bg-primary-dark hover:scale-105 active:scale-95 cursor-pointer"
-                        )}
-                      >
-                        Complete Term
-                        <LuChevronRight size={16} />
-                      </button>
+                          }}
+                          disabled={!isCompleted}
+                          className={cn(
+                            "flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition-all border shadow-sm cursor-pointer",
+                            !isCompleted
+                              ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50"
+                              : "bg-surface text-foreground border-border-subtle hover:bg-background active:scale-95"
+                          )}
+                        >
+                          <LuChevronLeft size={16} />
+                          Revert Term
+                        </button>
+
+                        {/* Advance/Forward Button */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!isCompleted) {
+                              setIsCompleted(true);
+                              try {
+                                await updateSystemSettings({ isAcademicYearCompleted: true });
+                                toast.success("Academic year marked as Completed");
+                              } catch (err) {
+                                console.error(err);
+                                toast.error("Failed to update setting");
+                              }
+                            }
+                          }}
+                          disabled={isCompleted}
+                          className={cn(
+                            "flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition-all border shadow-md cursor-pointer",
+                            isCompleted
+                              ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50"
+                              : "bg-primary text-white border-primary hover:bg-primary-dark active:scale-95"
+                          )}
+                        >
+                          Complete Term
+                          <LuChevronRight size={16} />
+                        </button>
+                      </div>
                     </div>
+
+                    <p className="text-xs text-muted font-medium leading-relaxed border-t border-border-subtle/50 pt-4">
+                      Toggling term completion automatically advances all active student batches across the department by 1 academic year (e.g. 3rd Year ➔ 4th Year).
+                    </p>
                   </div>
 
+                  {/* Batch Mapping Cards */}
                   <div className="space-y-4">
-                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-primary">Active Batches vs. Year of Study Live Mapping</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                      {activeBatches.map((batch) => (
-                        <div key={batch.value} className="p-4 rounded-2xl border border-border-subtle bg-background hover:shadow-md transition-shadow">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-muted">Year of Study: {getRomanYear(batch.yearNum)} Year</p>
-                          <p className="text-lg font-black mt-1 text-foreground tracking-tight">Batch {batch.graduationYear}</p>
-                          <p className="text-xs font-semibold text-muted mt-0.5">{batch.label.split(' ')[0]}</p>
-                          <span className="inline-block mt-2 text-[9px] font-black uppercase tracking-widest bg-primary/5 text-primary px-2.5 py-0.5 rounded-full border border-primary/10">Active Student Batch</span>
-                        </div>
-                      ))}
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black uppercase tracking-[0.2em] text-primary">Active Batches vs. Year of Study Live Mapping</h4>
+                      <span className="text-[11px] font-bold text-muted">4 Active Batches</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                      {activeBatches.map((batch) => {
+                        const roman = getRomanYear(batch.yearNum);
+                        const startYr = batch.graduationYear - 4;
+                        return (
+                          <div 
+                            key={batch.value} 
+                            className="p-6 rounded-2xl border border-border-subtle bg-background hover:border-primary/40 transition-all flex flex-col justify-between space-y-4 hover:shadow-md group"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-black uppercase tracking-wider bg-primary/10 text-primary px-3 py-1 rounded-xl">
+                                {roman} Year
+                              </span>
+                              <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                            </div>
+
+                            <div className="space-y-1">
+                              <p className="text-xl font-black text-foreground tracking-tight">Batch {batch.graduationYear}</p>
+                              <p className="text-xs font-semibold text-muted">{startYr} – {batch.graduationYear}</p>
+                            </div>
+
+                            <div className="pt-3 border-t border-border-subtle/50 flex items-center">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 whitespace-nowrap">
+                                Active Cohort
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
+
                 </div>
               </div>
             </div>

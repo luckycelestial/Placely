@@ -38,16 +38,11 @@ export default function RootLayout({
           __html: `
             (function() {
               try {
-                var theme = localStorage.getItem('careerbridge-theme');
-                if (theme === 'modern') {
-                  document.documentElement.classList.add('theme-modern');
-                }
-                var design = localStorage.getItem('careerbridge-design');
-                if (design) {
-                  if (design === 'geometric') document.documentElement.classList.add('design-geometric');
-                  else if (design === 'hp') document.documentElement.classList.add('design-hp');
-                  else if (design === 'sece') document.documentElement.classList.add('design-sece');
-                }
+                localStorage.setItem('careerbridge-theme', 'default');
+                localStorage.setItem('careerbridge-design', 'default');
+                var html = document.documentElement;
+                html.classList.remove('design-geometric', 'design-hp', 'design-sece', 'theme-modern', 'theme-technical', 'theme-rubik', 'theme-cambria');
+                html.classList.add('theme-default');
               } catch (e) {}
             })();
           `

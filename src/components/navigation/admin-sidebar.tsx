@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ADMIN_NAV_ITEMS } from "./nav-config";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 export function AdminSidebar() {
   const pathname = usePathname();
@@ -68,13 +69,19 @@ export function AdminSidebar() {
           <div className="relative z-10 flex flex-col items-center justify-center min-h-[100px] gap-1.5 text-center">
             <p className="font-display text-sm font-bold text-foreground">Admin Support</p>
             <p className="text-[11px] text-muted leading-relaxed mb-2">Need help with operations?</p>
-            <button className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline w-full">
-              Contact Devs
-            </button>
+            <a 
+              href="https://wa.me/918148212664" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline w-full block text-center"
+            >
+              Contact Dev
+            </a>
             <button 
-              onClick={() => {
+              onClick={async () => {
                 if (typeof window !== 'undefined') {
                   localStorage.removeItem('active_admin_email');
+                  await supabase.auth.signOut();
                   window.location.href = "/";
                 }
               }}

@@ -41,9 +41,10 @@ export function AdminHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-
+          {/* COMMENTED OUT: Design & Typography Toggles
           <DesignToggle />
           <TypographyToggle />
+          */}
 
           <button className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/5 transition-all group">
             <LuBell size={22} className="text-foreground group-hover:text-primary transition-colors" />

@@ -249,6 +249,12 @@ function DataWorkspacePageContent() {
     }
   }, [hasHeaders, rawSheetData, processSheetData]);
 
+  const [visibleCount, setVisibleCount] = useState(30);
+
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [activeTable, searchQuery, selectedYear, activeTab]);
+
   // Fetch Live Data for Active Table
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -256,11 +262,10 @@ function DataWorkspacePageContent() {
       const count = await db.getTableCount(activeTable, { search: searchQuery, year: selectedYear });
       setTotalRows(count);
 
-      const offset = (currentPage - 1) * pageSize;
-      const data = await db.getTableData(activeTable, { limit: pageSize, offset, search: searchQuery, year: selectedYear });
+      const data = await db.getTableData(activeTable, { limit: 10000, offset: 0, search: searchQuery, year: selectedYear });
       // If students, join with users to get name/email for compatibility with STUDENT_FIELDS logic
       if (activeTable === "students") {
-        const enriched = await db.getAllStudents({ limit: pageSize, offset, search: searchQuery, year: selectedYear });
+        const enriched = await db.getAllStudents({ limit: 10000, offset: 0, search: searchQuery, year: selectedYear });
         setRows(enriched);
       } else {
         setRows(data);
@@ -270,7 +275,7 @@ function DataWorkspacePageContent() {
     } finally {
       setLoading(false);
     }
-  }, [activeTable, currentPage, searchQuery, selectedYear]);
+  }, [activeTable, searchQuery, selectedYear]);
 
   useEffect(() => {
     loadData();
@@ -800,8 +805,18 @@ function DataWorkspacePageContent() {
     );
   }, [rows, stagingData, activeTab, searchQuery]);
 
+  const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    if (target.scrollHeight - target.scrollTop - target.clientHeight < 350) {
+      if (visibleCount < filteredRows.length) {
+        setVisibleCount(prev => Math.min(prev + 30, filteredRows.length));
+      }
+    }
+  }, [visibleCount, filteredRows.length]);
+
   const rowsForGrid = useMemo(() => {
-    const data = [...filteredRows];
+    const sliced = filteredRows.slice(0, visibleCount);
+    const data = [...sliced];
     // Pad with empty rows to make it look like a full sheet spanning to the bottom bar
     const minRows = 20; 
     if (data.length < minRows) {
@@ -814,7 +829,7 @@ function DataWorkspacePageContent() {
       }
     }
     return data;
-  }, [filteredRows]);
+  }, [filteredRows, visibleCount]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-176px)] md:h-[calc(100vh-112px)] space-y-4">
@@ -899,6 +914,7 @@ function DataWorkspacePageContent() {
               columns={columns}
               rows={rowsForGrid}
               onRowsChange={onRowsChange}
+              onScroll={handleScroll}
               rowKeyGetter={(row: any) => row.id || row.register_number || row.email || Math.random().toString()}
               selectedRows={selectedRows}
               onSelectedRowsChange={setSelectedRows}
@@ -910,7 +926,7 @@ function DataWorkspacePageContent() {
           )}
         </div>
 
-        {/* Bottom Bar — Table Selector */}
+        {/* Bottom Bar — Table Selector & Scroll Status */}
         <div className="h-14 bg-background border-t border-border-subtle flex items-center justify-between px-4 overflow-hidden">
           <div className="flex items-center h-full overflow-x-auto no-scrollbar gap-1 pr-4">
             {TABLES.map(table => (
@@ -947,33 +963,15 @@ function DataWorkspacePageContent() {
             )}
           </div>
 
-          {/* Pagination Controls */}
-          {activeTab === "live" && totalRows > pageSize && (
-            <div className="flex items-center gap-2 select-none">
-              <button
-                type="button"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                className="p-1 border border-border-subtle rounded-lg text-muted hover:text-foreground disabled:opacity-35 transition-colors cursor-pointer"
-              >
-                <LuChevronLeft size={12} />
-              </button>
-              <span className="text-[9px] font-black uppercase text-foreground">
-                Page {currentPage} / {Math.ceil(totalRows / pageSize)}
-              </span>
-              <button
-                type="button"
-                disabled={currentPage >= Math.ceil(totalRows / pageSize)}
-                onClick={() => setCurrentPage(p => p + 1)}
-                className="p-1 border border-border-subtle rounded-lg text-muted hover:text-foreground disabled:opacity-35 transition-colors cursor-pointer"
-              >
-                <LuChevronRight size={12} />
-              </button>
-            </div>
-          )}
-
           <div className="flex items-center gap-4 text-[10px] font-bold text-muted uppercase tracking-wider shrink-0 ml-4">
-            <span>{activeTab === "live" ? totalRows : filteredRows.length} Records</span>
+            <span>
+              Showing {Math.min(visibleCount, filteredRows.length)} of {filteredRows.length} Records
+            </span>
+            {visibleCount < filteredRows.length && (
+              <span className="text-primary animate-pulse font-black">
+                (Scroll to load more)
+              </span>
+            )}
             <div className="h-4 w-[1px] bg-border-subtle" />
             <span className="flex items-center gap-1">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />

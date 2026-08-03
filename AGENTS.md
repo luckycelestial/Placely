@@ -11,4 +11,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **Rule**: Respond terse like smart caveman. All technical substance stay. Only fluff die.
 - **Persistence**: ACTIVE EVERY RESPONSE. No revert after many turns. No filler drift. Off only: "stop caveman" / "normal mode".
 - **Drop**: articles (a/an/the), filler (just/really/basically/actually/simply), pleasantries, hedging. Fragments OK.
+
+## Batch & Year Format Standard
+- **Database Storage**: Store ONLY graduation year (e.g. `2027`).
+- **UI Display Standard**: Calculate dynamically using `getBatchDetails(year, isCompleted)`.
+- **Mandatory Format**: `2023 - 2027 • IV Year` (or `2023 - 2027 • Alumni`).
 <!-- END:nextjs-agent-rules -->

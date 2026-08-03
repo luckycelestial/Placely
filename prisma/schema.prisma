@@ -62,10 +62,11 @@ model StudentContact {
   collegeEmail  String?  @map("college_email")
   personalEmail String?  @map("personal_email")
   phone         String?
-  address       String?
-  city          String?
-  state         String?
-  pincode       String?
+  address          String?
+  permanentAddress String?  @map("permanent_address")
+  city             String?
+  state            String?
+  pincode          String?
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -82,7 +83,9 @@ model StudentAcademic {
   diplomaScore      Decimal? @map("diploma_score") @db.Decimal(5, 2)
   backlogCount      Int      @default(0) @map("backlog_count")
   currentBacklogs   Int      @default(0) @map("current_backlogs")
+  activeArrears     Int      @default(0) @map("active_arrears")
   historyOfBacklogs Boolean  @default(false) @map("history_of_backlogs")
+  semesterCgpa      Json?    @map("semester_cgpa")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
@@ -113,11 +116,14 @@ model StudentProfile {
   linkedinUrl        String?  @map("linkedin_url")
   githubUrl          String?  @map("github_url")
   portfolioUrl       String?  @map("portfolio_url")
-  profileCompletion  Int      @default(0) @map("profile_completion")
-  verificationStatus String   @default("pending") @map("verification_status")
+  profileCompletion  Int       @default(0) @map("profile_completion")
+  verificationStatus String    @default("pending") @map("verification_status")
+  leetcodeCount      Int?      @default(0) @map("leetcode_count")
+  specializations    Json?
+  leetcodeLastFetched DateTime? @map("leetcode_last_fetched")
   notes              String?
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
   @@map("student_profiles")
 }
@@ -211,6 +217,7 @@ model Application {
   appliedAt    DateTime @default(now()) @map("applied_at")
   currentStage String?  @map("current_stage")
   nextStep     String?  @map("next_step")
+  packageCtc   String?  @map("package_ctc")
   outcome      String?
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -283,6 +290,7 @@ model Notice {
   audience  String?
   priority  String    @default("normal")
   status    String    @default("draft")
+  pinned    Boolean   @default(false)
   publishAt DateTime? @map("publish_at")
   createdBy String?   @map("created_by")
   createdAt DateTime  @default(now()) @map("created_at")
@@ -357,4 +365,19 @@ model Setting {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("settings")
+}
+
+model DriveTemplate {
+  id               String   @id @default(uuid()) @db.Uuid
+  name             String   @unique
+  roleTitle        String?  @map("role_title")
+  driveType        String?  @map("drive_type")
+  packageCtc       String?  @map("package_ctc")
+  location         String?
+  eligibilityRules Json?    @map("eligibility_rules")
+  jobDescription   String?  @map("job_description")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("drive_templates")
 }

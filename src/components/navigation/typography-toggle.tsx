@@ -5,8 +5,11 @@ import { LuType, LuCheck } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 
 const THEMES = [
-  { id: "default", name: "Timespent", class: "" },
+  { id: "default", name: "Timespent", class: "theme-default" },
   { id: "modern", name: "Geometric", class: "theme-modern" },
+  { id: "technical", name: "Technical", class: "theme-technical" },
+  { id: "rubik", name: "Rubik Clean", class: "theme-rubik" },
+  { id: "cambria", name: "Cambria Serif", class: "theme-cambria" },
 ];
 
 export function TypographyToggle() {

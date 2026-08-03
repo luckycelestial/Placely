@@ -1,7 +1,7 @@
 "use client";
 import { Sk } from "@/components/ui/skeleton";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo, useCallback, useRef } from "react";
 import { 
   LuClock,
   LuBriefcase,
@@ -20,7 +20,10 @@ import {
   LuCalendar,
   LuEye,
   LuArrowRight,
-  LuCheck
+  LuCheck,
+  LuArrowUpDown,
+  LuArrowUp,
+  LuArrowDown
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
@@ -28,7 +31,6 @@ import * as XLSX from "xlsx";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useMemo, useCallback } from "react";
 import { getSystemSettings } from "@/services/settings";
 import { getBatchList, getBatchRangeFromYear } from "@/lib/batch-utils";
 import { ExportDropdown } from "@/components/ui/ExportDropdown";
@@ -83,6 +85,7 @@ interface AdminStudent {
   email?: string;
   personal_email?: string;
   dept: string;
+  section?: string;
   year: string;
   cgpa: number;
   tenth_score?: number;
@@ -359,35 +362,111 @@ function StudentsPageContent() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<AdminStudent | null>(null);
 
+  const [visibleCount, setVisibleCount] = useState(25);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
   const loadStudents = useCallback(async () => {
     setLoading(true);
     try {
       const { data, total } = await db.getStudents({
-        page: currentPage,
-        pageSize,
+        page: 1,
+        pageSize: 10000,
         dept: deptFilter,
         status: statusFilter,
         ...advancedFilters
       });
       setStudents(data);
       setTotalStudents(total);
+      setVisibleCount(25);
     } catch (error) {
       console.error("Failed to load students:", error);
     } finally {
       setLoading(false);
     }
-  }, [currentPage, deptFilter, statusFilter, advancedFilters]);
+  }, [deptFilter, statusFilter, advancedFilters]);
 
   useEffect(() => {
     loadStudents();
   }, [loadStudents]);
 
-  // Client-side search for the current page to keep it snappy
-  const filteredStudents = students.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(search.toLowerCase()) || 
-                         student.regNo.toLowerCase().includes(search.toLowerCase());
-    return matchesSearch;
-  });
+  type SortField = 'name' | 'dept' | 'cgpa' | 'technical' | 'profile' | 'status';
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        setSortField(null);
+      }
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Client-side search and sorting for current page
+  const filteredStudents = useMemo(() => {
+    const list = students.filter(student => {
+      const matchesSearch = student.name.toLowerCase().includes(search.toLowerCase()) || 
+                           student.regNo.toLowerCase().includes(search.toLowerCase());
+      return matchesSearch;
+    });
+
+    if (!sortField) return list;
+
+    return [...list].sort((a, b) => {
+      let aVal: any = '';
+      let bVal: any = '';
+
+      if (sortField === 'name') {
+        aVal = (a.name || '').toLowerCase();
+        bVal = (b.name || '').toLowerCase();
+      } else if (sortField === 'dept') {
+        aVal = `${a.dept || ''} ${a.section || ''}`.toLowerCase();
+        bVal = `${b.dept || ''} ${b.section || ''}`.toLowerCase();
+      } else if (sortField === 'cgpa') {
+        aVal = Number(a.cgpa || 0);
+        bVal = Number(b.cgpa || 0);
+      } else if (sortField === 'technical') {
+        aVal = Number(a.leetcode || 0);
+        bVal = Number(b.leetcode || 0);
+      } else if (sortField === 'profile') {
+        aVal = Number(a.completeness || 0);
+        bVal = Number(b.completeness || 0);
+      } else if (sortField === 'status') {
+        aVal = (a.status || '').toLowerCase();
+        bVal = (b.status || '').toLowerCase();
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [students, search, sortField, sortDirection]);
+
+  // Progressive infinite scroll slice
+  const visibleStudents = useMemo(() => {
+    return filteredStudents.slice(0, visibleCount);
+  }, [filteredStudents, visibleCount]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleCount < filteredStudents.length) {
+          setVisibleCount((prev) => Math.min(prev + 25, filteredStudents.length));
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [visibleCount, filteredStudents.length]);
 
   const fetchAllForExport = async () => {
     try {
@@ -615,14 +694,68 @@ function StudentsPageContent() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-border-subtle bg-background/50">
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Student</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Dept & Batch</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted text-center">CGPA</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Technical</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Profile</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">Status</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted text-right">Action</th>
+              <tr className="border-b border-border-subtle bg-background/50 select-none">
+                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">
+                  <button onClick={() => handleSort('name')} className="flex items-center gap-1.5 hover:text-foreground transition-colors group/th">
+                    STUDENT
+                    {sortField === 'name' ? (
+                      sortDirection === 'asc' ? <LuArrowUp size={13} className="text-primary" /> : <LuArrowDown size={13} className="text-primary" />
+                    ) : (
+                      <LuArrowUpDown size={13} className="text-muted/40 group-hover/th:text-muted transition-colors" />
+                    )}
+                  </button>
+                </th>
+                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">
+                  <button onClick={() => handleSort('dept')} className="flex items-center gap-1.5 hover:text-foreground transition-colors group/th">
+                    DEPT &amp; BATCH
+                    {sortField === 'dept' ? (
+                      sortDirection === 'asc' ? <LuArrowUp size={13} className="text-primary" /> : <LuArrowDown size={13} className="text-primary" />
+                    ) : (
+                      <LuArrowUpDown size={13} className="text-muted/40 group-hover/th:text-muted transition-colors" />
+                    )}
+                  </button>
+                </th>
+                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted text-center">
+                  <button onClick={() => handleSort('cgpa')} className="flex items-center justify-center gap-1.5 w-full hover:text-foreground transition-colors group/th">
+                    CGPA
+                    {sortField === 'cgpa' ? (
+                      sortDirection === 'asc' ? <LuArrowUp size={13} className="text-primary" /> : <LuArrowDown size={13} className="text-primary" />
+                    ) : (
+                      <LuArrowUpDown size={13} className="text-muted/40 group-hover/th:text-muted transition-colors" />
+                    )}
+                  </button>
+                </th>
+                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">
+                  <button onClick={() => handleSort('technical')} className="flex items-center gap-1.5 hover:text-foreground transition-colors group/th">
+                    TECHNICAL
+                    {sortField === 'technical' ? (
+                      sortDirection === 'asc' ? <LuArrowUp size={13} className="text-primary" /> : <LuArrowDown size={13} className="text-primary" />
+                    ) : (
+                      <LuArrowUpDown size={13} className="text-muted/40 group-hover/th:text-muted transition-colors" />
+                    )}
+                  </button>
+                </th>
+                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">
+                  <button onClick={() => handleSort('profile')} className="flex items-center gap-1.5 hover:text-foreground transition-colors group/th">
+                    PROFILE
+                    {sortField === 'profile' ? (
+                      sortDirection === 'asc' ? <LuArrowUp size={13} className="text-primary" /> : <LuArrowDown size={13} className="text-primary" />
+                    ) : (
+                      <LuArrowUpDown size={13} className="text-muted/40 group-hover/th:text-muted transition-colors" />
+                    )}
+                  </button>
+                </th>
+                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted">
+                  <button onClick={() => handleSort('status')} className="flex items-center gap-1.5 hover:text-foreground transition-colors group/th">
+                    STATUS
+                    {sortField === 'status' ? (
+                      sortDirection === 'asc' ? <LuArrowUp size={13} className="text-primary" /> : <LuArrowDown size={13} className="text-primary" />
+                    ) : (
+                      <LuArrowUpDown size={13} className="text-muted/40 group-hover/th:text-muted transition-colors" />
+                    )}
+                  </button>
+                </th>
+                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-muted text-right">ACTION</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
@@ -635,7 +768,7 @@ function StudentsPageContent() {
                   </td>
                 </tr>
               ) : (
-                filteredStudents.map((student) => (
+                visibleStudents.map((student) => (
                   <tr key={student.id} className="group hover:bg-primary/[0.02] transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -650,33 +783,29 @@ function StudentsPageContent() {
                     </td>
                     <td className="px-6 py-4">
                       <div>
-                        <p className="text-sm font-bold text-foreground/80">{student.dept}</p>
+                        <p className="text-sm font-bold text-foreground">
+                          {student.dept} {student.section ? `• Sec ${student.section}` : ""}
+                        </p>
                         <p className="text-[11px] font-medium text-muted uppercase tracking-wider">{student.year}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className={cn(
-                        "px-2.5 py-1 rounded-lg text-sm font-black",
-                        student.cgpa >= 8.5 ? "bg-emerald-500/10 text-emerald-600" : 
-                        student.cgpa >= 7.5 ? "bg-blue-500/10 text-blue-600" : 
-                        "bg-orange-500/10 text-orange-600"
+                        "text-sm font-black tracking-tight",
+                        student.cgpa >= 8.5 ? "text-emerald-600" : 
+                        student.cgpa >= 7.5 ? "text-blue-600" : 
+                        "text-amber-600"
                       )}>
                         {Number(student.cgpa).toFixed(2)}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase">LC: {student.leetcode || 0}</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {(student.specializations || []).slice(0, 2).map((spec: string) => (
-                             <span key={spec} className="text-[9px] font-bold bg-black/5 text-muted px-1.5 py-0.5 rounded-md border border-border-subtle/50">
-                              {spec}
-                            </span>
-                          ))}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs font-bold text-foreground/90">LC: {student.leetcode || 0}</span>
+                        <div className="flex flex-wrap gap-1 text-[10px] font-medium text-muted">
+                          {(student.specializations || []).slice(0, 2).join(', ')}
                           {(student.specializations || []).length > 2 && (
-                            <span className="text-[9px] font-bold text-muted px-1">+{(student.specializations || []).length - 2}</span>
+                            <span className="text-muted/60">+{(student.specializations || []).length - 2}</span>
                           )}
                         </div>
                       </div>
@@ -700,28 +829,24 @@ function StudentsPageContent() {
                     <td className="px-6 py-4">
                       {student.status === "Placed" ? (
                         <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-lg">
-                              Placed
-                            </span>
-                            {(student as any).package_ctc && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-md">
-                                {(student as any).package_ctc}
-                              </span>
-                            )}
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            Placed {(student as any).package_ctc ? `(${(student as any).package_ctc})` : ""}
                           </div>
-                          <p className="text-[10px] font-black text-muted uppercase tracking-wider">{student.company}</p>
+                          <p className="text-[10px] font-bold text-muted uppercase tracking-wider mt-0.5">{student.company}</p>
                         </div>
                       ) : student.eligible ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-500/10 px-2 py-1 rounded-lg">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600">
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
                           Available
-                        </span>
+                        </div>
                       ) : (
                         <div>
-                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-500/10 px-2 py-1 rounded-lg mb-1">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-red-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
                             Not Eligible
-                          </span>
-                          <p className="text-[10px] font-black text-muted uppercase tracking-wider">{student.reason || 'Requirement Gap'}</p>
+                          </div>
+                          <p className="text-[10px] font-medium text-muted uppercase tracking-wider mt-0.5">{student.reason || 'Requirement Gap'}</p>
                         </div>
                       )}
                     </td>
@@ -945,61 +1070,21 @@ function StudentsPageContent() {
         )}
 
         
-        {/* Pagination Placeholder */}
-        <div className="px-6 py-4 border-t border-border-subtle bg-background/30 flex items-center justify-between">
+        {/* Infinite Scroll Load-On-Scroll Footer */}
+        <div ref={loadMoreRef} className="px-6 py-4 border-t border-border-subtle bg-background/30 flex items-center justify-between">
           <p className="text-xs font-bold text-muted">
-            Showing {Math.min((currentPage - 1) * pageSize + 1, totalStudents)} to {Math.min(currentPage * pageSize, totalStudents)} of {totalStudents} students
+            Showing {Math.min(visibleCount, filteredStudents.length)} of {filteredStudents.length} students
           </p>
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1 || loading}
-              className={cn(
-                "px-3 py-1 text-xs font-black rounded-lg border border-border-subtle bg-surface transition-colors",
-                (currentPage === 1 || loading) ? "text-muted/50 cursor-not-allowed" : "text-muted hover:bg-black/5"
-              )}
-            >
-              Prev
-            </button>
-            
-            {[...Array(Math.ceil(totalStudents / pageSize))].map((_, i) => {
-              const pageNum = i + 1;
-              // Show only a few page numbers around current page
-              if (
-                pageNum === 1 || 
-                pageNum === Math.ceil(totalStudents / pageSize) || 
-                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
-              ) {
-                return (
-                  <button 
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={cn(
-                      "px-3 py-1 text-xs font-black rounded-lg transition-all",
-                      currentPage === pageNum ? "bg-primary text-white shadow-sm" : "hover:bg-black/5 text-muted"
-                    )}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              }
-              if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
-                return <span key={pageNum} className="px-1 text-muted text-xs">...</span>;
-              }
-              return null;
-            })}
-
-            <button 
-              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalStudents / pageSize), prev + 1))}
-              disabled={currentPage === Math.ceil(totalStudents / pageSize) || loading}
-              className={cn(
-                "px-3 py-1 text-xs font-black rounded-lg border border-border-subtle bg-surface transition-colors",
-                (currentPage === Math.ceil(totalStudents / pageSize) || loading) ? "text-muted/50 cursor-not-allowed" : "text-muted hover:bg-black/5"
-              )}
-            >
-              Next
-            </button>
-          </div>
+          {visibleCount < filteredStudents.length ? (
+            <div className="flex items-center gap-2 text-xs font-bold text-primary animate-pulse">
+              <span className="h-2 w-2 rounded-full bg-primary" />
+              Scroll to load more students...
+            </div>
+          ) : (
+            <p className="text-xs font-bold text-muted/60">
+              All {filteredStudents.length} students loaded
+            </p>
+          )}
         </div>
       </div>
       {/* Add Student Modal */}
@@ -1610,8 +1695,8 @@ function StudentsPageContent() {
                   </h4>
                   <div className="grid grid-cols-2 gap-y-4">
                     <div>
-                      <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Department</p>
-                      <p className="text-sm font-black">{selectedStudent.dept}</p>
+                      <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Department & Section</p>
+                      <p className="text-sm font-black">{selectedStudent.dept} {selectedStudent.section ? `- Sec ${selectedStudent.section}` : ''}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Batch</p>

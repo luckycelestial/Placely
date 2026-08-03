@@ -111,9 +111,10 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
-
+          {/* COMMENTED OUT: Design & Typography Toggles
           <DesignToggle />
           <TypographyToggle />
+          */}
 
           <div className="relative">
             <button 

@@ -62,38 +62,6 @@ const INITIAL_DOCUMENTS = [
     reference: "drive.google.com/resume-final",
     status: "Completed" as const,
     isRequired: true
-  },
-  {
-    title: "10th Standard Marksheet",
-    type: "Academic Proof",
-    format: "file" as const,
-    reference: "10th_Marksheet.pdf",
-    status: "Completed" as const,
-    isRequired: true
-  },
-  {
-    title: "6th Semester Marksheet",
-    type: "Academic Proof",
-    format: "file" as const,
-    reference: "",
-    status: "Not Provided" as const,
-    isRequired: true
-  },
-  {
-    title: "AWS Certified Developer",
-    type: "Certification",
-    format: "link" as const,
-    reference: "credly.com/aws-cert",
-    status: "Pending" as const,
-    isRequired: false
-  },
-  {
-    title: "GitHub Portfolio",
-    type: "Profile Link",
-    format: "link" as const,
-    reference: "github.com/johndoe",
-    status: "Completed" as const,
-    isRequired: false
   }
 ];
 
@@ -219,7 +187,7 @@ export default function DocumentsCenterPage() {
             title: doc.title,
             document_type: doc.type,
             url: doc.reference,
-            storage_path: doc.format === "file" ? doc.reference : "",
+            storage_path: (doc as any).format === "file" ? doc.reference : "",
             is_required: doc.isRequired,
             verification_status: doc.status,
           }));

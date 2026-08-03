@@ -88,11 +88,11 @@ export const ADMIN_NAV_ITEMS = [
     href: "/admin/ats",
     icon: LuWorkflow,
   },
-  {
+  /* {
     title: "Notices & Events",
     href: "/admin/notices",
     icon: LuMegaphone,
-  },
+  }, */
   {
     title: "Documents Center",
     href: "/admin/documents",
