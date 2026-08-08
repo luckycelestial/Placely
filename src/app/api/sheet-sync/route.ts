@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
       if (!registerNumber) continue;
 
-      // Upsert student record in local PostgreSQL
+      // Upsert student record in PostgreSQL directly with CGPA
       const student = await prisma.student.upsert({
         where: { registerNumber: String(registerNumber) },
         update: {
@@ -30,6 +30,7 @@ export async function POST(req: Request) {
           department: department || "AI&DS",
           year: Number(year) || 2027,
           section: section || undefined,
+          cgpa: cgpa !== undefined && cgpa !== null ? Number(cgpa) : undefined,
         },
         create: {
           registerNumber: String(registerNumber),
@@ -37,29 +38,10 @@ export async function POST(req: Request) {
           department: department || "AI&DS",
           year: Number(year) || 2027,
           section: section || "A",
+          cgpa: cgpa !== undefined && cgpa !== null ? Number(cgpa) : undefined,
           placementStatus: "unplaced",
         },
       });
-
-      // Update academic record if CGPA provided
-      if (cgpa !== undefined && cgpa !== null) {
-        await prisma.studentAcademic.upsert({
-          where: { id: student.id }, // fallback lookup or create
-          update: { cgpa: Number(cgpa) },
-          create: {
-            studentId: student.id,
-            cgpa: Number(cgpa),
-          },
-        }).catch(() => {
-          // If 1-to-1 constraint check fails, insert directly
-          return prisma.studentAcademic.create({
-            data: {
-              studentId: student.id,
-              cgpa: Number(cgpa),
-            }
-          });
-        });
-      }
 
       results.push(student);
     }

@@ -416,10 +416,10 @@ export default function AdminDashboardPage() {
               }
             </div>
             <Link 
-              href="/admin/data"
+              href="/admin/students"
               className="w-full mt-6 bg-primary text-background py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
             >
-              GOTO WORKSPACE
+              GOTO STUDENTS
               <LuArrowUpRight size={14} />
             </Link>
           </div>

@@ -14,16 +14,22 @@ export async function getPlacementHistoryFallback(filters: { year?: number; dept
 
 
 export async function getDashboardStats() {
-  const [students, companies, drives, offersCount, placedStudents, avgCTCPromise] = await Promise.all([
+  const [students, companies, drives, offersCount, placedStudents, offersData] = await Promise.all([
     supabase.from('students').select('*', { count: 'exact', head: true }),
     supabase.from('companies').select('*', { count: 'exact', head: true }),
     supabase.from('job_drives').select('*', { count: 'exact', head: true }),
     supabase.from('offers').select('*', { count: 'exact', head: true }),
     supabase.from('students').select('*', { count: 'exact', head: true }).eq('placement_status', 'placed'),
-    supabase.rpc('get_average_ctc')
+    supabase.from('offers').select('package_ctc')
   ]);
 
-  const avgCTC = avgCTCPromise.data || 0;
+  const validOffers = (offersData.data || [])
+    .map(o => typeof o.package_ctc === 'number' ? o.package_ctc : parseFloat(String(o.package_ctc || 0).replace(/[^0-9.]/g, '')))
+    .filter(val => !isNaN(val) && val > 0);
+
+  const avgCTC = validOffers.length > 0
+    ? validOffers.reduce((a, b) => a + b, 0) / validOffers.length
+    : 0;
 
   return {
     totalStudents: students.count || 0,
@@ -31,48 +37,57 @@ export async function getDashboardStats() {
     totalDrives: drives.count || 0,
     totalOffers: offersCount.count || 0,
     placedStudents: placedStudents.count || 0,
-    averagePackage: parseFloat(Number(avgCTC).toFixed(1))
+    averagePackage: parseFloat(avgCTC.toFixed(1))
   };
 }
 
 export async function getStudentDashboardStats(studentId: string) {
-  const { data, error } = await supabase
-    .rpc('get_student_dashboard_stats', { p_student_id: studentId });
-  if (error) throw error;
-  
-  const stats = data && data.length > 0 ? data[0] : { applications_count: 0, offers_count: 0, interviews_count: 0 };
+  try {
+    const [apps, offers] = await Promise.all([
+      supabase.from('applications').select('id, status', { count: 'exact' }).eq('student_id', studentId),
+      supabase.from('offers').select('id', { count: 'exact', head: true }).eq('student_id', studentId)
+    ]);
 
-  return {
-    applicationsCount: Number(stats.applications_count),
-    offersCount: Number(stats.offers_count),
-    interviewsCount: Number(stats.interviews_count),
-    tasksCount: 0
-  };
+    const appsData = apps.data || [];
+    const interviewsCount = appsData.filter(a => a.status === 'interviewing' || a.status === 'in_progress').length;
+
+    return {
+      applicationsCount: apps.count || 0,
+      offersCount: offers.count || 0,
+      interviewsCount: interviewsCount,
+      tasksCount: 0
+    };
+  } catch (e) {
+    return { applicationsCount: 0, offersCount: 0, interviewsCount: 0, tasksCount: 0 };
+  }
 }
 
 export async function getApplicationStats(driveId?: string) {
-  const filterDriveId = (driveId && driveId !== "All") ? driveId : null;
-  const { data, error } = await supabase.rpc('get_application_status_stats', {
-    filter_drive_id: filterDriveId
-  });
-  
-  if (error) throw error;
+  try {
+    let query = supabase.from('applications').select('status');
+    if (driveId && driveId !== "All") {
+      query = query.eq('drive_id', driveId);
+    }
+    const { data } = await query;
 
-  const stats = {
-    pending: 0,
-    shortlisted: 0,
-    interviews: 0,
-    offers: 0
-  };
+    const stats = {
+      pending: 0,
+      shortlisted: 0,
+      interviews: 0,
+      offers: 0
+    };
 
-  (data || []).forEach((row: any) => {
-    if (row.status === 'applied') stats.pending = Number(row.count);
-    else if (row.status === 'shortlisted') stats.shortlisted = Number(row.count);
-    else if (row.status === 'interviewing') stats.interviews = Number(row.count);
-    else if (row.status === 'offered') stats.offers = Number(row.count);
-  });
+    (data || []).forEach((row: any) => {
+      if (row.status === 'applied') stats.pending++;
+      else if (row.status === 'shortlisted') stats.shortlisted++;
+      else if (row.status === 'interviewing' || row.status === 'in_progress') stats.interviews++;
+      else if (row.status === 'offered' || row.status === 'selected') stats.offers++;
+    });
 
-  return stats;
+    return stats;
+  } catch (e) {
+    return { pending: 0, shortlisted: 0, interviews: 0, offers: 0 };
+  }
 }
 
 export async function getReportStats() {
@@ -89,7 +104,9 @@ export async function getReportStats() {
   const offersData = offers.data || [];
   const avgCTC = offersData.length > 0
     ? (offersData.reduce((acc, o) => {
-        const val = parseFloat(o.package_ctc.replace(/[^0-9.]/g, ''));
+        const val = typeof o.package_ctc === 'number'
+          ? o.package_ctc
+          : parseFloat(String(o.package_ctc || '').replace(/[^0-9.]/g, ''));
         return acc + (isNaN(val) ? 0 : val);
       }, 0) / offersData.length)
     : 0;
@@ -119,22 +136,30 @@ export async function getReportStats() {
 
 export async function getTrendData() {
   try {
-    const { data, error } = await supabase.rpc('get_monthly_trend_data');
+    const { data: offers, error } = await supabase
+      .from('offers')
+      .select('created_at, package_ctc');
+    
     if (error) throw error;
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthlyMap: Record<string, { month: string; offers: number; avgCTC: number; ctcSum: number }> = {};
 
-    return (data || []).map((row: any) => {
-      const parts = row.month_date.split('-');
-      const monthIndex = parseInt(parts[1], 10) - 1;
-
-      return {
-        month: monthNames[monthIndex] || 'Jan',
-        placements: Number(row.placements),
-        offers: Number(row.offers),
-        drives: Number(row.drives)
-      };
+    (offers || []).forEach((o: any) => {
+      const d = new Date(o.created_at || Date.now());
+      const mKey = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+      if (!monthlyMap[mKey]) monthlyMap[mKey] = { month: mKey, offers: 0, avgCTC: 0, ctcSum: 0 };
+      monthlyMap[mKey].offers++;
+      const val = typeof o.package_ctc === 'number' ? o.package_ctc : parseFloat(String(o.package_ctc || 0).replace(/[^0-9.]/g, ''));
+      if (!isNaN(val) && val > 0) monthlyMap[mKey].ctcSum += val;
     });
+
+    return Object.values(monthlyMap).map(m => ({
+      month: m.month,
+      placements: m.offers,
+      offers: m.offers,
+      avgCTC: m.offers > 0 ? parseFloat((m.ctcSum / m.offers).toFixed(1)) : 0
+    }));
   } catch (error) {
     console.error("Trend data aggregation failed:", error);
     return [];
@@ -143,18 +168,30 @@ export async function getTrendData() {
 
 export async function getDepartmentAnalytics() {
   try {
-    const { data, error } = await supabase.rpc('get_department_analytics');
+    const { data: students, error } = await supabase
+      .from('students')
+      .select('department, placement_status');
+    
     if (error) throw error;
-    return (data || []).map((r: any) => ({
-      name: r.dept || 'Unknown',
-      dept: r.dept || 'Unknown',
-      total: Number(r.total || 0),
-      placed: Number(r.placed || 0),
-      unplaced: Number(r.total || 0) - Number(r.placed || 0),
-      placementRate: Number(r.rate || 0),
+
+    const map: Record<string, { total: number; placed: number }> = {};
+    (students || []).forEach(s => {
+      const dept = s.department || 'Unknown';
+      if (!map[dept]) map[dept] = { total: 0, placed: 0 };
+      map[dept].total++;
+      if (s.placement_status === 'placed') map[dept].placed++;
+    });
+
+    return Object.entries(map).map(([dept, d]) => ({
+      name: dept,
+      dept,
+      total: d.total,
+      placed: d.placed,
+      unplaced: d.total - d.placed,
+      placementRate: d.total > 0 ? parseFloat(((d.placed / d.total) * 100).toFixed(1)) : 0,
       avgCTC: 0,
       topCTC: 0
-    }));
+    })).sort((a, b) => b.placed - a.placed);
   } catch (error) {
     console.error("Department analytics failed:", error);
     return [];
@@ -163,19 +200,36 @@ export async function getDepartmentAnalytics() {
 
 export async function getCompanyAnalytics() {
   try {
-    const { data, error } = await supabase.rpc('get_company_analytics');
+    const { data: offers, error } = await supabase
+      .from('offers')
+      .select('package_ctc, companies(name, industry)');
+    
     if (error) throw error;
-    return (data || []).map((r: any) => ({
-      name: r.company || 'Unknown',
-      company: r.company || 'Unknown',
-      hires: Number(r.offers || 0),
-      offers: Number(r.offers || 0),
-      avgCTC: Number(r.avg_ctc || 0),
-      topCTC: Number(r.avg_ctc || 0),
-      industry: 'Technology',
+
+    const map: Record<string, { hires: number; ctcSum: number; maxCtc: number; industry: string }> = {};
+    (offers || []).forEach((o: any) => {
+      const companyName = o.companies?.name || o.companies?.[0]?.name || 'Unknown';
+      const ind = o.companies?.industry || o.companies?.[0]?.industry || 'Technology';
+      if (!map[companyName]) map[companyName] = { hires: 0, ctcSum: 0, maxCtc: 0, industry: ind };
+      map[companyName].hires++;
+      const val = typeof o.package_ctc === 'number' ? o.package_ctc : parseFloat(String(o.package_ctc || 0).replace(/[^0-9.]/g, ''));
+      if (!isNaN(val) && val > 0) {
+        map[companyName].ctcSum += val;
+        if (val > map[companyName].maxCtc) map[companyName].maxCtc = val;
+      }
+    });
+
+    return Object.entries(map).map(([company, d]) => ({
+      name: company,
+      company,
+      hires: d.hires,
+      offers: d.hires,
+      avgCTC: d.hires > 0 ? parseFloat((d.ctcSum / d.hires).toFixed(1)) : 0,
+      topCTC: d.maxCtc || 0,
+      industry: d.industry,
       departments: [],
       departmentCount: 0
-    }));
+    })).sort((a, b) => b.hires - a.hires);
   } catch (error) {
     console.error("Company analytics failed:", error);
     return [];
@@ -184,16 +238,29 @@ export async function getCompanyAnalytics() {
 
 export async function getYearAnalytics() {
   try {
-    const { data, error } = await supabase.rpc('get_year_analytics');
+    const { data: students, error } = await supabase
+      .from('students')
+      .select('year, placement_status');
+    
     if (error) throw error;
-    return (data || []).map((r: any) => ({
-      year: String(r.year || ''),
-      totalStudents: Number(r.total || 0),
-      totalOffers: Number(r.placed || 0),
-      placed: Number(r.placed || 0),
-      placementRate: Number(r.rate || 0),
-      avgCTC: 0
-    }));
+
+    const map: Record<string, { total: number; placed: number }> = {};
+    (students || []).forEach(s => {
+      const yr = String(s.year || '2027');
+      if (!map[yr]) map[yr] = { total: 0, placed: 0 };
+      map[yr].total++;
+      if (s.placement_status === 'placed') map[yr].placed++;
+    });
+
+    return Object.entries(map).map(([yr, d]) => ({
+      year: yr,
+      totalStudents: d.total,
+      totalOffers: d.placed,
+      placed: d.placed,
+      placementRate: d.total > 0 ? parseFloat(((d.placed / d.total) * 100).toFixed(1)) : 0,
+      avgCTC: 0,
+      drives: 0
+    })).sort((a, b) => parseInt(a.year) - parseInt(b.year));
   } catch (error) {
     console.error("Year analytics failed:", error);
     return [];
@@ -213,7 +280,7 @@ export async function getCrossAnalytics(filters: { dept?: string; company?: stri
       company: o.companies?.name         || o.companies?.[0]?.name         || '',
       industry:o.companies?.industry     || o.companies?.[0]?.industry     || 'Technology',
       year:    o.job_drives?.batch       || o.job_drives?.[0]?.batch       || String(new Date(o.created_at).getFullYear()),
-      ctc:     parseFloat((o.package_ctc||'0').replace(/[^0-9.]/g,'')) || 0,
+      ctc:     typeof o.package_ctc === 'number' ? o.package_ctc : (parseFloat(String(o.package_ctc || '0').replace(/[^0-9.]/g, '')) || 0),
     }));
 
     let filtered = allOffers;
@@ -333,7 +400,7 @@ export async function generateStudentReport(studentId: string) {
   doc.setFont("helvetica", "bold");
   doc.text('Academic & Professional Profile', 14, currentY);
 
-  const cgpaVal = (Array.isArray(student.student_academics) ? student.student_academics[0] : student.student_academics)?.cgpa || 'N/A';
+  const cgpaVal = student.cgpa || (Array.isArray(student.student_academics) ? student.student_academics[0] : student.student_academics)?.cgpa || 'N/A';
   const leetcodeVal = (Array.isArray(student.student_profiles) ? student.student_profiles[0] : student.student_profiles)?.leetcode_count || 0;
   const specList = (Array.isArray(student.student_profiles) ? student.student_profiles[0] : student.student_profiles)?.specializations || [];
 

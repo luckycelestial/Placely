@@ -54,11 +54,10 @@ export async function getStudents(options: {
       placement_status,
       profile_completion,
       verification_status,
+      cgpa,
+      personal_email,
       users (name),
-      student_contacts (personal_email),
-      student_academics (cgpa),
-      student_profiles${hasProfileFilter ? '!inner' : ''} (leetcode_count, specializations),
-      student_preferences${hasInterestFilter ? '!inner' : ''} (placement_interest),
+      student_profiles${hasProfileFilter || hasInterestFilter ? '!inner' : ''} (leetcode_count, specializations, placement_interest),
       offers (
         package_ctc,
         company:companies (name)
@@ -97,10 +96,10 @@ export async function getStudents(options: {
   }
 
   if (minCgpa !== undefined && minCgpa > 0) {
-    query = query.gte('student_academics.cgpa', minCgpa);
+    query = query.gte('cgpa', minCgpa);
   }
   if (maxCgpa !== undefined && maxCgpa < 10) {
-    query = query.lte('student_academics.cgpa', maxCgpa);
+    query = query.lte('cgpa', maxCgpa);
   }
 
   if (minLeetcode !== undefined && minLeetcode > 0) {
@@ -120,12 +119,12 @@ export async function getStudents(options: {
     const interestMode = options.interestMode || 'any';
     if (interestMode === 'all') {
       if (interests.length === 1) {
-        query = query.eq('student_preferences.placement_interest', interests[0]);
+        query = query.eq('student_profiles.placement_interest', interests[0]);
       } else {
-        query = query.eq('student_preferences.placement_interest', 'impossible_value_for_empty_results');
+        query = query.eq('student_profiles.placement_interest', 'impossible_value_for_empty_results');
       }
     } else {
-      query = query.in('student_preferences.placement_interest', interests);
+      query = query.in('student_profiles.placement_interest', interests);
     }
   }
 
@@ -154,7 +153,7 @@ export async function getStudents(options: {
       graduationYear: batchInfo.graduationYear,
       yearOfStudy: batchInfo.yearOfStudy,
       yearOfStudyLabel: batchInfo.yearOfStudyLabel,
-      cgpa: (s.student_academics as any)?.[0]?.cgpa || (s.student_academics as any)?.cgpa || 0,
+      cgpa: (s as any).cgpa || 0,
       leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
       specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
       status: s.placement_status === 'placed' ? 'Placed' : 
@@ -164,7 +163,7 @@ export async function getStudents(options: {
                     s.verification_status === 'pending' ? 'Pending' : 'Rejected',
       company: (s.offers as any)?.[0]?.company?.name || (s.offers as any)?.[0]?.company?.[0]?.name || 'N/A',
       package_ctc: (s.offers as any)?.[0]?.package_ctc || '',
-      personal_email: (s.student_contacts as any)?.[0]?.personal_email || (s.student_contacts as any)?.personal_email || '',
+      personal_email: (s as any).personal_email || '',
       eligible: true
     };
   });
@@ -207,8 +206,7 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
             roll_number,
             department,
             year,
-            student_profiles (specializations),
-            student_preferences (work_mode_preference)
+            student_profiles (specializations, work_mode_preference)
           `);
       } else {
         query = supabase
@@ -226,11 +224,16 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
             placement_status,
             profile_completion,
             verification_status,
+            personal_email,
+            cgpa,
+            tenth_score,
+            twelfth_score,
+            diploma_score,
+            active_arrears,
+            history_of_backlogs,
+            semester_cgpa,
             users (name, email, phone),
-            student_contacts (personal_email),
-            student_academics (cgpa, tenth_score, twelfth_score, diploma_score, backlog_count, active_arrears, history_of_arrears, semester_cgpa),
-            student_profiles (leetcode_count, specializations),
-            student_preferences (work_mode_preference),
+            student_profiles (leetcode_count, specializations, work_mode_preference),
             offers (
               package_ctc,
               company:companies (name)
@@ -267,7 +270,7 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
             dept: s.department,
             year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
             specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
-            placementGroup: (s.student_preferences as any)?.[0]?.work_mode_preference || (s.student_preferences as any)?.work_mode_preference || '',
+            placementGroup: (s.student_profiles as any)?.[0]?.work_mode_preference || (s.student_profiles as any)?.work_mode_preference || '',
             cgpa: 0,
             leetcode: 0,
             status: 'Unplaced',
@@ -277,14 +280,13 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
             package_ctc: ''
           };
         } else {
-          const acad = (s.student_academics as any)?.[0] || (s.student_academics as any) || {};
           const yearNum = getYearFromBatch(s.year, isCompleted);
           const range = getBatchRangeFromYear(s.year);
           return {
             id: s.id,
             name: s.name || (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
             email: (s.users as any)?.email || (s.users as any)?.[0]?.email || 'N/A',
-            personal_email: (s.student_contacts as any)?.[0]?.personal_email || (s.student_contacts as any)?.personal_email || '',
+            personal_email: s.personal_email || '',
             regNo: s.register_number,
             rollNo: s.roll_number,
             gender: s.gender,
@@ -292,14 +294,13 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
             dept: s.department,
             section: s.section || '',
             year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
-            cgpa: acad.cgpa || 0,
-            tenth_score: acad.tenth_score || 0,
-            twelfth_score: acad.twelfth_score || 0,
-            diploma_score: acad.diploma_score || null,
-            backlog_count: acad.backlog_count || 0,
-            active_arrears: acad.active_arrears || 0,
-            history_of_arrears: acad.history_of_arrears || false,
-            semester_cgpa: acad.semester_cgpa || {},
+            cgpa: s.cgpa || 0,
+            tenth_score: s.tenth_score || 0,
+            twelfth_score: s.twelfth_score || 0,
+            diploma_score: s.diploma_score || null,
+            active_arrears: s.active_arrears || 0,
+            history_of_backlogs: s.history_of_backlogs || false,
+            semester_cgpa: s.semester_cgpa || {},
             leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
             specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
             placementGroup: (s.student_preferences as any)?.[0]?.work_mode_preference || (s.student_preferences as any)?.work_mode_preference || '',
@@ -341,8 +342,7 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
                 roll_number,
                 department,
                 year,
-                student_profiles (specializations),
-                student_preferences (work_mode_preference)
+                student_profiles (specializations, work_mode_preference)
               `)
               .order('created_at', { ascending: false })
               .range(from, to);
@@ -375,7 +375,7 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
               dept: s.department,
               year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
               specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
-              placementGroup: (s.student_preferences as any)?.[0]?.work_mode_preference || (s.student_preferences as any)?.work_mode_preference || '',
+              placementGroup: (s.student_profiles as any)?.[0]?.work_mode_preference || (s.student_profiles as any)?.work_mode_preference || '',
               cgpa: 0,
               leetcode: 0,
               status: 'Unplaced',
@@ -421,11 +421,16 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
               placement_status,
               profile_completion,
               verification_status,
+              personal_email,
+              cgpa,
+              tenth_score,
+              twelfth_score,
+              diploma_score,
+              active_arrears,
+              history_of_backlogs,
+              semester_cgpa,
               users (name, email, phone),
-              student_contacts (personal_email),
-              student_academics (cgpa, tenth_score, twelfth_score, diploma_score, backlog_count, active_arrears, history_of_arrears, semester_cgpa),
-              student_profiles (leetcode_count, specializations),
-              student_preferences (work_mode_preference),
+              student_profiles (leetcode_count, specializations, work_mode_preference),
               offers (
                 package_ctc,
                 company:companies (name)
@@ -452,31 +457,29 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
         const isCompleted = settings.isAcademicYearCompleted;
 
         return allData.map(s => {
-          const acad = (s.student_academics as any)?.[0] || (s.student_academics as any) || {};
           const yearNum = getYearFromBatch(s.year, isCompleted);
           const range = getBatchRangeFromYear(s.year);
           return {
             id: s.id,
             name: s.name || (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
             email: (s.users as any)?.email || (s.users as any)?.[0]?.email || 'N/A',
-            personal_email: (s.student_contacts as any)?.[0]?.personal_email || (s.student_contacts as any)?.personal_email || '',
+            personal_email: s.personal_email || '',
             regNo: s.register_number,
             rollNo: s.roll_number,
             gender: s.gender,
             dob: s.date_of_birth,
             dept: s.department,
             year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
-            cgpa: acad.cgpa || 0,
-            tenth_score: acad.tenth_score || 0,
-            twelfth_score: acad.twelfth_score || 0,
-            diploma_score: acad.diploma_score || null,
-            backlog_count: acad.backlog_count || 0,
-            active_arrears: acad.active_arrears || 0,
-            history_of_arrears: acad.history_of_arrears || false,
-            semester_cgpa: acad.semester_cgpa || {},
+            cgpa: s.cgpa || 0,
+            tenth_score: s.tenth_score || 0,
+            twelfth_score: s.twelfth_score || 0,
+            diploma_score: s.diploma_score || null,
+            active_arrears: s.active_arrears || 0,
+            history_of_backlogs: s.history_of_backlogs || false,
+            semester_cgpa: s.semester_cgpa || {},
             leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
             specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
-            placementGroup: (s.student_preferences as any)?.[0]?.work_mode_preference || (s.student_preferences as any)?.work_mode_preference || '',
+            placementGroup: (s.student_profiles as any)?.[0]?.work_mode_preference || (s.student_profiles as any)?.work_mode_preference || '',
             status: s.placement_status === 'placed' ? 'Placed' : 
                     s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
             completeness: s.profile_completion || 0,
@@ -501,10 +504,7 @@ export async function getStudentProfile(studentId: string) {
     .select(`
       *,
       users (id, name, email, phone, avatar_url),
-      student_academics (*),
-      student_profiles (*),
-      student_contacts (*),
-      student_preferences (*)
+      student_profiles (*)
     `)
     .eq('id', studentId)
     .single();
@@ -521,16 +521,16 @@ export async function getFilteredStudentCount(filters: {
 }) {
   let query = supabase
     .from('students')
-    .select('id, student_academics(cgpa), student_profiles(leetcode_count, specializations)', { count: 'exact', head: true });
+    .select('id, cgpa, student_profiles(leetcode_count, specializations)', { count: 'exact', head: true });
 
   if (filters.dept && filters.dept !== "All Departments") {
     query = query.eq('department', filters.dept);
   }
   if (filters.minCgpa !== undefined && filters.minCgpa > 0) {
-    query = query.gte('student_academics.cgpa', filters.minCgpa);
+    query = query.gte('cgpa', filters.minCgpa);
   }
   if (filters.maxCgpa !== undefined && filters.maxCgpa < 10) {
-    query = query.lte('student_academics.cgpa', filters.maxCgpa);
+    query = query.lte('cgpa', filters.maxCgpa);
   }
   if (filters.minLeetcode !== undefined && filters.minLeetcode > 0) {
     query = query.gte('student_profiles.leetcode_count', filters.minLeetcode);

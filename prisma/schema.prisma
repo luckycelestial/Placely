@@ -38,74 +38,48 @@ model Student {
   gender             String?
   dateOfBirth        DateTime? @map("date_of_birth") @db.Date
   placementStatus    String    @default("unplaced") @map("placement_status")
-  profileCompletion  Int       @default(0) @map("profile_completion")
-  verificationStatus String    @default("pending") @map("verification_status")
+  collegeEmail       String?   @map("college_email")
+  personalEmail      String?   @map("personal_email")
+  phone              String?
+  address            String?
+  permanentAddress   String?   @map("permanent_address")
+  city               String?
+  state              String?
+  pincode            String?
+  cgpa               Decimal?  @db.Decimal(4, 2)
+  tenthScore         Decimal?  @map("tenth_score") @db.Decimal(5, 2)
+  twelfthScore       Decimal?  @map("twelfth_score") @db.Decimal(5, 2)
+  diplomaScore       Decimal?  @map("diploma_score") @db.Decimal(5, 2)
+  activeArrears      Int       @default(0) @map("active_arrears")
+  historyOfBacklogs  Boolean   @default(false) @map("history_of_backlogs")
+  semesterCgpa       Json?     @map("semester_cgpa")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
 
-  contacts     StudentContact[]
-  academics    StudentAcademic[]
-  preferences  StudentPreference[]
   profiles     StudentProfile[]
   documents    StudentDocument[]
   applications Application[]
   offers       Offer[]
-  joinees      Joinee[]
 
   @@map("students")
 }
 
-model StudentContact {
-  id            String   @id @default(uuid()) @db.Uuid
-  studentId     String   @map("student_id") @db.Uuid
-  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  collegeEmail  String?  @map("college_email")
-  personalEmail String?  @map("personal_email")
-  phone         String?
-  address          String?
-  permanentAddress String?  @map("permanent_address")
-  city             String?
-  state            String?
-  pincode          String?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+model PlacementPolicy {
+  id                         String   @id @default(uuid()) @db.Uuid
+  name                       String   @db.VarChar(100)
+  description                String?
+  minCgpa                    Decimal? @default(0.00) @map("min_cgpa") @db.Decimal(4, 2)
+  maxActiveArrears           Int?     @default(0) @map("max_active_arrears")
+  allowHistoryOfBacklogs     Boolean? @default(true) @map("allow_history_of_backlogs")
+  maxOffersAllowed           Int?     @default(1) @map("max_offers_allowed")
+  upgradePolicyCtcMultiplier Decimal? @default(1.50) @map("upgrade_policy_ctc_multiplier") @db.Decimal(4, 2)
+  isActive                   Boolean? @default(true) @map("is_active")
+  isDefault                  Boolean? @default(false) @map("is_default")
+  createdAt                  DateTime @default(now()) @map("created_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
 
-  @@map("student_contacts")
-}
-
-model StudentAcademic {
-  id                String   @id @default(uuid()) @db.Uuid
-  studentId         String   @map("student_id") @db.Uuid
-  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  cgpa              Decimal? @db.Decimal(4, 2)
-  tenthScore        Decimal? @map("tenth_score") @db.Decimal(5, 2)
-  twelfthScore      Decimal? @map("twelfth_score") @db.Decimal(5, 2)
-  diplomaScore      Decimal? @map("diploma_score") @db.Decimal(5, 2)
-  backlogCount      Int      @default(0) @map("backlog_count")
-  currentBacklogs   Int      @default(0) @map("current_backlogs")
-  activeArrears     Int      @default(0) @map("active_arrears")
-  historyOfBacklogs Boolean  @default(false) @map("history_of_backlogs")
-  semesterCgpa      Json?    @map("semester_cgpa")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-
-  @@map("student_academics")
-}
-
-model StudentPreference {
-  id                 String   @id @default(uuid()) @db.Uuid
-  studentId          String   @map("student_id") @db.Uuid
-  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  preferredRoles     Json?    @map("preferred_roles")
-  preferredLocations  Json?    @map("preferred_locations")
-  shiftPreference    String?  @map("shift_preference")
-  travelPreference   String?  @map("travel_preference")
-  placementInterest  String?  @map("placement_interest")
-  workModePreference String?  @map("work_mode_preference")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
-
-  @@map("student_preferences")
+  @@map("placement_policies")
 }
 
 model StudentProfile {
@@ -116,10 +90,16 @@ model StudentProfile {
   linkedinUrl        String?  @map("linkedin_url")
   githubUrl          String?  @map("github_url")
   portfolioUrl       String?  @map("portfolio_url")
-  profileCompletion  Int       @default(0) @map("profile_completion")
-  verificationStatus String    @default("pending") @map("verification_status")
-  leetcodeCount      Int?      @default(0) @map("leetcode_count")
+  profileCompletion  Int      @default(0) @map("profile_completion")
+  verificationStatus String   @default("pending") @map("verification_status")
+  leetcodeCount      Int?     @default(0) @map("leetcode_count")
   specializations    Json?
+  preferredRoles     Json?    @map("preferred_roles")
+  preferredLocations Json?    @map("preferred_locations")
+  shiftPreference    String?  @map("shift_preference")
+  travelPreference   String?  @map("travel_preference")
+  placementInterest  String?  @map("placement_interest")
+  workModePreference String?  @map("work_mode_preference")
   leetcodeLastFetched DateTime? @map("leetcode_last_fetched")
   notes              String?
   createdAt          DateTime  @default(now()) @map("created_at")
@@ -145,22 +125,22 @@ model StudentDocument {
 }
 
 model Company {
-  id         String   @id @default(uuid()) @db.Uuid
+  id         String    @id @default(uuid()) @db.Uuid
   name       String
   website    String?
   industry   String?
-  hrName     String?  @map("hr_name")
-  hrEmail    String?  @map("hr_email")
-  hrPhone    String?  @map("hr_phone")
-  status     String   @default("active")
-  logoUrl    String?  @map("logo_url")
-  themeColor String?  @map("theme_color")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  hrName     String?   @map("hr_name")
+  hrEmail    String?   @map("hr_email")
+  hrPhone    String?   @map("hr_phone")
+  status     String    @default("active")
+  logoUrl    String?   @map("logo_url")
+  themeColor String?   @map("theme_color")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
 
   jobDrives JobDrive[]
   offers    Offer[]
-  joinees   Joinee[]
 
   @@map("companies")
 }
@@ -172,7 +152,7 @@ model JobDrive {
   title            String
   roleTitle        String    @map("role_title")
   driveType        String    @map("drive_type")
-  packageCtc       String    @map("package_ctc")
+  packageCtc       Decimal   @map("package_ctc") @db.Decimal(6, 2)
   location         String?
   jobDescription   String?   @map("job_description")
   eligibilityRules Json?     @map("eligibility_rules")
@@ -185,6 +165,7 @@ model JobDrive {
   createdBy        String?   @map("created_by")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
 
   rounds       DriveRound[]
   applications Application[]
@@ -201,30 +182,46 @@ model DriveRound {
   roundOrder   Int      @map("round_order")
   roundType    String?  @map("round_type")
   instructions String?
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  results      DriveRoundResult[]
 
   @@map("drive_rounds")
 }
 
+model DriveRoundResult {
+  id            String      @id @default(uuid()) @db.Uuid
+  applicationId String      @map("application_id") @db.Uuid
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  roundId       String      @map("round_id") @db.Uuid
+  round         DriveRound  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  status        String      @default("pending")
+  score         Decimal?    @db.Decimal(5, 2)
+  feedback      String?
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@unique([applicationId, roundId])
+  @@map("drive_round_results")
+}
+
 model Application {
-  id           String   @id @default(uuid()) @db.Uuid
-  studentId    String   @map("student_id") @db.Uuid
-  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  driveId      String   @map("drive_id") @db.Uuid
-  drive        JobDrive @relation(fields: [driveId], references: [id], onDelete: Cascade)
-  status       String   @default("applied")
-  appliedAt    DateTime @default(now()) @map("applied_at")
-  currentStage String?  @map("current_stage")
-  nextStep     String?  @map("next_step")
-  packageCtc   String?  @map("package_ctc")
+  id           String    @id @default(uuid()) @db.Uuid
+  studentId    String?   @map("student_id") @db.Uuid
+  student      Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  driveId      String    @map("drive_id") @db.Uuid
+  drive        JobDrive  @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  status       String    @default("applied")
+  appliedAt    DateTime  @default(now()) @map("applied_at")
+  currentStage String?   @map("current_stage")
+  nextStep     String?   @map("next_step")
+  packageCtc   Decimal?  @map("package_ctc") @db.Decimal(6, 2)
   outcome      String?
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
 
   timeline ApplicationTimeline[]
+  results  DriveRoundResult[]
 
-  @@unique([studentId, driveId])
   @@map("applications")
 }
 
@@ -245,42 +242,24 @@ model ApplicationTimeline {
 
 model Offer {
   id                 String    @id @default(uuid()) @db.Uuid
-  studentId          String    @map("student_id") @db.Uuid
-  student            Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId          String?   @map("student_id") @db.Uuid
+  student            Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
   driveId            String?   @map("drive_id") @db.Uuid
   drive              JobDrive? @relation(fields: [driveId], references: [id])
   companyId          String    @map("company_id") @db.Uuid
   company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   roleTitle          String    @map("role_title")
-  packageCtc         String    @map("package_ctc")
+  packageCtc         Decimal   @map("package_ctc") @db.Decimal(6, 2)
   offerStatus        String    @default("issued") @map("offer_status")
   acceptanceStatus   String    @default("pending") @map("acceptance_status")
-  joiningDate        DateTime? @map("joining_date") @db.Date
-  verificationStatus String    @default("pending") @map("verification_status")
-  mismatchFlag       Boolean   @default(false) @map("mismatch_flag")
+  joiningStatus      String    @default("pending") @map("joining_status")
+  joinedAt           DateTime? @map("joined_at")
+  remarks            String?
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
-
-  joinees Joinee[]
+  deletedAt          DateTime? @map("deleted_at")
 
   @@map("offers")
-}
-
-model Joinee {
-  id            String    @id @default(uuid()) @db.Uuid
-  offerId       String    @map("offer_id") @db.Uuid
-  offer         Offer     @relation(fields: [offerId], references: [id], onDelete: Cascade)
-  studentId     String    @map("student_id") @db.Uuid
-  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  companyId     String    @map("company_id") @db.Uuid
-  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  joiningStatus String    @default("pending") @map("joining_status")
-  joinedAt      DateTime? @map("joined_at")
-  remarks       String?
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-
-  @@map("joinees")
 }
 
 model Notice {

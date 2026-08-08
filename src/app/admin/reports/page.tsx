@@ -122,7 +122,7 @@ function getClientCrossAnalytics(selected: Selection, students: any[]) {
       if (!k || k === 'N/A') return;
       if (!map[k]) map[k] = { hires: 0, ctcSum: 0 };
       map[k].hires++;
-      const val = parseFloat((s.package_ctc || '').replace(/[^0-9.]/g, ''));
+      const val = typeof s.package_ctc === 'number' ? s.package_ctc : parseFloat(String(s.package_ctc || '').replace(/[^0-9.]/g, ''));
       if (!isNaN(val) && val > 0) {
         map[k].ctcSum += val;
       }
@@ -147,7 +147,7 @@ function getClientCrossAnalytics(selected: Selection, students: any[]) {
     if (!yr || yr === 'N/A') return;
     if (!yearMap[yr]) yearMap[yr] = { hires: 0, ctcSum: 0 };
     yearMap[yr].hires++;
-    const val = parseFloat((s.package_ctc || '').replace(/[^0-9.]/g, ''));
+    const val = typeof s.package_ctc === 'number' ? s.package_ctc : parseFloat(String(s.package_ctc || '').replace(/[^0-9.]/g, ''));
     if (!isNaN(val) && val > 0) {
       yearMap[yr].ctcSum += val;
     }
@@ -1073,7 +1073,7 @@ function OverviewTab({ stats, trendData, students, companyData }: { stats:Report
 
   students.forEach(s => {
     if (s.status === 'Placed' && s.package_ctc) {
-      const val = parseFloat((s.package_ctc || '').replace(/[^0-9.]/g, ''));
+      const val = typeof s.package_ctc === 'number' ? s.package_ctc : parseFloat(String(s.package_ctc || '').replace(/[^0-9.]/g, ''));
       if (!isNaN(val) && val > 0) {
         for (const r of ranges) {
           if (val >= r.min && val < r.max) {
@@ -1306,7 +1306,7 @@ export default function ReportsPage() {
       const placedStudents = optionStudents.filter(s => s.status === 'Placed');
       const placed = placedStudents.length;
       
-      const packages = placedStudents.map(s => parseFloat((s.package_ctc || '').replace(/[^0-9.]/g, ''))).filter(p => !isNaN(p) && p > 0);
+      const packages = placedStudents.map(s => typeof s.package_ctc === 'number' ? s.package_ctc : parseFloat(String(s.package_ctc || '').replace(/[^0-9.]/g, ''))).filter(p => !isNaN(p) && p > 0);
       const avgCTC = packages.length > 0 ? parseFloat((packages.reduce((a, b) => a + b, 0) / packages.length).toFixed(1)) : 0;
       const maxCTC = packages.length > 0 ? Math.max(...packages) : 0;
       
@@ -1345,7 +1345,7 @@ export default function ReportsPage() {
       const placedStudents = optionStudents.filter(s => s.status === 'Placed');
       const placed = placedStudents.length;
 
-      const packages = placedStudents.map(s => parseFloat((s.package_ctc || '').replace(/[^0-9.]/g, ''))).filter(p => !isNaN(p) && p > 0);
+      const packages = placedStudents.map(s => typeof s.package_ctc === 'number' ? s.package_ctc : parseFloat(String(s.package_ctc || '').replace(/[^0-9.]/g, ''))).filter(p => !isNaN(p) && p > 0);
       const avgCTC = packages.length > 0 ? parseFloat((packages.reduce((a, b) => a + b, 0) / packages.length).toFixed(1)) : 0;
       const maxCTC = packages.length > 0 ? Math.max(...packages) : 0;
 

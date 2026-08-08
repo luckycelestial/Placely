@@ -127,34 +127,39 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
   if ('tenth_score' in updatedFields) academicUpdates.tenth_score = parseFloat(updatedFields.tenth_score);
   if ('twelfth_score' in updatedFields) academicUpdates.twelfth_score = parseFloat(updatedFields.twelfth_score);
   if ('diploma_score' in updatedFields) academicUpdates.diploma_score = updatedFields.diploma_score !== '' ? parseFloat(updatedFields.diploma_score) : null;
-  if ('backlog_count' in updatedFields) academicUpdates.backlog_count = parseInt(updatedFields.backlog_count);
-  if ('active_arrears' in updatedFields) academicUpdates.active_arrears = parseInt(updatedFields.active_arrears) || 0;
-  if ('history_of_arrears' in updatedFields) academicUpdates.history_of_arrears = Boolean(updatedFields.history_of_arrears);
-  if ('semester_cgpa' in updatedFields) {
-    // Store semester CGPA and auto-compute aggregate
-    const semObj = typeof updatedFields.semester_cgpa === 'string'
-      ? JSON.parse(updatedFields.semester_cgpa)
-      : updatedFields.semester_cgpa;
-    academicUpdates.semester_cgpa = semObj;
-    // Auto-compute aggregate from all non-null semester values
-    const vals = Object.values(semObj).map(Number).filter(v => !isNaN(v) && v > 0);
-    if (vals.length > 0) {
-      academicUpdates.cgpa = parseFloat((vals.reduce((a: number, b: number) => a + b, 0) / vals.length).toFixed(2));
+  if ('backlog_count' in updatedFields) studentUpdates.backlog_count = parseInt(updatedFields.backlog_count);
+  if ('active_arrears' in updatedFields) studentUpdates.active_arrears = parseInt(updatedFields.active_arrears) || 0;
+  if ('history_of_arrears' in updatedFields || 'history_of_backlogs' in updatedFields) {
+    studentUpdates.history_of_backlogs = Boolean(updatedFields.history_of_arrears ?? updatedFields.history_of_backlogs);
+  }
+  if ('cgpa' in updatedFields) studentUpdates.cgpa = parseFloat(updatedFields.cgpa);
+  if ('tenth_score' in updatedFields) studentUpdates.tenth_score = parseFloat(updatedFields.tenth_score);
+  if ('twelfth_score' in updatedFields) studentUpdates.twelfth_score = parseFloat(updatedFields.twelfth_score);
+  if ('diploma_score' in updatedFields) studentUpdates.diploma_score = parseFloat(updatedFields.diploma_score);
+  if ('address' in updatedFields) studentUpdates.address = updatedFields.address;
+  if ('permanent_address' in updatedFields) studentUpdates.permanent_address = updatedFields.permanent_address;
+  if ('city' in updatedFields) studentUpdates.city = updatedFields.city;
+  if ('state' in updatedFields) studentUpdates.state = updatedFields.state;
+  if ('pincode' in updatedFields) studentUpdates.pincode = updatedFields.pincode;
+  if ('college_email' in updatedFields || 'email' in updatedFields) {
+    studentUpdates.college_email = updatedFields.college_email || updatedFields.email;
+  }
+  if ('personal_email' in updatedFields || 'personalEmail' in updatedFields) {
+    studentUpdates.personal_email = updatedFields.personal_email || updatedFields.personalEmail;
+  }
+  if ('phone' in updatedFields) {
+    studentUpdates.phone = updatedFields.phone;
+    if (student?.user_id) {
+      await supabase.from('users').update({ phone: updatedFields.phone }).eq('id', student.user_id);
     }
   }
 
-  if (Object.keys(academicUpdates).length > 0) {
-      const { data: eA } = await supabase.from('student_academics').select('id').eq('student_id', studentId).single();
-      if (eA) {
-        const { error: academicError } = await supabase.from('student_academics').update({ ...academicUpdates, updated_at: new Date().toISOString() }).eq('id', eA.id);
-        if (academicError) throw academicError;
-      } else {
-        const { error: academicError } = await supabase.from('student_academics').insert([{ student_id: studentId, ...academicUpdates, updated_at: new Date().toISOString() }]);
-        if (academicError) throw academicError;
-      }
-    }
+  if (Object.keys(studentUpdates).length > 0) {
+    const { error: studentError } = await supabase.from('students').update(studentUpdates).eq('id', studentId);
+    if (studentError) throw studentError;
+  }
 
-  // 5. Update profiles
+  // Update profiles if profile-specific fields present
   const profileUpdates: any = {};
   if ('leetcode' in updatedFields) profileUpdates.leetcode_count = parseInt(updatedFields.leetcode);
   if ('specializations' in updatedFields) {
@@ -164,55 +169,15 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
     }
     profileUpdates.specializations = specs;
   }
-  if ('skills' in updatedFields) {
-    let sks = updatedFields.skills;
-    if (typeof sks === 'string') {
-      try { sks = JSON.parse(sks); } catch (e) { sks = sks.split(',').map((s: string) => s.trim()); }
-    }
-    profileUpdates.skills = sks;
-  }
 
   if (Object.keys(profileUpdates).length > 0) {
     const { data: eP } = await supabase.from('student_profiles').select('id').eq('student_id', studentId).single();
     if (eP) {
-      const { error: profileError } = await supabase.from('student_profiles').update({ ...profileUpdates, updated_at: new Date().toISOString() }).eq('id', eP.id);
-      if (profileError) throw profileError;
+      await supabase.from('student_profiles').update({ ...profileUpdates, updated_at: new Date().toISOString() }).eq('id', eP.id);
     } else {
-      const { error: profileError } = await supabase.from('student_profiles').insert([{ student_id: studentId, ...profileUpdates, updated_at: new Date().toISOString() }]);
-      if (profileError) throw profileError;
+      await supabase.from('student_profiles').insert([{ student_id: studentId, ...profileUpdates, updated_at: new Date().toISOString() }]);
     }
   }
-
-  // 6. Update student_contacts (address)
-  const contactUpdates: any = {};
-  if ('address' in updatedFields) contactUpdates.address = updatedFields.address;
-  if ('permanent_address' in updatedFields) contactUpdates.permanent_address = updatedFields.permanent_address;
-  if ('city' in updatedFields) contactUpdates.city = updatedFields.city;
-  if ('state' in updatedFields) contactUpdates.state = updatedFields.state;
-  if ('pincode' in updatedFields) contactUpdates.pincode = updatedFields.pincode;
-  if ('email' in updatedFields || 'college_email' in updatedFields) {
-    contactUpdates.college_email = updatedFields.email !== undefined ? updatedFields.email : updatedFields.college_email;
-  }
-  if ('personal_email' in updatedFields || 'personalEmail' in updatedFields) {
-    contactUpdates.personal_email = updatedFields.personal_email !== undefined ? updatedFields.personal_email : updatedFields.personalEmail;
-  }
-  if ('phone' in updatedFields) {
-    // Phone lives on users table
-    if (student?.user_id) {
-      await supabase.from('users').update({ phone: updatedFields.phone }).eq('id', student.user_id);
-    }
-  }
-
-  if (Object.keys(contactUpdates).length > 0) {
-      const { data: eC } = await supabase.from('student_contacts').select('id').eq('student_id', studentId).single();
-      if (eC) {
-        const { error: contactError } = await supabase.from('student_contacts').update({ ...contactUpdates, updated_at: new Date().toISOString() }).eq('id', eC.id);
-        if (contactError) throw contactError;
-      } else {
-        const { error: contactError } = await supabase.from('student_contacts').insert([{ student_id: studentId, ...contactUpdates, updated_at: new Date().toISOString() }]);
-        if (contactError) throw contactError;
-      }
-    }
 
   return { id: studentId, success: true };
 }

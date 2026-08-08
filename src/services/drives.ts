@@ -80,9 +80,11 @@ export async function getDistinctBatches(): Promise<string[]> {
 }
 
 export async function getDistinctDepartments(): Promise<string[]> {
-  const { data, error } = await supabase.rpc('get_distinct_departments');
-  if (error) throw error;
-  return (data || []) as string[];
+  const { data, error } = await supabase.from('students').select('department');
+  if (error) return ['AI&DS', 'CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT'];
+  const depts = new Set<string>();
+  (data || []).forEach(s => { if (s.department) depts.add(s.department); });
+  return Array.from(depts).sort();
 }
 
 async function triggerNoticeOnPublication(drive: any) {
