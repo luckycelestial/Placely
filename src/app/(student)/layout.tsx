@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { DEV_STUDENT_ID } from "@/lib/dev-config";
 import { LuConstruction } from "react-icons/lu";
 
-const STUDENT_PORTAL_DISABLED = process.env.NEXT_PUBLIC_DISABLE_STUDENT_PORTAL === "true";
+const STUDENT_PORTAL_DISABLED = false;
 
 export default function StudentLayout({
   children,
