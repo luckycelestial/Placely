@@ -23,24 +23,28 @@ export async function POST(req: Request) {
       if (!registerNumber) continue;
 
       // Upsert student record in PostgreSQL directly with CGPA
+      const updateData: any = {
+        name: name || undefined,
+        department: department || "AI&DS",
+        year: Number(year) || 2027,
+        section: section || undefined,
+        cgpa: cgpa !== undefined && cgpa !== null ? Number(cgpa) : undefined,
+      };
+
+      const createData: any = {
+        registerNumber: String(registerNumber),
+        name: name || "Sheet Student",
+        department: department || "AI&DS",
+        year: Number(year) || 2027,
+        section: section || "A",
+        cgpa: cgpa !== undefined && cgpa !== null ? Number(cgpa) : undefined,
+        placementStatus: "unplaced",
+      };
+
       const student = await prisma.student.upsert({
         where: { registerNumber: String(registerNumber) },
-        update: {
-          name: name || undefined,
-          department: department || "AI&DS",
-          year: Number(year) || 2027,
-          section: section || undefined,
-          cgpa: cgpa !== undefined && cgpa !== null ? Number(cgpa) : undefined,
-        },
-        create: {
-          registerNumber: String(registerNumber),
-          name: name || "Sheet Student",
-          department: department || "AI&DS",
-          year: Number(year) || 2027,
-          section: section || "A",
-          cgpa: cgpa !== undefined && cgpa !== null ? Number(cgpa) : undefined,
-          placementStatus: "unplaced",
-        },
+        update: updateData,
+        create: createData,
       });
 
       results.push(student);
