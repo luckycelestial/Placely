@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>careerbridge-foundation.md</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="../../doc-style.css" />
+  <script src="../../doc-filelist.js"></script>
+  <script>
+    var relativeDir = "../../";
+    var thisFile = "docs/architecture/careerbridge-foundation.md";
+    var defaultSidebar = true;
+  </script>
+  <script src="../../doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+      <div class="heading h1">
+        <a href="#careerbridge-foundation">CareerBridge foundation</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#product-direction">Product direction</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#multi-college-architecture">Multi-college architecture</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#user-roles">User roles</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#core-platform-stack">Core platform stack</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#design-direction">Design direction</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#navigation-pattern">Navigation pattern</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#desktop">Desktop</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#mobile">Mobile</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#public-entry-flow">Public entry flow</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#student-data-model-direction">Student data model direction</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#workflow-direction">Workflow direction</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#screen-structure">Screen structure</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#public">Public</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#student">Student</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#admin">Admin</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#build-sequence-recommendation">Build sequence recommendation</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#naming-convention-for-upcoming-screen-files">Naming convention for upcoming screen files</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#what-this-file-is-for">What this file is for</a>
+      </div>
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="docs markdown"><div class="pilwrap" id="careerbridge-foundation">
+  <h1>
+    <a href="#careerbridge-foundation" name="careerbridge-foundation" class="pilcrow"></a>
+CareerBridge foundation
+  </h1>
+</div>
+<p>This file locks the baseline product and build decisions for CareerBridge before individual screen specs are written. It is meant to be the single source of truth for the screen-building phase.</p>
+<div class="pilwrap" id="product-direction">
+  <h2>
+    <a href="#product-direction" name="product-direction" class="pilcrow"></a>
+Product direction
+  </h2>
+</div>
+<p>CareerBridge is being planned as a <strong>multi-college-ready placement platform</strong> for students and placement-cell teams, while keeping the same core structure across colleges.
+Each college is expected to use the same product structure, with branding and configuration differences, while the backend database can be different per college deployment.</p>
+<div class="pilwrap" id="multi-college-architecture">
+  <h2>
+    <a href="#multi-college-architecture" name="multi-college-architecture" class="pilcrow"></a>
+Multi-college architecture
+  </h2>
+</div>
+<p>The chosen tenancy model is:</p>
+<ul>
+<li>Same codebase for all colleges.</li>
+<li>Separate Supabase project per college.</li>
+<li>Each college owns its own data and auth environment.</li>
+<li>Schema should stay standardized across deployments so the product remains portable and scalable later.</li>
+</ul>
+<p>This means CareerBridge should be designed as a reusable product template, not as a one-off app for a single college.</p>
+<div class="pilwrap" id="user-roles">
+  <h2>
+    <a href="#user-roles" name="user-roles" class="pilcrow"></a>
+User roles
+  </h2>
+</div>
+<p>The locked roles for the first proper version are:</p>
+<ul>
+<li>Student.</li>
+<li>Placement Staff.</li>
+<li>Placement Admin.</li>
+<li>College Super Admin.</li>
+</ul>
+<p>This role split is important because CareerBridge already implies different privilege levels across workflows like verification, drive management, ATS handling, offers, notices, exports, and settings.</p>
+<div class="pilwrap" id="core-platform-stack">
+  <h2>
+    <a href="#core-platform-stack" name="core-platform-stack" class="pilcrow"></a>
+Core platform stack
+  </h2>
+</div>
+<p>The current product direction strongly implies the following baseline stack from the previous planning and existing codebase references:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Choice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Frontend app</td>
+<td>Web app with separate student and admin shells.</td>
+</tr>
+<tr>
+<td>Backend/data</td>
+<td>Supabase per college deployment.</td>
+</tr>
+<tr>
+<td>Auth/data ownership</td>
+<td>Managed at the college deployment level.</td>
+</tr>
+<tr>
+<td>Product model</td>
+<td>Same CareerBridge structure across colleges, configurable per tenant.</td>
+</tr>
+<tr>
+<td>Documents</td>
+<td>Link-first document handling, with file upload support as optional later.</td>
+</tr>
+</tbody>
+</table>
+<div class="pilwrap" id="design-direction">
+  <h2>
+    <a href="#design-direction" name="design-direction" class="pilcrow"></a>
+Design direction
+  </h2>
+</div>
+<p>CareerBridge should behave like a product <strong>brand</strong>, not like a different visual system for every college.
+The locked visual direction is a white or light base, blue as the primary accent, and only <strong>very subtle</strong> glass treatment on selected surfaces such as overlays or top bars, while the main operational UI stays crisp and solid for readability.</p>
+<p>That means the UI should avoid overusing glassmorphism and should not rely on trendy effects that reduce clarity in dense admin workflows.</p>
+<div class="pilwrap" id="navigation-pattern">
+  <h2>
+    <a href="#navigation-pattern" name="navigation-pattern" class="pilcrow"></a>
+Navigation pattern
+  </h2>
+</div>
+<p>The navigation structure is already locked for both device types.</p>
+<div class="pilwrap" id="desktop">
+  <h3>
+    <a href="#desktop" name="desktop" class="pilcrow"></a>
+Desktop
+  </h3>
+</div>
+<ul>
+<li>Student shell uses sidebar-based navigation.</li>
+<li>Admin shell uses sidebar-based navigation.</li>
+<li>The admin sidebar must be on the <strong>right side</strong>.</li>
+<li>The admin sidebar should collapse to icons and expand on hover on desktop.</li>
+</ul>
+<div class="pilwrap" id="mobile">
+  <h3>
+    <a href="#mobile" name="mobile" class="pilcrow"></a>
+Mobile
+  </h3>
+</div>
+<ul>
+<li>Both student and admin should use a bottom navigation bar on mobile.</li>
+<li>Hover behavior should not be relied on for touch devices, so admin mobile navigation should behave as an explicit drawer or toggled mobile pattern where needed.</li>
+</ul>
+<div class="pilwrap" id="public-entry-flow">
+  <h2>
+    <a href="#public-entry-flow" name="public-entry-flow" class="pilcrow"></a>
+Public entry flow
+  </h2>
+</div>
+<p>CareerBridge will have a <strong>tenant-aware landing and auth experience</strong> before users enter the product shells.
+The platform should primarily identify colleges through separate domains or subdomains, with fallback support through a college-code picker and/or email-domain detection.</p>
+<div class="pilwrap" id="student-data-model-direction">
+  <h2>
+    <a href="#student-data-model-direction" name="student-data-model-direction" class="pilcrow"></a>
+Student data model direction
+  </h2>
+</div>
+<p>The student profile is expected to be fully structured, not minimal.
+The core profile shape includes:</p>
+<ul>
+<li>Identity data.</li>
+<li>Contact data.</li>
+<li>Academic data.</li>
+<li>Placement preferences.</li>
+<li>Professional links and achievements.</li>
+<li>Verification state.</li>
+<li>Completion tracking.</li>
+</ul>
+<p>The document system is also broader than just resumes. It is planned as a configurable document center per college, but link-first so storage-heavy uploads are not mandatory.</p>
+<div class="pilwrap" id="workflow-direction">
+  <h2>
+    <a href="#workflow-direction" name="workflow-direction" class="pilcrow"></a>
+Workflow direction
+  </h2>
+</div>
+<p>CareerBridge is being designed as an operations-heavy system, not just a dashboard.
+The product direction already locks these workflow ideas:</p>
+<ul>
+<li>Full structured job drives with reusable company and role templates.</li>
+<li>Student application tracking with statuses, filters, pending actions, timelines, and next-step links.</li>
+<li>ATS progress represented as a unified student-centric timeline with per-drive drilldown.</li>
+<li>Offer and joining flow that goes beyond selection and includes verification, mismatch flags, joining workflow, and post-offer clarity.</li>
+<li>Complex admin flows should use a hybrid approach: simple edits inline, complex workflows as wizards, with draft-save and resume-later support.</li>
+<li>Admin data views should support advanced filters, dynamic data shaping, and saved operational views.</li>
+<li>In-app notifications should behave more like a role-based task inbox than a simple bell icon.</li>
+</ul>
+<div class="pilwrap" id="screen-structure">
+  <h2>
+    <a href="#screen-structure" name="screen-structure" class="pilcrow"></a>
+Screen structure
+  </h2>
+</div>
+<p>The current top-level screen count is 18 total.</p>
+<div class="pilwrap" id="public">
+  <h3>
+    <a href="#public" name="public" class="pilcrow"></a>
+Public
+  </h3>
+</div>
+<ul>
+<li>1 tenant-aware landing/auth entry screen.</li>
+</ul>
+<div class="pilwrap" id="student">
+  <h3>
+    <a href="#student" name="student" class="pilcrow"></a>
+Student
+  </h3>
+</div>
+<ul>
+<li>8 core student screens are expected in the student shell.</li>
+<li>Locked student areas already include Dashboard, Profile, Job Opportunities/Drives, My Applications, My Progress/ATS Timeline, Offers &amp; Joining, Notifications/Task Inbox direction, and Documents Center direction.</li>
+</ul>
+<div class="pilwrap" id="admin">
+  <h3>
+    <a href="#admin" name="admin" class="pilcrow"></a>
+Admin
+  </h3>
+</div>
+<p>The admin shell is explicitly locked to 9 screens:</p>
+<ol>
+<li>Dashboard.</li>
+<li>Students.</li>
+<li>Companies &amp; Job Drives.</li>
+<li>Applications.</li>
+<li>ATS Tracker.</li>
+<li>Offers &amp; Joinees.</li>
+<li>Notices &amp; Events.</li>
+<li>Reports &amp; Analytics.</li>
+<li>Settings.</li>
+</ol>
+<div class="pilwrap" id="build-sequence-recommendation">
+  <h2>
+    <a href="#build-sequence-recommendation" name="build-sequence-recommendation" class="pilcrow"></a>
+Build sequence recommendation
+  </h2>
+</div>
+<p>The best way to proceed from here is:</p>
+<ol>
+<li>Keep this file as the baseline project brief.</li>
+<li>Create one <code>screen_name.md</code> file per screen next.</li>
+<li>For each screen spec, define purpose, user role, main sections, actions, states, data needed, and navigation placement.</li>
+<li>Build the screens in Antigravity after each screen spec is locked.</li>
+</ol>
+<div class="pilwrap" id="naming-convention-for-upcoming-screen-files">
+  <h2>
+    <a href="#naming-convention-for-upcoming-screen-files" name="naming-convention-for-upcoming-screen-files" class="pilcrow"></a>
+Naming convention for upcoming screen files
+  </h2>
+</div>
+<p>Use a simple and consistent naming pattern for the next files:</p>
+<ul>
+<li><code>tenant-entry.md</code></li>
+<li><code>student-dashboard.md</code></li>
+<li><code>student-profile.md</code></li>
+<li><code>student-drives.md</code></li>
+<li><code>student-applications.md</code></li>
+<li><code>student-progress.md</code></li>
+<li><code>student-offers.md</code></li>
+<li><code>student-notifications.md</code></li>
+<li><code>student-documents.md</code></li>
+<li><code>admin-dashboard.md</code></li>
+<li><code>admin-students.md</code></li>
+<li><code>admin-companies-drives.md</code></li>
+<li><code>admin-applications.md</code></li>
+<li><code>admin-ats-tracker.md</code></li>
+<li><code>admin-offers-joinees.md</code></li>
+<li><code>admin-notices-events.md</code></li>
+<li><code>admin-reports-analytics.md</code></li>
+<li><code>admin-settings.md</code></li>
+</ul>
+<div class="pilwrap" id="what-this-file-is-for">
+  <h2>
+    <a href="#what-this-file-is-for" name="what-this-file-is-for" class="pilcrow"></a>
+What this file is for
+  </h2>
+</div>
+<p>This is not a detailed screen spec.
+It is the foundational reference for stack, structure, navigation, workflow philosophy, and screen planning, so every later screen markdown file stays aligned with the same CareerBridge decisions.</p>
+</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>tenant-entry (1).md</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="../../doc-style.css" />
+  <script src="../../doc-filelist.js"></script>
+  <script>
+    var relativeDir = "../../";
+    var thisFile = "docs/architecture/tenant-entry (1).md";
+    var defaultSidebar = true;
+  </script>
+  <script src="../../doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+      <div class="heading h1">
+        <a href="#tenant-entry">Tenant Entry</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#purpose">Purpose</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#user-role">User role</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#navigation-placement">Navigation placement</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#screen-goal">Screen goal</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#core-sections">Core sections</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#key-actions">Key actions</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#content-rules">Content rules</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#states">States</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#data-needed">Data needed</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#ux-notes">UX notes</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#related-screens">Related screens</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#file-name">File name</a>
+      </div>
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="docs markdown"><div class="pilwrap" id="tenant-entry">
+  <h1>
+    <a href="#tenant-entry" name="tenant-entry" class="pilcrow"></a>
+Tenant Entry
+  </h1>
+</div>
+<div class="pilwrap" id="purpose">
+  <h2>
+    <a href="#purpose" name="purpose" class="pilcrow"></a>
+Purpose
+  </h2>
+</div>
+<p>The Tenant Entry screen is the public landing and authentication entry point for each college instance of CareerBridge.</p>
+<div class="pilwrap" id="user-role">
+  <h2>
+    <a href="#user-role" name="user-role" class="pilcrow"></a>
+User role
+  </h2>
+</div>
+<ul>
+<li>Student.</li>
+<li>Placement Staff.</li>
+<li>Placement Admin.</li>
+<li>College Super Admin.</li>
+</ul>
+<div class="pilwrap" id="navigation-placement">
+  <h2>
+    <a href="#navigation-placement" name="navigation-placement" class="pilcrow"></a>
+Navigation placement
+  </h2>
+</div>
+<ul>
+<li>This is the public entry screen before the user enters the student or admin shell.</li>
+<li>It is not part of the internal sidebar navigation.</li>
+</ul>
+<div class="pilwrap" id="screen-goal">
+  <h2>
+    <a href="#screen-goal" name="screen-goal" class="pilcrow"></a>
+Screen goal
+  </h2>
+</div>
+<p>This screen should immediately feel like CareerBridge, show strong brand presence, and still route the user into the correct login or shell experience.</p>
+<div class="pilwrap" id="core-sections">
+  <h2>
+    <a href="#core-sections" name="core-sections" class="pilcrow"></a>
+Core sections
+  </h2>
+</div>
+<ul>
+<li>Large CareerBridge brand header or hero area.</li>
+<li>College name or tenant label.</li>
+<li>Login or sign-in form.</li>
+<li>Fallback college code or email-domain check.</li>
+<li>Small help or support link.</li>
+</ul>
+<div class="pilwrap" id="key-actions">
+  <h2>
+    <a href="#key-actions" name="key-actions" class="pilcrow"></a>
+Key actions
+  </h2>
+</div>
+<ul>
+<li>Identify the college.</li>
+<li>Sign in.</li>
+<li>Recover or continue login.</li>
+<li>Move into the appropriate student or admin shell.</li>
+</ul>
+<div class="pilwrap" id="content-rules">
+  <h2>
+    <a href="#content-rules" name="content-rules" class="pilcrow"></a>
+Content rules
+  </h2>
+</div>
+<ul>
+<li>Make CareerBridge branding prominent and memorable.</li>
+<li>Use a stronger visual identity than a plain auth page.</li>
+<li>Keep the brand polished but still focused on login.</li>
+<li>Support subdomain or domain-based tenant detection first.</li>
+</ul>
+<div class="pilwrap" id="states">
+  <h2>
+    <a href="#states" name="states" class="pilcrow"></a>
+States
+  </h2>
+</div>
+<ul>
+<li>College detected automatically.</li>
+<li>College selected manually.</li>
+<li>Login pending.</li>
+<li>Invalid college or access issue.</li>
+</ul>
+<div class="pilwrap" id="data-needed">
+  <h2>
+    <a href="#data-needed" name="data-needed" class="pilcrow"></a>
+Data needed
+  </h2>
+</div>
+<ul>
+<li>College name.</li>
+<li>Branding.</li>
+<li>Login state.</li>
+<li>Tenant identifier.</li>
+<li>User role on sign-in.</li>
+</ul>
+<div class="pilwrap" id="ux-notes">
+  <h2>
+    <a href="#ux-notes" name="ux-notes" class="pilcrow"></a>
+UX notes
+  </h2>
+</div>
+<ul>
+<li>Let the CareerBridge identity be clearly visible at first glance.</li>
+<li>Use a branded hero, accent panel, or strong top section.</li>
+<li>Keep the form clean beneath the branding.</li>
+<li>Ensure the screen routes cleanly to the student or admin side after login.</li>
+</ul>
+<div class="pilwrap" id="related-screens">
+  <h2>
+    <a href="#related-screens" name="related-screens" class="pilcrow"></a>
+Related screens
+  </h2>
+</div>
+<ul>
+<li>Student Dashboard.</li>
+<li>Admin Dashboard.</li>
+<li>Role-based shells.</li>
+</ul>
+<div class="pilwrap" id="file-name">
+  <h2>
+    <a href="#file-name" name="file-name" class="pilcrow"></a>
+File name
+  </h2>
+</div>
+<p>tenant-entry.md</p>
+</div>
+  </div>
+</body>
+</html>

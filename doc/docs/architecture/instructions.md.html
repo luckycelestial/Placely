@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>instructions.md</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="../../doc-style.css" />
+  <script src="../../doc-filelist.js"></script>
+  <script>
+    var relativeDir = "../../";
+    var thisFile = "docs/architecture/instructions.md";
+    var defaultSidebar = true;
+  </script>
+  <script src="../../doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+      <div class="heading h1">
+        <a href="#general-project-setup-and-configuration-instructions">General Project Setup &amp;amp; Configuration Instructions</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#tech-stack-overview">🛠️ Tech Stack Overview</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#gear-environment-variables-configuration.env.local">⚙️ Environment Variables Configuration (.env.local)</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#database-setup-local-postgres-dev-vs.supabase-prod">💾 Database Setup: Local Postgres (Dev) vs. Supabase (Prod)</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#1.local-development-native-postgresql">1. Local Development (Native PostgreSQL)</a>
+      </div>
+
+      <div class="heading h4">
+        <a href="#prerequisites">Prerequisites:</a>
+      </div>
+
+      <div class="heading h4">
+        <a href="#steps">Steps:</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#2.production-deployment-hosted-supabase">2. Production Deployment (Hosted Supabase)</a>
+      </div>
+
+      <div class="heading h4">
+        <a href="#steps-1">Steps:</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#ai-development-integration-mcp-server">🤖 AI Development Integration (MCP Server)</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#styling-and-theme-configuration">🎨 Styling &amp;amp; Theme Configuration</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#1.tailwind-css-config-globals.css">1. Tailwind CSS Config (globals.css)</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#2.custom-css-utilities-and-theme-overrides">2. Custom CSS Utilities &amp;amp; Theme Overrides</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#3.font-loading-in-layout-layout.tsx">3. Font Loading in Layout (layout.tsx)</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#running-the-application">🚀 Running the Application</a>
+      </div>
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="docs markdown"><div class="pilwrap" id="general-project-setup-and-configuration-instructions">
+  <h1>
+    <a href="#general-project-setup-and-configuration-instructions" name="general-project-setup-and-configuration-instructions" class="pilcrow"></a>
+General Project Setup &amp; Configuration Instructions
+  </h1>
+</div>
+<p>This guide provides setup, database configuration, and styling guidelines for Next.js applications powered by PostgreSQL in local development and Supabase in production.</p>
+<hr>
+<div class="pilwrap" id="tech-stack-overview">
+  <h2>
+    <a href="#tech-stack-overview" name="tech-stack-overview" class="pilcrow"></a>
+🛠️ Tech Stack Overview
+  </h2>
+</div>
+<ul>
+<li><strong>Frontend Framework</strong>: Next.js (App Router)</li>
+<li><strong>Styling</strong>: Tailwind CSS (CSS variables, root theme classes, dynamic fonts)</li>
+<li><strong>Database Client</strong>: <code>@supabase/supabase-js</code> (or PostgreSQL client library like <code>pg</code>)</li>
+<li><strong>Development Database</strong>: Local PostgreSQL (running natively on local machine)</li>
+<li><strong>Production Database</strong>: Hosted Supabase (cloud database instance)</li>
+<li><strong>Agent Integration</strong>: Database schema and credentials provided to the AI Coding Agent via Model Context Protocol (MCP) servers during development.</li>
+</ul>
+<hr>
+<div class="pilwrap" id="gear-environment-variables-configuration.env.local">
+  <h2>
+    <a href="#gear-environment-variables-configuration.env.local" name="gear-environment-variables-configuration.env.local" class="pilcrow"></a>
+⚙️ Environment Variables Configuration (<code>.env.local</code>)
+  </h2>
+</div>
+<p>Create a <code>.env.local</code> file in the project root:</p>
+<pre><code class="bash"><span class="hljs-comment"># App Mode</span>
+NEXT_PUBLIC_APP_ENV=<span class="hljs-string">"local"</span> <span class="hljs-comment"># Set to "production" in prod</span>
+
+<span class="hljs-comment"># Development Database (Local Native PostgreSQL)</span>
+DATABASE_URL=<span class="hljs-string">"postgresql://postgres:password@localhost:5432/dev_db"</span>
+
+<span class="hljs-comment"># Production Supabase Connection</span>
+NEXT_PUBLIC_SUPABASE_URL=<span class="hljs-string">"https://your-project-id.supabase.co"</span>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<span class="hljs-string">"your-production-anon-key"</span>
+</code></pre>
+<hr>
+<div class="pilwrap" id="database-setup-local-postgres-dev-vs.supabase-prod">
+  <h2>
+    <a href="#database-setup-local-postgres-dev-vs.supabase-prod" name="database-setup-local-postgres-dev-vs.supabase-prod" class="pilcrow"></a>
+💾 Database Setup: Local Postgres (Dev) vs. Supabase (Prod)
+  </h2>
+</div>
+<p>This workflow separates local development using a native PostgreSQL installation from production which uses Supabase.</p>
+<div class="pilwrap" id="1.local-development-native-postgresql">
+  <h3>
+    <a href="#1.local-development-native-postgresql" name="1.local-development-native-postgresql" class="pilcrow"></a>
+1. Local Development (Native PostgreSQL)
+  </h3>
+</div>
+<p>Local development runs against a native PostgreSQL installation running on <code>localhost</code>.</p>
+<div class="pilwrap" id="prerequisites">
+  <h4>
+    <a href="#prerequisites" name="prerequisites" class="pilcrow"></a>
+Prerequisites:
+  </h4>
+</div>
+<ul>
+<li>PostgreSQL server installed natively and running on your machine (default port: <code>5432</code>).</li>
+<li>A local database created for development (e.g., <code>dev_db</code>).</li>
+</ul>
+<div class="pilwrap" id="steps">
+  <h4>
+    <a href="#steps" name="steps" class="pilcrow"></a>
+Steps:
+  </h4>
+</div>
+<ol>
+<li><strong>Start Local Postgres</strong>:
+Ensure the local postgresql service is active.
+<ul>
+<li><em>Windows (PowerShell)</em>: <code>Start-Service postgresql-x64</code></li>
+<li><em>macOS (Homebrew)</em>: <code>brew services start postgresql</code></li>
+<li><em>Linux</em>: <code>sudo systemctl start postgresql</code></li>
+</ul>
+</li>
+<li><strong>Configure Database URL</strong>:
+Specify the credentials in your local <code>.env.local</code> or configuration files.</li>
+<li><strong>Run Migrations / Schema Seeds</strong>:
+Apply database schema structure to local Postgres using your migration CLI of choice:<pre><code class="bash">npm run db:migrate
+</code></pre>
+</li>
+<li><strong>Seed Local Data</strong>:
+Run seed scripts to insert mock development data:<pre><code class="bash">npm run db:seed
+</code></pre>
+</li>
+</ol>
+<hr>
+<div class="pilwrap" id="2.production-deployment-hosted-supabase">
+  <h3>
+    <a href="#2.production-deployment-hosted-supabase" name="2.production-deployment-hosted-supabase" class="pilcrow"></a>
+2. Production Deployment (Hosted Supabase)
+  </h3>
+</div>
+<p>Production runs on hosted Supabase infrastructure.</p>
+<div class="pilwrap" id="steps-1">
+  <h4>
+    <a href="#steps-1" name="steps-1" class="pilcrow"></a>
+Steps:
+  </h4>
+</div>
+<ol>
+<li><strong>Push Schema / Migrations</strong>:
+Deploy local SQL schemas directly to the production Supabase project via CLI:<pre><code class="bash">supabase db push --db-url <span class="hljs-string">"production-connection-string"</span>
+</code></pre>
+</li>
+<li><strong>Configure Production Environment</strong>:
+Apply environment settings on your hosting platform (e.g., Vercel / Netlify):
+<ul>
+<li><code>NEXT_PUBLIC_SUPABASE_URL</code></li>
+<li><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></li>
+<li><code>NEXT_PUBLIC_APP_ENV=&quot;production&quot;</code></li>
+</ul>
+</li>
+</ol>
+<hr>
+<div class="pilwrap" id="ai-development-integration-mcp-server">
+  <h2>
+    <a href="#ai-development-integration-mcp-server" name="ai-development-integration-mcp-server" class="pilcrow"></a>
+🤖 AI Development Integration (MCP Server)
+  </h2>
+</div>
+<p>To enable the AI Coding Agent to interact with the database during the development lifecycle:</p>
+<ul>
+<li><strong>MCP Server Connection</strong>: Run database MCP servers (e.g., PostgreSQL or Supabase MCP) connected to the local development database.</li>
+<li><strong>Purpose</strong>: Enables the Coding Agent to inspect schema shapes, fetch current state, and execute migrations directly while building features.</li>
+<li><em>Note: MCP integration is strictly for development assistance and has no role in the production runtime.</em></li>
+</ul>
+<hr>
+<div class="pilwrap" id="styling-and-theme-configuration">
+  <h2>
+    <a href="#styling-and-theme-configuration" name="styling-and-theme-configuration" class="pilcrow"></a>
+🎨 Styling &amp; Theme Configuration
+  </h2>
+</div>
+<p>This setup supports a responsive, dynamic theme structure using custom CSS variables mapped in Tailwind.</p>
+<div class="pilwrap" id="1.tailwind-css-config-globals.css">
+  <h3>
+    <a href="#1.tailwind-css-config-globals.css" name="1.tailwind-css-config-globals.css" class="pilcrow"></a>
+1. Tailwind CSS Config (<code>globals.css</code>)
+  </h3>
+</div>
+<p>Define colors, roundings, and font variables under Tailwind's <code>@theme</code> configuration:</p>
+<pre><code class="css"><span class="hljs-keyword">@import</span> <span class="hljs-string">"tailwindcss"</span>;
+
+<span class="hljs-keyword">@theme</span> {
+  <span class="hljs-comment">/* Fonts */</span>
+  <span class="hljs-selector-tag">--font-display</span>: <span class="hljs-selector-tag">var</span>(<span class="hljs-selector-tag">--font-primary-display</span>), <span class="hljs-selector-tag">system-ui</span>, <span class="hljs-selector-tag">sans-serif</span>;
+  <span class="hljs-selector-tag">--font-sans</span>: <span class="hljs-selector-tag">var</span>(<span class="hljs-selector-tag">--font-primary-sans</span>), <span class="hljs-selector-tag">system-ui</span>, <span class="hljs-selector-tag">sans-serif</span>;
+
+  <span class="hljs-comment">/* Theme Palette Variables */</span>
+  <span class="hljs-selector-tag">--color-background</span>: <span class="hljs-selector-id">#fcfcfc</span>;
+  <span class="hljs-selector-tag">--color-foreground</span>: <span class="hljs-selector-id">#1f1f1f</span>;
+  <span class="hljs-selector-tag">--color-primary</span>: <span class="hljs-selector-id">#ff383c</span>;
+  <span class="hljs-selector-tag">--color-primary-dark</span>: <span class="hljs-selector-id">#dc143c</span>;
+  <span class="hljs-selector-tag">--color-surface</span>: <span class="hljs-selector-id">#ffffff</span>;
+  <span class="hljs-selector-tag">--color-border-subtle</span>: <span class="hljs-selector-id">#e6e6e6</span>;
+
+  <span class="hljs-comment">/* Border Roundings */</span>
+  <span class="hljs-selector-tag">--radius-card</span>: 24<span class="hljs-selector-tag">px</span>;
+  <span class="hljs-selector-tag">--radius-button</span>: 9999<span class="hljs-selector-tag">px</span>;
+
+  <span class="hljs-comment">/* Shadows */</span>
+  <span class="hljs-selector-tag">--shadow-soft</span>: 0 10<span class="hljs-selector-tag">px</span> 25<span class="hljs-selector-tag">px</span> <span class="hljs-selector-tag">-5px</span> <span class="hljs-selector-tag">rgba</span>(0, 0, 0, 0<span class="hljs-selector-class">.05</span>);
+}
+</code></pre>
+<div class="pilwrap" id="2.custom-css-utilities-and-theme-overrides">
+  <h3>
+    <a href="#2.custom-css-utilities-and-theme-overrides" name="2.custom-css-utilities-and-theme-overrides" class="pilcrow"></a>
+2. Custom CSS Utilities &amp; Theme Overrides
+  </h3>
+</div>
+<p>You can define layout classes and style states in your globals file:</p>
+<pre><code class="css">@layer components {
+  /* Dynamic Component Styles */
+  .app-card {
+    @apply rounded-card border border-border-subtle bg-surface shadow-soft transition-all duration-300;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-button bg-primary px-8 py-4 text-sm font-bold text-white transition-all hover:bg-primary-dark active:scale-[0.98];
+  }
+}
+</code></pre>
+<div class="pilwrap" id="3.font-loading-in-layout-layout.tsx">
+  <h3>
+    <a href="#3.font-loading-in-layout-layout.tsx" name="3.font-loading-in-layout-layout.tsx" class="pilcrow"></a>
+3. Font Loading in Layout (<code>layout.tsx</code>)
+  </h3>
+</div>
+<p>Ensure target fonts are loaded via Next.js Google Fonts and variables are injected into the HTML root:</p>
+<pre><code class="tsx">import { Bricolage_Grotesque, Inter } from &quot;next/font/google&quot;;
+
+const displayFont = Bricolage_Grotesque({ subsets: [&quot;latin&quot;], variable: &quot;--font-primary-display&quot; });
+const sansFont = Inter({ subsets: [&quot;latin&quot;], variable: &quot;--font-primary-sans&quot; });
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    &lt;html lang=&quot;en&quot; className={`${displayFont.variable} ${sansFont.variable}`}&gt;
+      &lt;body className=&quot;bg-background text-foreground font-sans antialiased&quot;&gt;
+        {children}
+      &lt;/body&gt;
+    &lt;/html&gt;
+  );
+}
+</code></pre>
+<hr>
+<div class="pilwrap" id="running-the-application">
+  <h2>
+    <a href="#running-the-application" name="running-the-application" class="pilcrow"></a>
+🚀 Running the Application
+  </h2>
+</div>
+<ol>
+<li><strong>Install Dependencies</strong>:<pre><code class="bash">npm install
+</code></pre>
+</li>
+<li><strong>Start Development Server</strong>:<pre><code class="bash">npm run dev
+</code></pre>
+</li>
+<li><strong>Build for Production</strong>:<pre><code class="bash">npm run build
+</code></pre>
+</li>
+</ol>
+</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>hp.md</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="../../doc-style.css" />
+  <script src="../../doc-filelist.js"></script>
+  <script>
+    var relativeDir = "../../";
+    var thisFile = "docs/architecture/hp.md";
+    var defaultSidebar = true;
+  </script>
+  <script src="../../doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+      <div class="heading h2">
+        <a href="#overview">Overview</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#colors">Colors</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#brand-and-accent">Brand &amp;amp; Accent</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#surface">Surface</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#text">Text</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#semantic">Semantic</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#typography">Typography</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#font-family">Font Family</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#hierarchy">Hierarchy</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#principles">Principles</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#note-on-font-substitutes">Note on Font Substitutes</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#layout">Layout</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#spacing-system">Spacing System</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#grid-and-container">Grid &amp;amp; Container</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#whitespace-philosophy">Whitespace Philosophy</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#elevation-and-depth">Elevation &amp;amp; Depth</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#decorative-depth">Decorative Depth</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#shapes">Shapes</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#border-radius-scale">Border Radius Scale</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#photography-geometry">Photography Geometry</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#components">Components</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#buttons">Buttons</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#cards-and-containers">Cards &amp;amp; Containers</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#inputs-and-forms">Inputs &amp;amp; Forms</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#navigation">Navigation</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#signature-components">Signature Components</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#dos-and-donts">Do&#39;s and Don&#39;ts</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#do">Do</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#dont">Don&#39;t</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#responsive-behavior">Responsive Behavior</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#breakpoints">Breakpoints</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#touch-targets">Touch Targets</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#collapsing-strategy">Collapsing Strategy</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#image-behavior">Image Behavior</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#iteration-guide">Iteration Guide</a>
+      </div>
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="docs markdown"><div class="pilwrap" id="overview">
+  <h2>
+    <a href="#overview" name="overview" class="pilcrow"></a>
+Overview
+  </h2>
+</div>
+<p>HP reads like a long-running consumer-electronics catalog crossed with an enterprise-software product page. The whole system sits on <strong>pure white</strong> (<code>{colors.canvas}</code> — <code>#ffffff</code>) with thin gray panels (<code>{colors.cloud}</code> / <code>{colors.fog}</code>) for alternating section bands. There is one chromatic action color — <strong>HP Electric Blue</strong> (<code>{colors.primary}</code> — <code>#024ad8</code>) — and one ink color (<code>{colors.ink}</code> — <code>#1a1a1a</code>); together they do ninety percent of the work. Type is a single family across every surface: <strong>Forma DJR Micro</strong>, HP's bespoke geometric grotesque, set at weight 500 for headlines and 400 for body — clean, neutral, slightly mechanical.</p>
+<p>The signature gesture is <strong>angular blue chevrons</strong> — sharp 0-radius slashes derived from the HP wordmark's pair of parallel slashes — that anchor the homepage hero, the laptop-page hero, and the printer pricing page. They appear on the left and right edges of the primary banner card, layered behind product photography. Outside those decorative slashes, every other surface is rectilinear with <strong>soft 8–16px corners</strong> on cards and a 4px corner on buttons.</p>
+<p>The system breaks into three voice modes: a <strong>white commercial body</strong> for product browsing (cards, category icons, pricing tiers); a <strong>dark navy slab</strong> (<code>{colors.ink}</code> near-black) for testimonial bands, the closing &quot;How can we help?&quot; footer-prelude, and the page footer; and a <strong>light fog band</strong> (<code>{colors.cloud}</code> / <code>{colors.fog}</code>) for utility sections like comparison strips and FAQ accordions. The blue accent appears only on filled CTAs, link text, the chevron decorations, and the active price-stamp on a featured tier — never as a section background.</p>
+<p><strong>Key Characteristics:</strong></p>
+<ul>
+<li>Pure white canvas (<code>{colors.canvas}</code>) with deep ink (<code>{colors.ink}</code>) running every body surface; light fog bands (<code>{colors.cloud}</code>, <code>{colors.fog}</code>) alternate for section rhythm</li>
+<li>HP Electric Blue (<code>{colors.primary}</code>) is the lone CTA fill and link color; it appears at most twice per viewport</li>
+<li>Bespoke Forma DJR Micro across every surface — display, body, button, caption — at weights 400 / 500 / 600 / 700</li>
+<li>Cards round at <code>{rounded.xl}</code> (16px) for product/pricing tiles; buttons sit at <code>{rounded.md}</code> (4px) with capitalize labels</li>
+<li>Geometric blue chevrons (<code>{colors.primary}</code> rectangles cut at 45°) frame hero photography and reinforce the wordmark</li>
+<li>Dark-navy slabs (<code>{colors.ink}</code>) close every page rhythm — testimonial bands, &quot;how can we help?&quot; prelude, and the footer</li>
+<li>Section rhythm: utility-strip → top nav → white body → cloud-band → ink slab → cloud-band → ink footer</li>
+</ul>
+<div class="pilwrap" id="colors">
+  <h2>
+    <a href="#colors" name="colors" class="pilcrow"></a>
+Colors
+  </h2>
+</div>
+<blockquote>
+<p><strong>No Interaction sub-section.</strong> Hover colors are silently filtered. Allowed sub-sections: Brand &amp; Accent, Surface, Text, Semantic.</p>
+</blockquote>
+<div class="pilwrap" id="brand-and-accent">
+  <h3>
+    <a href="#brand-and-accent" name="brand-and-accent" class="pilcrow"></a>
+Brand &amp; Accent
+  </h3>
+</div>
+<ul>
+<li><strong>HP Electric Blue</strong> (<code>{colors.primary}</code> — <code>#024ad8</code>): the system's lone signal — primary CTA fill, link color, chevron-decoration fill, active sub-nav indicator. Reserved.</li>
+<li><strong>Bright Blue</strong> (<code>{colors.primary-bright}</code> — <code>#296ef9</code>): a slightly lighter variant used inside dark slabs (testimonial-card buttons, dark-band CTA links) where the deeper blue would muddy.</li>
+<li><strong>Deep Navy</strong> (<code>{colors.primary-deep}</code> — <code>#0e3191</code>): pressed state for the primary CTA and the visited-link color.</li>
+<li><strong>Soft Blue</strong> (<code>{colors.primary-soft}</code> — <code>#c9e0fc</code>): pale-blue surface used inside customer-story cards and selection chips.</li>
+</ul>
+<div class="pilwrap" id="surface">
+  <h3>
+    <a href="#surface" name="surface" class="pilcrow"></a>
+Surface
+  </h3>
+</div>
+<ul>
+<li><strong>Canvas</strong> (<code>{colors.canvas}</code> — <code>#ffffff</code>): the universal page background. White, full opacity.</li>
+<li><strong>Paper</strong> (<code>{colors.paper}</code> — <code>#ffffff</code>): card surfaces — same white as canvas, with hairline borders or shadows providing the lift.</li>
+<li><strong>Cloud</strong> (<code>{colors.cloud}</code> — <code>#f7f7f7</code>): the lightest gray section band, used for alternating-row backgrounds and product-feature card groups.</li>
+<li><strong>Fog</strong> (<code>{colors.fog}</code> — <code>#e8e8e8</code>): a slightly darker gray surface band, used for FAQ outer panels and the &quot;Trending laptops&quot; header strip.</li>
+<li><strong>Steel</strong> (<code>{colors.steel}</code> — <code>#c2c2c2</code>): hairline border used on outlined elements with stronger emphasis (focus states, active filter).</li>
+<li><strong>Bloom Coral / Bloom Rose</strong> (<code>{colors.bloom-coral}</code> / <code>{colors.bloom-rose}</code> — <code>#ff5050</code>, <code>#f9d4d2</code>): the &quot;Get 25% off&quot; sale-tag chip + soft pink lifestyle accent on the sale hero.</li>
+<li><strong>Storm Mist / Sea / Deep</strong> (<code>{colors.storm-mist}</code>, <code>{colors.storm-sea}</code>, <code>{colors.storm-deep}</code> — <code>#8ebdce</code>, <code>#7fadbe</code>, <code>#356373</code>): the teal-storm tones reserved for the printer-plan illustration backdrop and supporting infographic accents.</li>
+</ul>
+<div class="pilwrap" id="text">
+  <h3>
+    <a href="#text" name="text" class="pilcrow"></a>
+Text
+  </h3>
+</div>
+<ul>
+<li><strong>Ink</strong> (<code>{colors.ink}</code> — <code>#1a1a1a</code>): the universal text color on white surfaces — headlines, body, button labels, navigation.</li>
+<li><strong>Ink Deep</strong> (<code>{colors.ink-deep}</code> — <code>#000000</code>): pure black used for the wordmark and 1px hairline strokes around badge outlines.</li>
+<li><strong>Ink Soft</strong> (<code>{colors.ink-soft}</code> — <code>#292929</code>): an alternate near-black used inside dark-navy slabs as a subtle textural shift.</li>
+<li><strong>On Ink</strong> (<code>{colors.on-ink}</code> — <code>#ffffff</code>): pure white used for headline and body text on every dark-navy slab.</li>
+<li><strong>Charcoal</strong> (<code>{colors.charcoal}</code> — <code>#3d3d3d</code>): muted body color on white surfaces — secondary descriptions, fine-print disclaimers.</li>
+<li><strong>Graphite</strong> (<code>{colors.graphite}</code> — <code>#636363</code>): smaller-print color, used for legal lines and timestamp metadata.</li>
+</ul>
+<div class="pilwrap" id="semantic">
+  <h3>
+    <a href="#semantic" name="semantic" class="pilcrow"></a>
+Semantic
+  </h3>
+</div>
+<ul>
+<li><strong>Bloom Deep</strong> (<code>{colors.bloom-deep}</code> — <code>#b3262b</code>) + <strong>Bloom Wine</strong> (<code>{colors.bloom-wine}</code> — <code>#5a1313</code>): error and discount-emphasis colors. The deep brick reads as &quot;sale&quot; or &quot;destructive&quot; depending on placement.</li>
+<li><strong>Storm Deep</strong> (<code>{colors.storm-deep}</code> — <code>#356373</code>): used as a neutral status accent (e.g., printer-plan tier &quot;Versatile&quot; tier color).</li>
+</ul>
+<div class="pilwrap" id="typography">
+  <h2>
+    <a href="#typography" name="typography" class="pilcrow"></a>
+Typography
+  </h2>
+</div>
+<div class="pilwrap" id="font-family">
+  <h3>
+    <a href="#font-family" name="font-family" class="pilcrow"></a>
+Font Family
+  </h3>
+</div>
+<p>The voice is <strong>single-family</strong>: Forma DJR Micro (HP's bespoke geometric grotesque, fallback Arial) across every surface — display, body, button, caption. Forma DJR Micro is a wide, slightly rounded grotesque designed at small optical sizes to stay legible at UI-chrome scale. HP runs it at weight 400 for body, 500 for display headlines, 600/700 for emphasis and button labels.</p>
+<p>The 16/14/12-px caption tier carries the catalog metadata — model numbers, spec rows, fine print — at weight 400 with a 1.4–1.5 line-height. Button labels lift to weight 600/700 with positive 0.5–1.1px letter-spacing and uppercase transform — the only place the system tracks letters.</p>
+<div class="pilwrap" id="hierarchy">
+  <h3>
+    <a href="#hierarchy" name="hierarchy" class="pilcrow"></a>
+Hierarchy
+  </h3>
+</div>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Size</th>
+<th>Weight</th>
+<th>Line Height</th>
+<th>Letter Spacing</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{typography.display-xxl}</code></td>
+<td>72px</td>
+<td>500</td>
+<td>1.0</td>
+<td>0</td>
+<td>Hero headline (homepage, laptop hub)</td>
+</tr>
+<tr>
+<td><code>{typography.display-xl}</code></td>
+<td>56px</td>
+<td>500</td>
+<td>1.0</td>
+<td>0</td>
+<td>Section headlines on landing pages</td>
+</tr>
+<tr>
+<td><code>{typography.display-lg}</code></td>
+<td>44px</td>
+<td>500</td>
+<td>1.0</td>
+<td>0</td>
+<td>Sub-section headlines on shop pages</td>
+</tr>
+<tr>
+<td><code>{typography.display-md}</code></td>
+<td>32px</td>
+<td>500</td>
+<td>1.0</td>
+<td>0</td>
+<td>Promo strip headlines, FAQ section headers</td>
+</tr>
+<tr>
+<td><code>{typography.display-sm}</code></td>
+<td>24px</td>
+<td>500</td>
+<td>1.17</td>
+<td>0</td>
+<td>Card titles, pricing-tier names</td>
+</tr>
+<tr>
+<td><code>{typography.display-xs}</code></td>
+<td>20px</td>
+<td>500</td>
+<td>1.0</td>
+<td>0</td>
+<td>Inline list headers, accordion labels</td>
+</tr>
+<tr>
+<td><code>{typography.body-lg}</code></td>
+<td>18px</td>
+<td>400</td>
+<td>1.33</td>
+<td>0</td>
+<td>Lead paragraphs</td>
+</tr>
+<tr>
+<td><code>{typography.body-md}</code></td>
+<td>16px</td>
+<td>400</td>
+<td>1.38</td>
+<td>0</td>
+<td>Default body</td>
+</tr>
+<tr>
+<td><code>{typography.body-emphasis}</code></td>
+<td>16px</td>
+<td>500</td>
+<td>1.38</td>
+<td>0</td>
+<td>Bolded run-in copy</td>
+</tr>
+<tr>
+<td><code>{typography.caption-md}</code></td>
+<td>14px</td>
+<td>400</td>
+<td>1.5</td>
+<td>0</td>
+<td>Specs, metadata, captions</td>
+</tr>
+<tr>
+<td><code>{typography.caption-bold}</code></td>
+<td>14px</td>
+<td>700</td>
+<td>1.3</td>
+<td>0</td>
+<td>Sale tags, in-card highlights</td>
+</tr>
+<tr>
+<td><code>{typography.caption-sm}</code></td>
+<td>12px</td>
+<td>400</td>
+<td>1.33</td>
+<td>0</td>
+<td>Footnotes, legal lines</td>
+</tr>
+<tr>
+<td><code>{typography.link-md}</code></td>
+<td>16px</td>
+<td>500</td>
+<td>1.38</td>
+<td>0</td>
+<td>Inline link emphasis</td>
+</tr>
+<tr>
+<td><code>{typography.button-md}</code></td>
+<td>14px</td>
+<td>600</td>
+<td>1.4</td>
+<td>0.7px</td>
+<td>Primary/secondary button labels (uppercase)</td>
+</tr>
+<tr>
+<td><code>{typography.button-sm}</code></td>
+<td>12.6px</td>
+<td>700</td>
+<td>1.0</td>
+<td>0.126px</td>
+<td>Compact button labels in tight cells</td>
+</tr>
+<tr>
+<td><code>{typography.price-md}</code></td>
+<td>24px</td>
+<td>500</td>
+<td>1.17</td>
+<td>0</td>
+<td>Tier and product price stamps</td>
+</tr>
+</tbody>
+</table>
+<div class="pilwrap" id="principles">
+  <h3>
+    <a href="#principles" name="principles" class="pilcrow"></a>
+Principles
+  </h3>
+</div>
+<p>The typographic decision worth flagging: HP runs <strong>weight 500 for every display size</strong>, including the largest 72px hero headline. Most editorial systems jump to 600/700 at hero scale; HP doesn't. The result feels open and approachable rather than commanding — appropriate for a brand that sells across consumer, SMB, and enterprise audiences in the same catalog.</p>
+<p>Forma DJR Micro's rounded-grotesque shapes do most of the warmth. There's no italic in the system except inside legal disclaimers; emphasis is carried by weight (500 → body-emphasis, 700 → caption-bold) instead.</p>
+<div class="pilwrap" id="note-on-font-substitutes">
+  <h3>
+    <a href="#note-on-font-substitutes" name="note-on-font-substitutes" class="pilcrow"></a>
+Note on Font Substitutes
+  </h3>
+</div>
+<p>Forma DJR Micro is proprietary (Commercial Type / Mark Caneso). Closest open-source substitutes:</p>
+<ul>
+<li><strong>Inter</strong> at weights 400 / 500 / 600 / 700 — slightly narrower than Forma DJR Micro; bump font-size by ~3% to compensate</li>
+<li><strong>Manrope</strong> at weights 400 / 500 / 600 / 700 — closer in proportion, gentler curves; use directly with no metric adjustment</li>
+<li><strong>Roboto</strong> at weights 400 / 500 / 700 — flatter character; use as last-resort fallback</li>
+</ul>
+<p>When swapping, set body line-height to 1.4 and display line-height to 1.0 explicitly — the Forma DJR Micro line-height numbers are tight, and most substitutes default looser.</p>
+<div class="pilwrap" id="layout">
+  <h2>
+    <a href="#layout" name="layout" class="pilcrow"></a>
+Layout
+  </h2>
+</div>
+<div class="pilwrap" id="spacing-system">
+  <h3>
+    <a href="#spacing-system" name="spacing-system" class="pilcrow"></a>
+Spacing System
+  </h3>
+</div>
+<ul>
+<li><strong>Base unit</strong>: 8px. Smaller half-step at 4px. The scale is gentle — most card padding lands at 16px or 24px; section gap at 80px.</li>
+<li><strong>Tokens (front matter)</strong>: <code>{spacing.xxs}</code> 4px · <code>{spacing.xs}</code> 8px · <code>{spacing.sm}</code> 12px · <code>{spacing.md}</code> 16px · <code>{spacing.lg}</code> 20px · <code>{spacing.xl}</code> 24px · <code>{spacing.xxl}</code> 32px · <code>{spacing.section}</code> 80px</li>
+<li><strong>Section padding</strong>: <code>{spacing.section}</code> (80px) vertical between major bands on desktop; collapses to ~48px on mobile.</li>
+<li><strong>Card internal padding</strong>: <code>{spacing.xl}</code> (24px) for product cards; <code>{spacing.xxl}</code> (32px) for promo strips and feature cards; <code>{spacing.md}</code> (16px) for compact article tiles.</li>
+<li><strong>Gutter</strong>: <code>{spacing.xl}</code> (24px) between grid columns at desktop; <code>{spacing.md}</code> (16px) on tablet/mobile.</li>
+</ul>
+<p>The 80px section gap is the universal rhythm constant — it appears between every major homepage band, between the hero and the comparison table on the printer-plan page, and between feature rows on the laptop-shop page.</p>
+<div class="pilwrap" id="grid-and-container">
+  <h3>
+    <a href="#grid-and-container" name="grid-and-container" class="pilcrow"></a>
+Grid &amp; Container
+  </h3>
+</div>
+<ul>
+<li><strong>Desktop max-width</strong>: 1366px content container with full-bleed-on-canvas section backgrounds.</li>
+<li><strong>Hero</strong>: a single full-width photo card (homepage and laptop-hub hero) with the headline overlay positioned upper-left or upper-right.</li>
+<li><strong>Product family grid</strong>: 4 columns at &gt;1200px, 3 at 1024–1199px, 2 at 768–1023px, 1 below 768px.</li>
+<li><strong>Pricing tiers</strong>: 4 columns at &gt;1024px, 2x2 grid at 768–1023px, single-column accordion below 768px.</li>
+<li><strong>Footer</strong>: 5-column link grid at &gt;1024px, collapsing to 2-column then accordion on mobile.</li>
+</ul>
+<div class="pilwrap" id="whitespace-philosophy">
+  <h3>
+    <a href="#whitespace-philosophy" name="whitespace-philosophy" class="pilcrow"></a>
+Whitespace Philosophy
+  </h3>
+</div>
+<p>Whitespace is <strong>commercial-clean</strong> — generous around hero photography, tight around catalog spec rows. Product cards leave breathing room above and below the photo (≥32px) so the laptop or printer reads as a hero shot rather than a thumbnail. The fine-print disclaimer regions (legal, footnote rows) tighten line-height to 1.3 and shrink type to 11–12px so the bulk of fine print stays compact.</p>
+<div class="pilwrap" id="elevation-and-depth">
+  <h2>
+    <a href="#elevation-and-depth" name="elevation-and-depth" class="pilcrow"></a>
+Elevation &amp; Depth
+  </h2>
+</div>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Treatment</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0 — Flat</td>
+<td>No border, no shadow.</td>
+<td>Section bands (white, cloud, fog), full-bleed photo heroes</td>
+</tr>
+<tr>
+<td>1 — Hairline</td>
+<td>1px solid <code>{colors.hairline}</code> (<code>#e8e8e8</code>) border, no shadow.</td>
+<td>Outlined buttons, comparison-table cells, FAQ accordion outers</td>
+</tr>
+<tr>
+<td>2 — Soft Lift</td>
+<td><code>0 2px 8px rgba(26, 26, 26, 0.08)</code>.</td>
+<td>Product cards, pricing-tier columns, customer-story tiles</td>
+</tr>
+<tr>
+<td>3 — Floating Modal</td>
+<td><code>0 8px 24px rgba(26, 26, 26, 0.12)</code>.</td>
+<td>Add-to-cart drawer, mobile-nav sheet, image zoom modal</td>
+</tr>
+</tbody>
+</table>
+<p>The system is mostly flat — depth is communicated by <strong>color contrast</strong> (cloud-band vs. white card on the same band) rather than shadow elevation. The Soft Lift level is the workhorse for the catalog — every product tile and pricing column gets it; nothing else does. Modal-floating is rare and reserved for transient overlays.</p>
+<div class="pilwrap" id="decorative-depth">
+  <h3>
+    <a href="#decorative-depth" name="decorative-depth" class="pilcrow"></a>
+Decorative Depth
+  </h3>
+</div>
+<p>The system's most distinctive depth gesture is the <strong>HP blue chevron pair</strong> — two angular <code>{colors.primary}</code> slashes (no radius, no shadow) that sit on the left and right of the homepage hero card and the laptop-shop hero. They're not decorative noise; they're a literal echo of the HP wordmark's two parallel slashes, scaled up to architectural size. Treat them as a brand artifact, not a generic geometric flourish.</p>
+<p>Photography on the homepage and laptop-shop pages frames product imagery inside <code>{rounded.xl}</code> (16px) containers with a soft 1px hairline. Lifestyle photography (testimonials, &quot;How HP works for X&quot;) sits full-bleed inside dark-navy slabs without rounding.</p>
+<div class="pilwrap" id="shapes">
+  <h2>
+    <a href="#shapes" name="shapes" class="pilcrow"></a>
+Shapes
+  </h2>
+</div>
+<div class="pilwrap" id="border-radius-scale">
+  <h3>
+    <a href="#border-radius-scale" name="border-radius-scale" class="pilcrow"></a>
+Border Radius Scale
+  </h3>
+</div>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Value</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{rounded.none}</code></td>
+<td>0px</td>
+<td>Hero chevron decorations, full-bleed photo heroes, marquee strips</td>
+</tr>
+<tr>
+<td><code>{rounded.xs}</code></td>
+<td>2px</td>
+<td>Secondary chip backgrounds, sale-tag pills</td>
+</tr>
+<tr>
+<td><code>{rounded.sm}</code></td>
+<td>3px</td>
+<td>Default secondary CTA radius (small touch zones)</td>
+</tr>
+<tr>
+<td><code>{rounded.md}</code></td>
+<td>4px</td>
+<td>Primary buttons, secondary buttons, text inputs</td>
+</tr>
+<tr>
+<td><code>{rounded.lg}</code></td>
+<td>8px</td>
+<td>Badge pills, category-icon cards, FAQ row containers</td>
+</tr>
+<tr>
+<td><code>{rounded.xl}</code></td>
+<td>16px</td>
+<td>Product cards, pricing tiers, customer-story tiles, photo frames</td>
+</tr>
+<tr>
+<td><code>{rounded.pill}</code></td>
+<td>9999px</td>
+<td>Category sub-nav tabs, search-pill input, filter chips</td>
+</tr>
+</tbody>
+</table>
+<p>The system maintains a clear two-tier philosophy: <strong>buttons stay sharp</strong> (4px, almost rectilinear) while <strong>cards and photo frames stay soft</strong> (16px). This split is the visual signature — sharp interactive elements against softer container surfaces.</p>
+<div class="pilwrap" id="photography-geometry">
+  <h3>
+    <a href="#photography-geometry" name="photography-geometry" class="pilcrow"></a>
+Photography Geometry
+  </h3>
+</div>
+<p>Hero photography sits in <code>{rounded.xl}</code> (16px) frames with no border. Product family thumbnails inside the laptop-grid are 1:1 (square) on a <code>{colors.canvas}</code> background, padded so the laptop is shown at ~70% of the frame. Customer-story photography uses 16:9 inside the same <code>{rounded.xl}</code> frame. There are no full-bleed circular avatars; testimonial avatars are 4px-rounded squares.</p>
+<div class="pilwrap" id="components">
+  <h2>
+    <a href="#components" name="components" class="pilcrow"></a>
+Components
+  </h2>
+</div>
+<blockquote>
+<p><strong>No hover states documented.</strong> Every component spec below documents only Default and Active/Pressed states. Variants live as separate front-matter entries.</p>
+</blockquote>
+<div class="pilwrap" id="buttons">
+  <h3>
+    <a href="#buttons" name="buttons" class="pilcrow"></a>
+Buttons
+  </h3>
+</div>
+<p><strong><code>button-primary</code></strong> — the lone HP Electric Blue CTA</p>
+<ul>
+<li>Background <code>{colors.primary}</code>, text <code>{colors.on-primary}</code>, type <code>{typography.button-md}</code> (uppercase, 0.7px tracking), padding <code>{spacing.sm} {spacing.xl}</code> (12 × 24), height 44px, rounded <code>{rounded.md}</code></li>
+<li>Pressed state <code>button-primary-pressed</code> — background <code>{colors.primary-deep}</code>, same text</li>
+<li>Disabled state <code>button-primary-disabled</code> — background <code>{colors.steel}</code>, white text</li>
+<li>Used for: &quot;Buy now&quot;, &quot;Shop now&quot;, &quot;Get a printer&quot;, primary form submit</li>
+</ul>
+<p><strong><code>button-ink</code></strong> — black filled CTA</p>
+<ul>
+<li>Background <code>{colors.ink}</code>, text <code>{colors.on-primary}</code>, padding <code>{spacing.sm} {spacing.xl}</code>, height 44px, rounded <code>{rounded.md}</code>, type <code>{typography.button-md}</code></li>
+<li>Used for: &quot;Buy now&quot; on dark photo overlays, secondary primary actions where the blue would clash with imagery</li>
+</ul>
+<p><strong><code>button-outline</code></strong> — blue-text outlined CTA</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, text <code>{colors.primary}</code>, 1px <code>{colors.primary}</code> border, padding <code>{spacing.sm} {spacing.xl}</code>, height 44px, rounded <code>{rounded.md}</code></li>
+<li>Used for: &quot;Compare&quot;, &quot;Customize&quot;, &quot;Learn more&quot; — secondary actions on white surfaces</li>
+</ul>
+<p><strong><code>button-outline-ink</code></strong> — black-text outlined CTA</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, text <code>{colors.ink}</code>, 1px <code>{colors.ink}</code> border, padding <code>{spacing.sm} {spacing.xl}</code>, height 44px, rounded <code>{rounded.md}</code></li>
+<li>Used for: &quot;View&quot; buttons inside product family card grids — neutral against the blue primary</li>
+</ul>
+<p><strong><code>button-text-link</code></strong> — inline blue link with underline</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, text <code>{colors.primary}</code>, type <code>{typography.link-md}</code>, padding <code>{spacing.xxs} 0</code></li>
+<li>Used for: &quot;See details&quot;, &quot;Read more&quot; inside cards and disclaimer rows</li>
+</ul>
+<div class="pilwrap" id="cards-and-containers">
+  <h3>
+    <a href="#cards-and-containers" name="cards-and-containers" class="pilcrow"></a>
+Cards &amp; Containers
+  </h3>
+</div>
+<p><strong><code>card-product</code></strong> — the workhorse product tile</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, rounded <code>{rounded.xl}</code> (16px), padding <code>{spacing.xl}</code> (24px), Soft Lift shadow</li>
+<li>Layout: hero photo (1:1 ratio) on top, title in <code>{typography.display-xs}</code>, spec rows in <code>{typography.caption-md}</code>, price in <code>{typography.price-md}</code>, CTA pinned to bottom</li>
+<li>Used for: laptop catalog cards, desktop catalog cards</li>
+</ul>
+<p><strong><code>card-product-feature</code></strong> — full-row feature card with photo + copy</p>
+<ul>
+<li>Background <code>{colors.cloud}</code>, rounded <code>{rounded.xl}</code>, padding <code>{spacing.xxl}</code> (32px)</li>
+<li>Layout: photo on the left (50% width), copy on the right with section eyebrow + title + body + CTA pair</li>
+<li>Used for: &quot;Trending laptops&quot; feature rows, &quot;Shop these must haves&quot;</li>
+</ul>
+<p><strong><code>card-pricing-tier</code></strong> + <strong><code>card-pricing-tier-featured</code></strong></p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, rounded <code>{rounded.xl}</code>, padding <code>{spacing.xl}</code>, Soft Lift shadow</li>
+<li>Tier name in <code>{typography.display-sm}</code>, monthly price in <code>{typography.display-md}</code> with <code>{typography.caption-md}</code> cadence, page count caption, full feature list, primary CTA</li>
+<li>Featured tier carries <code>{colors.primary}</code> text accent on the price-stamp + a <code>{colors.primary}</code> thin top border instead of a colored card background — never inverted to dark</li>
+</ul>
+<p><strong><code>card-customer-story</code></strong> — the three-up testimonial tile</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, rounded <code>{rounded.xl}</code>, padding <code>{spacing.md}</code> (16px), Soft Lift shadow</li>
+<li>16:9 photo at top in <code>{rounded.xl}</code> frame, quote excerpt in <code>{typography.body-md}</code>, attribution row at the bottom</li>
+<li>Used in the &quot;See what our customers say&quot; homepage section</li>
+</ul>
+<p><strong><code>card-article-tile</code></strong> — the four-up &quot;Latest from HP&quot; tile</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, rounded <code>{rounded.xl}</code>, padding <code>{spacing.md}</code>, Soft Lift shadow</li>
+<li>16:9 thumbnail at top, date eyebrow in <code>{typography.caption-sm}</code>, title in <code>{typography.body-emphasis}</code>, &quot;Read more&quot; link</li>
+</ul>
+<p><strong><code>card-category-icon</code></strong> — the small icon-and-label card in the homepage &quot;Our Products&quot; row</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, rounded <code>{rounded.lg}</code> (8px), padding <code>{spacing.md}</code></li>
+<li>48px icon at top, label in <code>{typography.body-emphasis}</code> below</li>
+<li>Used for: Laptops, Desktops, Printers, Computer Tools, Accessories, Enterprise Solutions</li>
+</ul>
+<p><strong><code>hero-promo-card</code></strong> — the homepage hero card with chevron decorations</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, rounded <code>{rounded.xl}</code>, padding <code>{spacing.xxl}</code> (32px)</li>
+<li>Photography occupies left half; copy block (eyebrow + headline + price stamp + CTA pair) occupies right half</li>
+<li>Flanked by <code>chevron-decoration</code> blue slashes outside the card's bounding box on left and right edges</li>
+</ul>
+<p><strong><code>promo-strip-dark</code></strong> — the inline dark navy promo block</p>
+<ul>
+<li>Background <code>{colors.ink}</code>, text <code>{colors.on-ink}</code>, rounded <code>{rounded.xl}</code>, padding <code>{spacing.xxl} 48px</code></li>
+<li>Used for: &quot;When did work start getting in the way of work?&quot; mid-page promo, the SMB testimonial slab</li>
+</ul>
+<div class="pilwrap" id="inputs-and-forms">
+  <h3>
+    <a href="#inputs-and-forms" name="inputs-and-forms" class="pilcrow"></a>
+Inputs &amp; Forms
+  </h3>
+</div>
+<p><strong><code>text-input</code></strong> + <strong><code>text-input-focused</code></strong></p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, text <code>{colors.ink}</code>, rounded <code>{rounded.md}</code>, padding <code>{spacing.sm} {spacing.md}</code>, height 44px</li>
+<li>1px <code>{colors.steel}</code> border in default; gains 1px <code>{colors.ink}</code> border on focus (no halo)</li>
+</ul>
+<p><strong><code>text-input-search</code></strong> — pill search in the top nav</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, rounded <code>{rounded.md}</code>, padding <code>{spacing.sm} {spacing.md}</code>, height 40px, 1px <code>{colors.steel}</code> border, magnifying-glass icon at right</li>
+</ul>
+<p><strong><code>badge-pill-ink</code></strong> — filled tag pill</p>
+<ul>
+<li>Background <code>{colors.ink}</code>, text <code>{colors.on-primary}</code>, rounded <code>{rounded.lg}</code>, padding 6px 12px, type <code>{typography.body-md}</code></li>
+<li>Used inline next to product titles to mark &quot;New&quot; or featured indicators</li>
+</ul>
+<p><strong><code>badge-pill-outline</code></strong> — outlined tag pill</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, text <code>{colors.ink}</code>, 1px <code>{colors.ink}</code> border, rounded <code>{rounded.lg}</code>, padding 6px 12px</li>
+</ul>
+<p><strong><code>badge-sale-coral</code></strong> — the sale price-stamp</p>
+<ul>
+<li>Background <code>{colors.bloom-coral}</code>, text <code>{colors.on-primary}</code>, rounded <code>{rounded.sm}</code>, padding <code>{spacing.xxs} {spacing.xs}</code>, type <code>{typography.caption-bold}</code></li>
+<li>Used for: &quot;Save $200&quot;, &quot;25% off&quot; overlay tags on hero promo cards</li>
+</ul>
+<div class="pilwrap" id="navigation">
+  <h3>
+    <a href="#navigation" name="navigation" class="pilcrow"></a>
+Navigation
+  </h3>
+</div>
+<p><strong><code>utility-strip</code></strong> — the top-of-page utility bar</p>
+<ul>
+<li>Background <code>{colors.ink}</code>, text <code>{colors.on-primary}</code>, height 36px, padding 0 {spacing.xl}, type <code>{typography.caption-md}</code></li>
+<li>Holds: country/locale picker, &quot;For Business / For Home&quot; toggle, &quot;Sign in&quot; link, cart link</li>
+</ul>
+<p><strong><code>nav-bar-top</code></strong> — desktop top nav (sits below utility strip)</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, height 64px, padding 0 32px</li>
+<li>Layout: HP wordmark logo flush left → middle category list (Laptops / Desktops / Printers / Accessories / Solutions / Support) → right slot with Search field, Sign-in link, Cart icon</li>
+<li>1px <code>{colors.hairline}</code> bottom border separates nav from page</li>
+</ul>
+<p><strong><code>nav-link</code></strong></p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, text <code>{colors.ink}</code>, type <code>{typography.body-md}</code>, padding <code>{spacing.xs} {spacing.md}</code></li>
+<li>Active page draws a 2px <code>{colors.primary}</code> underline below the text baseline</li>
+</ul>
+<p><strong>Top Nav (Mobile)</strong></p>
+<ul>
+<li>Same height, hamburger icon replaces the middle category list, Search and Cart stay visible</li>
+<li>Drawer expands as a full-canvas sheet with <code>{typography.body-lg}</code> link list and a sticky Sign-in CTA at bottom</li>
+</ul>
+<p><strong><code>category-tab</code></strong> + <strong><code>category-tab-active</code></strong> — the pill sub-nav</p>
+<ul>
+<li>Default: background <code>{colors.canvas}</code>, text <code>{colors.ink}</code>, type <code>{typography.body-emphasis}</code>, rounded <code>{rounded.pill}</code>, padding <code>{spacing.xs} {spacing.lg}</code></li>
+<li>Active: background <code>{colors.ink}</code>, text <code>{colors.on-primary}</code>, same rounding</li>
+<li>Used on the laptop-shop page for &quot;All / Trending / On Sale&quot; filtering, and on the homepage &quot;How can we help?&quot; closing band</li>
+</ul>
+<div class="pilwrap" id="signature-components">
+  <h3>
+    <a href="#signature-components" name="signature-components" class="pilcrow"></a>
+Signature Components
+  </h3>
+</div>
+<p><strong><code>chevron-decoration</code></strong> — the geometric blue slash motif</p>
+<ul>
+<li>Background <code>{colors.primary}</code>, rounded <code>{rounded.none}</code>, no shadow</li>
+<li>Renders as a sharp parallelogram cut at ~60° angle, sized to the height of the hero card it flanks</li>
+<li>Reserved for hero bands and full-page banners — never decorative noise inside cards</li>
+</ul>
+<p><strong><code>faq-row</code></strong> — the accordion row on the printer-plan FAQ</p>
+<ul>
+<li>Background <code>{colors.canvas}</code>, rounded <code>{rounded.lg}</code>, padding <code>{spacing.lg} {spacing.xl}</code>, type <code>{typography.body-emphasis}</code></li>
+<li>1px <code>{colors.hairline}</code> divider between rows; chevron-down icon on the right collapsed, chevron-up when expanded</li>
+<li>Body answer renders inside the same row container in <code>{typography.body-md}</code> after expansion</li>
+</ul>
+<p><strong><code>help-band-dark</code></strong> — the closing &quot;How can we help?&quot; prelude band</p>
+<ul>
+<li>Background <code>{colors.ink}</code>, text <code>{colors.on-primary}</code>, padding 64px {spacing.xl}</li>
+<li>Layout: large lifestyle photograph as the band background (low-opacity) with chip-style category tabs centered: Browse Topics / Live Chat / Contact / Diagnose / Order Status</li>
+</ul>
+<p><strong><code>footer-dark</code></strong></p>
+<ul>
+<li>Background <code>{colors.ink}</code>, text <code>{colors.on-primary}</code>, type <code>{typography.body-md}</code>, padding 64px {spacing.xl}</li>
+<li>5-column link grid (Company / Shop / Support / Resources / Connect) with <code>{typography.body-emphasis}</code> headers and <code>{typography.caption-md}</code> link rows</li>
+<li>Bottom strip carries social icons, language picker, and legal lines in <code>{typography.caption-sm}</code> muted to <code>{colors.steel}</code></li>
+</ul>
+<div class="pilwrap" id="dos-and-donts">
+  <h2>
+    <a href="#dos-and-donts" name="dos-and-donts" class="pilcrow"></a>
+Do's and Don'ts
+  </h2>
+</div>
+<div class="pilwrap" id="do">
+  <h3>
+    <a href="#do" name="do" class="pilcrow"></a>
+Do
+  </h3>
+</div>
+<ul>
+<li>Reserve <code>{colors.primary}</code> for the primary CTA, link color, and <code>chevron-decoration</code> motif — at most twice per viewport</li>
+<li>Set every headline in Forma DJR Micro at weight 500 with line-height 1.0 — resist the urge to bump weight at hero scale</li>
+<li>Use <code>{rounded.xl}</code> (16px) for cards and photo frames; <code>{rounded.md}</code> (4px) for buttons and inputs — keep the two-tier split sharp</li>
+<li>Pair white <code>{colors.canvas}</code> body bands with <code>{colors.cloud}</code> (<code>#f7f7f7</code>) alternating bands; let the gray do the breathing</li>
+<li>Close every page rhythm with a dark-navy <code>{colors.ink}</code> slab — the &quot;How can we help?&quot; prelude + footer</li>
+<li>Set button labels in uppercase with <code>{typography.button-md}</code> (0.7px tracking) — the only place the system tracks letters</li>
+<li>Use Soft Lift shadow exclusively for product cards and pricing tiers — leave section bands flat</li>
+<li>Frame product photography inside <code>{rounded.xl}</code> containers; never use full-bleed circular masks</li>
+</ul>
+<div class="pilwrap" id="dont">
+  <h3>
+    <a href="#dont" name="dont" class="pilcrow"></a>
+Don't
+  </h3>
+</div>
+<ul>
+<li>Don't introduce secondary saturated colors outside <code>{colors.primary}</code> family + the <code>bloom-coral</code> sale-tag and <code>storm</code> printer-plan accents</li>
+<li>Don't apply heavy material shadows — depth is via color contrast (cloud vs. white) and Soft Lift only</li>
+<li>Don't round buttons above <code>{rounded.md}</code> (4px); a soft 8px+ button reads as a different brand</li>
+<li>Don't run Forma DJR Micro below 12px — small caption at 11px is the floor</li>
+<li>Don't use the chevron decoration as inline noise; it is a hero-only architectural element tied to the wordmark</li>
+<li>Don't drop ink text opacity to create hierarchy — switch surface or shift to <code>{colors.charcoal}</code> / <code>{colors.graphite}</code> instead</li>
+<li>Don't replace the HP wordmark with a generic sans lockup; the wordmark is a custom mark with its own ratio</li>
+</ul>
+<div class="pilwrap" id="responsive-behavior">
+  <h2>
+    <a href="#responsive-behavior" name="responsive-behavior" class="pilcrow"></a>
+Responsive Behavior
+  </h2>
+</div>
+<div class="pilwrap" id="breakpoints">
+  <h3>
+    <a href="#breakpoints" name="breakpoints" class="pilcrow"></a>
+Breakpoints
+  </h3>
+</div>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Width</th>
+<th>Key Changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mobile</td>
+<td>&lt; 480px</td>
+<td>Single-column stack; hamburger nav; section padding drops to ~48px; hero serif scales to ~36px</td>
+</tr>
+<tr>
+<td>Mobile-Large</td>
+<td>480–767px</td>
+<td>Same column count; hero scales to ~44px; pricing tiers stack vertically</td>
+</tr>
+<tr>
+<td>Tablet</td>
+<td>768–1023px</td>
+<td>2-column product grid; pricing 2x2; nav still full text labels</td>
+</tr>
+<tr>
+<td>Desktop</td>
+<td>1024–1279px</td>
+<td>3-column product grid; 4-column pricing; full nav</td>
+</tr>
+<tr>
+<td>Desktop-Large</td>
+<td>≥ 1280px</td>
+<td>4-column product grid; 1366px content max-width with full-bleed bands</td>
+</tr>
+</tbody>
+</table>
+<div class="pilwrap" id="touch-targets">
+  <h3>
+    <a href="#touch-targets" name="touch-targets" class="pilcrow"></a>
+Touch Targets
+  </h3>
+</div>
+<p>Every interactive element clears 44×44px on mobile. <code>button-primary</code> at 44px height + 24px horizontal padding meets WCAG-AAA touch target. <code>category-tab</code> at 8px 20px padding bumps to 12px 24px on touch screens. Nav-link tap areas extend invisibly beyond the text run to the full 44px row height. Sticky cart/sign-in icons in the top nav use 44×44 invisible hit boxes around their visible 24×24 glyph.</p>
+<div class="pilwrap" id="collapsing-strategy">
+  <h3>
+    <a href="#collapsing-strategy" name="collapsing-strategy" class="pilcrow"></a>
+Collapsing Strategy
+  </h3>
+</div>
+<ul>
+<li><strong>Utility strip</strong>: stays visible on every breakpoint; dropdowns collapse into a single &quot;Account&quot; icon below 768px</li>
+<li><strong>Top nav</strong>: middle category list collapses into a hamburger drawer below 1024px; the right-side Search + Sign-in + Cart stay visible</li>
+<li><strong>Hero</strong>: stays single-column at every breakpoint; chevron decorations shrink to ~60% size on tablet and disappear entirely on mobile</li>
+<li><strong>Product family grid</strong>: 4 → 3 → 2 → 1 column as breakpoints shrink; cards keep <code>{rounded.xl}</code> corners at every size</li>
+<li><strong>Pricing comparison table</strong>: 4-column grid on desktop collapses to 2x2 on tablet, then stacks into individual accordion-style cards on mobile</li>
+<li><strong>Footer</strong>: 5-column link grid → 2-column tablet → single-column accordion on mobile; HP wordmark stays flush left</li>
+</ul>
+<div class="pilwrap" id="image-behavior">
+  <h3>
+    <a href="#image-behavior" name="image-behavior" class="pilcrow"></a>
+Image Behavior
+  </h3>
+</div>
+<p>Hero photography uses <code>{rounded.xl}</code> containers at every breakpoint. The chevron decorations vanish on mobile; the underlying photo card centers in the viewport. Lifestyle photography in the testimonial and &quot;how-can-we-help&quot; bands maintains 16:9 ratio with horizontal cropping rather than letterboxing on mobile. There are no art-direction crop swaps between desktop and mobile — the same image is used at every size.</p>
+<div class="pilwrap" id="iteration-guide">
+  <h2>
+    <a href="#iteration-guide" name="iteration-guide" class="pilcrow"></a>
+Iteration Guide
+  </h2>
+</div>
+<ol>
+<li>Focus on ONE component at a time; resist refactoring an entire section in one pass</li>
+<li>Reference component names and tokens directly (<code>{colors.primary}</code>, <code>{typography.display-xxl}</code>, <code>{rounded.xl}</code>, <code>card-product</code>) — do not paraphrase to hex/px in prose</li>
+<li>Run <code>npx @google/design.md lint DESIGN.md</code> after edits — <code>broken-ref</code>, <code>contrast-ratio</code>, and <code>orphaned-tokens</code> warnings flag issues automatically</li>
+<li>Add new variants as separate component entries (<code>-pressed</code>, <code>-disabled</code>, <code>-focused</code>); never bury state inside prose</li>
+<li>Default body to <code>{typography.body-md}</code>; reach for <code>{typography.body-emphasis}</code> for run-in bolds; keep display sizes for true heading roles</li>
+<li>Keep <code>{colors.primary}</code> scarce — at most two flame elements per viewport (one CTA + one chevron decoration). Three flame items in one viewport is over-saturation</li>
+<li>When introducing a new section band, choose from <code>{colors.canvas}</code> / <code>{colors.cloud}</code> / <code>{colors.fog}</code> / <code>{colors.ink}</code> — six pre-defined surface modes is the entire surface vocabulary</li>
+</ol>
+</div>
+  </div>
+</body>
+</html>

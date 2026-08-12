@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>production_readiness_audit.md</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="../../doc-style.css" />
+  <script src="../../doc-filelist.js"></script>
+  <script>
+    var relativeDir = "../../";
+    var thisFile = "docs/architecture/production_readiness_audit.md";
+    var defaultSidebar = true;
+  </script>
+  <script src="../../doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+      <div class="heading h1">
+        <a href="#careerbridge-production-readiness-audit-report">🚀 CareerBridge Production Readiness Audit Report</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#1.security-and-authentication">🔒 1. Security &amp;amp; Authentication</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#2.database-quality-and-performance">💾 2. Database Quality &amp;amp; Performance</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#a.missing-foreign-key-indexes">A. Missing Foreign Key Indexes</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#b.connection-pooling">B. Connection Pooling</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#high-voltage-3.code-quality-and-scaling">⚡ 3. Code Quality &amp;amp; Scaling</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#a.server-side-calculations">A. Server-Side Calculations</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#b.notice-feed-pagination">B. Notice Feed Pagination</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#c.private-file-storage">C. Private File Storage</a>
+      </div>
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="docs markdown"><div class="pilwrap" id="careerbridge-production-readiness-audit-report">
+  <h1>
+    <a href="#careerbridge-production-readiness-audit-report" name="careerbridge-production-readiness-audit-report" class="pilcrow"></a>
+🚀 CareerBridge Production Readiness Audit Report
+  </h1>
+</div>
+<p>This report outlines critical issues and architectural enhancements required before deploying the application to production for 5000+ active staff and student users.</p>
+<hr>
+<div class="pilwrap" id="1.security-and-authentication">
+  <h2>
+    <a href="#1.security-and-authentication" name="1.security-and-authentication" class="pilcrow"></a>
+🔒 1. Security &amp; Authentication
+  </h2>
+</div>
+<blockquote>
+<p>[!CAUTION]
+<strong>Disabled Row Level Security (RLS) &amp; Local Storage User Simulation</strong>:
+The application currently relies on a simulated user (<code>DEV_STUDENT_ID</code>) read from <code>localStorage</code>. RLS policies are disabled across all tables.
+<strong>Action Required</strong>:</p>
+<ul>
+<li>Implement real authentication (e.g., Supabase Auth / Next-Auth).</li>
+<li>Enable RLS on all 22 tables.</li>
+<li>Configure policy controls such that users can only select/update their own data:<pre><code class="sql"><span class="hljs-keyword">ALTER</span> <span class="hljs-keyword">TABLE</span> public.students <span class="hljs-keyword">ENABLE</span> <span class="hljs-keyword">ROW</span> <span class="hljs-keyword">LEVEL</span> <span class="hljs-keyword">SECURITY</span>;
+<span class="hljs-keyword">CREATE</span> <span class="hljs-keyword">POLICY</span> <span class="hljs-string">"Students can read own profile"</span> <span class="hljs-keyword">ON</span> public.students
+  <span class="hljs-keyword">FOR</span> <span class="hljs-keyword">SELECT</span> <span class="hljs-keyword">TO</span> <span class="hljs-keyword">authenticated</span> <span class="hljs-keyword">USING</span> (auth.uid() = user_id);
+</code></pre>
+</li>
+</ul>
+</blockquote>
+<hr>
+<div class="pilwrap" id="2.database-quality-and-performance">
+  <h2>
+    <a href="#2.database-quality-and-performance" name="2.database-quality-and-performance" class="pilcrow"></a>
+💾 2. Database Quality &amp; Performance
+  </h2>
+</div>
+<div class="pilwrap" id="a.missing-foreign-key-indexes">
+  <h3>
+    <a href="#a.missing-foreign-key-indexes" name="a.missing-foreign-key-indexes" class="pilcrow"></a>
+A. Missing Foreign Key Indexes
+  </h3>
+</div>
+<p>With 5,000 users, relational tables (<code>applications</code>, <code>joinees</code>, <code>notices</code>, <code>events</code>) will grow rapidly. Missing indexes on foreign keys will cause full-table scans during JOINs:</p>
+<ul>
+<li>Add index on <code>events(created_by)</code></li>
+<li>Add index on <code>job_drives(created_by)</code></li>
+<li>Add index on <code>joinees(company_id)</code></li>
+<li>Add index on <code>notices(created_by)</code></li>
+</ul>
+<div class="pilwrap" id="b.connection-pooling">
+  <h3>
+    <a href="#b.connection-pooling" name="b.connection-pooling" class="pilcrow"></a>
+B. Connection Pooling
+  </h3>
+</div>
+<p>Since the client application connects to Supabase over HTTP REST (<code>supabase-js</code> client SDK), direct Postgres TCP connections are not established by the client. PostgREST (Supabase REST API gateway) handles connection pooling automatically.</p>
+<ul>
+<li><strong>Action</strong>: No application-level PG connection pooling configuration is required. Ensure database-side pooling limit is monitored on the Supabase dashboard.</li>
+</ul>
+<hr>
+<div class="pilwrap" id="high-voltage-3.code-quality-and-scaling">
+  <h2>
+    <a href="#high-voltage-3.code-quality-and-scaling" name="high-voltage-3.code-quality-and-scaling" class="pilcrow"></a>
+⚡ 3. Code Quality &amp; Scaling
+  </h2>
+</div>
+<div class="pilwrap" id="a.server-side-calculations">
+  <h3>
+    <a href="#a.server-side-calculations" name="a.server-side-calculations" class="pilcrow"></a>
+A. Server-Side Calculations
+  </h3>
+</div>
+<p>Currently, statistics (e.g., active counts, placed counts, offered counts) are computed client-side in <code>progress/page.tsx</code> and <code>dashboard/page.tsx</code> by loading complete array sets.</p>
+<ul>
+<li><strong>Action</strong>: Replace client-side filters with Supabase RPC functions (<code>postgres functions</code>) that return aggregated counts directly, reducing payload size by 99%.</li>
+</ul>
+<div class="pilwrap" id="b.notice-feed-pagination">
+  <h3>
+    <a href="#b.notice-feed-pagination" name="b.notice-feed-pagination" class="pilcrow"></a>
+B. Notice Feed Pagination
+  </h3>
+</div>
+<p>The <code>NotificationInbox</code> and header notification lists fetch all notices from the database.</p>
+<ul>
+<li><strong>Action</strong>: Implement pagination or date-based limits (e.g., <code>LIMIT 20</code> or only notices from the last 30 days) to prevent large data transfers.</li>
+</ul>
+<div class="pilwrap" id="c.private-file-storage">
+  <h3>
+    <a href="#c.private-file-storage" name="c.private-file-storage" class="pilcrow"></a>
+C. Private File Storage
+  </h3>
+</div>
+<p>Document onboarding actions (ID proofs, medical certificates) must not use public Supabase buckets.</p>
+<ul>
+<li><strong>Action</strong>: Save uploads to a private bucket and retrieve them via transient signed URLs (<code>supabase.storage.from('documents').createSignedUrl(...)</code>).</li>
+</ul>
+</div>
+  </div>
+</body>
+</html>

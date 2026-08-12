@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DESIGN.md</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="doc-style.css" />
+  <script src="doc-filelist.js"></script>
+  <script>
+    var relativeDir = "";
+    var thisFile = "DESIGN.md";
+    var defaultSidebar = true;
+  </script>
+  <script src="doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+      <div class="heading h1">
+        <a href="#visual-design-system-and-ui-specification">Visual Design System &amp;amp; UI Specification</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#1.aesthetic-and-design-language">1. Aesthetic &amp;amp; Design Language</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#2.color-palette-and-tokens">2. Color Palette &amp;amp; Tokens</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#primary-brand-palette">Primary Brand Palette</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#surface-and-neutral-palette">Surface &amp;amp; Neutral Palette</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#indicator-and-feedback-colors">Indicator &amp;amp; Feedback Colors</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#3.typography">3. Typography</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#4.ui-layout-and-structure">4. UI Layout &amp;amp; Structure</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#top-navigation-brand-header">Top Navigation / Brand Header</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#main-content-grid">Main Content Grid</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#5.visual-components-and-styling">5. Visual Components &amp;amp; Styling</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#cards-and-panels">Cards &amp;amp; Panels</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#status-badges-and-pills">Status Badges &amp;amp; Pills</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#buttons-and-ctas">Buttons &amp;amp; CTAs</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#modals-and-dialog-overlays">Modals &amp;amp; Dialog Overlays</a>
+      </div>
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="docs markdown"><div class="pilwrap" id="visual-design-system-and-ui-specification">
+  <h1>
+    <a href="#visual-design-system-and-ui-specification" name="visual-design-system-and-ui-specification" class="pilcrow"></a>
+Visual Design System &amp; UI Specification
+  </h1>
+</div>
+<div class="pilwrap" id="1.aesthetic-and-design-language">
+  <h2>
+    <a href="#1.aesthetic-and-design-language" name="1.aesthetic-and-design-language" class="pilcrow"></a>
+1. Aesthetic &amp; Design Language
+  </h2>
+</div>
+<ul>
+<li><strong>Style</strong>: Modern institutional, clean, structured, and implementation-oriented.</li>
+<li><strong>Vibe</strong>: High-contrast, sleek executive look featuring deep navy surfaces, bright gold highlights, soft rounded containers, and micro-shadow layering.</li>
+<li><strong>Theme Modes</strong>: Full support for Light and Dark modes with smooth color transitions.</li>
+</ul>
+<hr>
+<div class="pilwrap" id="2.color-palette-and-tokens">
+  <h2>
+    <a href="#2.color-palette-and-tokens" name="2.color-palette-and-tokens" class="pilcrow"></a>
+2. Color Palette &amp; Tokens
+  </h2>
+</div>
+<div class="pilwrap" id="primary-brand-palette">
+  <h3>
+    <a href="#primary-brand-palette" name="primary-brand-palette" class="pilcrow"></a>
+Primary Brand Palette
+  </h3>
+</div>
+<ul>
+<li><strong>Navy Primary</strong>: <code>oklch(0.22 0.058 265)</code> / Deep Slate Navy (<code>#0d1733</code>)</li>
+<li><strong>Navy Soft</strong>: <code>oklch(0.35 0.1 262)</code> / Medium Navy Accent</li>
+<li><strong>Gold Accent</strong>: <code>oklch(0.82 0.152 82)</code> / Bright Amber Gold</li>
+<li><strong>Navy Gradient</strong>: <code>linear-gradient(150deg, oklch(0.19 0.05 265) 0%, oklch(0.33 0.11 262) 55%, oklch(0.27 0.09 264) 100%)</code></li>
+</ul>
+<div class="pilwrap" id="surface-and-neutral-palette">
+  <h3>
+    <a href="#surface-and-neutral-palette" name="surface-and-neutral-palette" class="pilcrow"></a>
+Surface &amp; Neutral Palette
+  </h3>
+</div>
+<ul>
+<li><strong>Canvas Background (Light)</strong>: Soft off-white (<code>oklch(0.985 0.006 265)</code>)</li>
+<li><strong>Canvas Background (Dark)</strong>: Deep Dark Slate (<code>oklch(0.17 0.045 265)</code>)</li>
+<li><strong>Card Surface</strong>: Pure White (<code>#ffffff</code>) in light mode; Translucent Navy Surface (<code>oklch(0.22 0.058 265)</code>) in dark mode</li>
+<li><strong>Borders &amp; Dividers</strong>: Soft subtle borders (<code>oklch(0.91 0.014 265)</code>) with subtle alpha transparency in dark mode</li>
+</ul>
+<div class="pilwrap" id="indicator-and-feedback-colors">
+  <h3>
+    <a href="#indicator-and-feedback-colors" name="indicator-and-feedback-colors" class="pilcrow"></a>
+Indicator &amp; Feedback Colors
+  </h3>
+</div>
+<ul>
+<li><strong>Success / Active</strong>: Emerald Green (<code>oklch(0.62 0.14 155)</code>)</li>
+<li><strong>Warning / Pending</strong>: Soft Warm Amber (<code>oklch(0.78 0.15 68)</code>)</li>
+<li><strong>Destructive / Alert</strong>: Coral Crimson (<code>oklch(0.577 0.245 27.325)</code>)</li>
+</ul>
+<hr>
+<div class="pilwrap" id="3.typography">
+  <h2>
+    <a href="#3.typography" name="3.typography" class="pilcrow"></a>
+3. Typography
+  </h2>
+</div>
+<ul>
+<li><strong>Primary Font</strong>: <code>Plus Jakarta Sans</code>, <code>system-ui</code>, <code>sans-serif</code></li>
+<li><strong>Base Body Text</strong>: <code>16px</code> (<code>font-normal</code>, line-height <code>1.5</code>)</li>
+<li><strong>Headings &amp; Titles</strong>: Semi-bold to Bold geometric display headings with crisp contrast against dark navy backgrounds.</li>
+</ul>
+<hr>
+<div class="pilwrap" id="4.ui-layout-and-structure">
+  <h2>
+    <a href="#4.ui-layout-and-structure" name="4.ui-layout-and-structure" class="pilcrow"></a>
+4. UI Layout &amp; Structure
+  </h2>
+</div>
+<div class="pilwrap" id="top-navigation-brand-header">
+  <h3>
+    <a href="#top-navigation-brand-header" name="top-navigation-brand-header" class="pilcrow"></a>
+Top Navigation / Brand Header
+  </h3>
+</div>
+<ul>
+<li><strong>Appearance</strong>: Dark gradient navy banner (<code>bg-navy-gradient</code>) with subtle gold accents.</li>
+<li><strong>Left</strong>: Glowing brand logo/mark paired with institutional title and subtitle.</li>
+<li><strong>Center/Right</strong>: Status indicators, contextual action pill buttons, and user profile avatar with status badges.</li>
+</ul>
+<div class="pilwrap" id="main-content-grid">
+  <h3>
+    <a href="#main-content-grid" name="main-content-grid" class="pilcrow"></a>
+Main Content Grid
+  </h3>
+</div>
+<ul>
+<li><strong>Container</strong>: Max-width centered container (<code>max-w-7xl</code> or <code>max-w-5xl</code>) with generous padding (<code>p-6</code> to <code>p-8</code>).</li>
+<li><strong>Hero / Header Banner</strong>: Layered container featuring quick stats, operational phase indicators, and main CTA buttons.</li>
+<li><strong>Multi-Column Layout</strong>:
+<ul>
+<li><strong>Primary Workspace (2/3 width)</strong>: Card-based grid for key interactive panels, management views, or primary data inputs.</li>
+<li><strong>Sidebar Panel (1/3 width)</strong>: Sticky feed card for notifications, pending invites, activity timelines, or secondary controls.</li>
+</ul>
+</li>
+</ul>
+<hr>
+<div class="pilwrap" id="5.visual-components-and-styling">
+  <h2>
+    <a href="#5.visual-components-and-styling" name="5.visual-components-and-styling" class="pilcrow"></a>
+5. Visual Components &amp; Styling
+  </h2>
+</div>
+<div class="pilwrap" id="cards-and-panels">
+  <h3>
+    <a href="#cards-and-panels" name="cards-and-panels" class="pilcrow"></a>
+Cards &amp; Panels
+  </h3>
+</div>
+<ul>
+<li><strong>Border Radius</strong>: Smooth rounded corners (<code>rounded-xl</code> / <code>0.75rem</code>).</li>
+<li><strong>Shadows</strong>: Dual-layered soft depth shadows (<code>shadow-card-soft</code> and <code>shadow-panel</code>).</li>
+<li><strong>Headers</strong>: Clean card header dividers with distinct title typography and right-aligned action icons or badges.</li>
+</ul>
+<div class="pilwrap" id="status-badges-and-pills">
+  <h3>
+    <a href="#status-badges-and-pills" name="status-badges-and-pills" class="pilcrow"></a>
+Status Badges &amp; Pills
+  </h3>
+</div>
+<ul>
+<li><strong>Shape</strong>: Fully rounded pill shapes (<code>rounded-full</code>) with compact padding (<code>px-3 py-1</code>).</li>
+<li><strong>Style</strong>: Soft tinted translucent background with bold, color-matched status text (e.g., green-tinted background for active states, amber-tinted for pending).</li>
+</ul>
+<div class="pilwrap" id="buttons-and-ctas">
+  <h3>
+    <a href="#buttons-and-ctas" name="buttons-and-ctas" class="pilcrow"></a>
+Buttons &amp; CTAs
+  </h3>
+</div>
+<ul>
+<li><strong>Primary CTAs</strong>: Filled Solid Navy or Gold accent buttons with subtle hover scale and brightness lift.</li>
+<li><strong>Secondary Buttons</strong>: Soft surface buttons with subtle border outline (<code>variant=&quot;outline&quot;</code>) and light gray hover tint.</li>
+</ul>
+<div class="pilwrap" id="modals-and-dialog-overlays">
+  <h3>
+    <a href="#modals-and-dialog-overlays" name="modals-and-dialog-overlays" class="pilcrow"></a>
+Modals &amp; Dialog Overlays
+  </h3>
+</div>
+<ul>
+<li><strong>Backdrop</strong>: Blurred dark overlay (<code>backdrop-blur-sm bg-black/50</code>).</li>
+<li><strong>Window</strong>: Centered floating card with crisp header divider, smooth scale-in animation, and explicit action footers.</li>
+</ul>
+</div>
+  </div>
+</body>
+</html>

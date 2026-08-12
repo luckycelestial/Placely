@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>test_update_student_user.js</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="../doc-style.css" />
+  <script src="../doc-filelist.js"></script>
+  <script>
+    var relativeDir = "../";
+    var thisFile = "scratch/test_update_student_user.js";
+    var defaultSidebar = true;
+  </script>
+  <script src="../doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="background highlight"></div>
+<table cellpadding="0" cellspacing="0">
+  <tbody>
+    
+      <tr>
+        <td class="docs">
+          <h1>test_update_student_user.js</h1>
+        </td>
+        <td class="code highlight"></td>
+      </tr>
+    
+    
+      <tr>
+        <td class="docs">
+          <div class="pilwrap">
+  <a class="pilcrow" href="#section-1" id="section-1"></a>
+</div>
+
+        </td>
+        <td class="code highlight">
+          <pre class="javascript"><span class="hljs-keyword">const</span> { createClient } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'@supabase/supabase-js'</span>);
+<span class="hljs-keyword">const</span> dotenv = <span class="hljs-built_in">require</span>(<span class="hljs-string">'dotenv'</span>);
+<span class="hljs-keyword">const</span> path = <span class="hljs-built_in">require</span>(<span class="hljs-string">'path'</span>);
+
+dotenv.config({ <span class="hljs-attr">path</span>: path.join(__dirname, <span class="hljs-string">'../.env.local'</span>) });
+
+<span class="hljs-keyword">const</span> supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+<span class="hljs-keyword">const</span> supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+<span class="hljs-keyword">const</span> supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+<span class="hljs-keyword">async</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">run</span>(<span class="hljs-params"></span>) </span>{
+  <span class="hljs-keyword">try</span> {
+</pre>
+        </td>
+      </tr>
+    
+      <tr>
+        <td class="docs">
+          <div class="pilwrap">
+  <a class="pilcrow" href="#section-2" id="section-2"></a>
+</div>
+<ol>
+<li>Get a student user and their student profile</li>
+</ol>
+
+        </td>
+        <td class="code highlight">
+          <pre class="javascript">    <span class="hljs-keyword">const</span> { <span class="hljs-attr">data</span>: user, <span class="hljs-attr">error</span>: getErr } = <span class="hljs-keyword">await</span> supabase
+      .from(<span class="hljs-string">'users'</span>)
+      .select(<span class="hljs-string">'*'</span>)
+      .eq(<span class="hljs-string">'role'</span>, <span class="hljs-string">'student'</span>)
+      .limit(<span class="hljs-number">1</span>)
+      .single();
+
+    <span class="hljs-keyword">if</span> (getErr) {
+      <span class="hljs-built_in">console</span>.error(<span class="hljs-string">'Error getting student user:'</span>, getErr);
+      <span class="hljs-keyword">return</span>;
+    }
+
+    <span class="hljs-keyword">const</span> { <span class="hljs-attr">data</span>: student, <span class="hljs-attr">error</span>: getStudentErr } = <span class="hljs-keyword">await</span> supabase
+      .from(<span class="hljs-string">'students'</span>)
+      .select(<span class="hljs-string">'*'</span>)
+      .eq(<span class="hljs-string">'user_id'</span>, user.id)
+      .single();
+
+    <span class="hljs-keyword">if</span> (getStudentErr) {
+      <span class="hljs-built_in">console</span>.error(<span class="hljs-string">'Error getting student:'</span>, getStudentErr);
+      <span class="hljs-keyword">return</span>;
+    }
+
+    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Original User ID:'</span>, user.id);
+    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Original Student user_id:'</span>, student.user_id);
+
+    <span class="hljs-keyword">const</span> originalId = user.id;
+</pre>
+        </td>
+      </tr>
+    
+      <tr>
+        <td class="docs">
+          <div class="pilwrap">
+  <a class="pilcrow" href="#section-3" id="section-3"></a>
+</div>
+<p>Switch the last character of the UUID</p>
+
+        </td>
+        <td class="code highlight">
+          <pre class="javascript">    <span class="hljs-keyword">const</span> newId = originalId.slice(<span class="hljs-number">0</span>, <span class="hljs-number">-1</span>) + (originalId.endsWith(<span class="hljs-string">'2'</span>) ? <span class="hljs-string">'3'</span> : <span class="hljs-string">'2'</span>);
+
+    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Attempting to update user ID to <span class="hljs-subst">${newId}</span>...`</span>);
+
+    <span class="hljs-keyword">const</span> { <span class="hljs-attr">error</span>: updateErr } = <span class="hljs-keyword">await</span> supabase
+      .from(<span class="hljs-string">'users'</span>)
+      .update({ <span class="hljs-attr">id</span>: newId })
+      .eq(<span class="hljs-string">'id'</span>, originalId);
+
+    <span class="hljs-keyword">if</span> (updateErr) {
+      <span class="hljs-built_in">console</span>.error(<span class="hljs-string">'Update user ID failed:'</span>, updateErr);
+      <span class="hljs-keyword">return</span>;
+    }
+
+</pre>
+        </td>
+      </tr>
+    
+      <tr>
+        <td class="docs">
+          <div class="pilwrap">
+  <a class="pilcrow" href="#section-4" id="section-4"></a>
+</div>
+<ol start="2">
+<li>Fetch updated user and student to verify cascade</li>
+</ol>
+
+        </td>
+        <td class="code highlight">
+          <pre class="javascript">    <span class="hljs-keyword">const</span> { <span class="hljs-attr">data</span>: updatedUser } = <span class="hljs-keyword">await</span> supabase
+      .from(<span class="hljs-string">'users'</span>)
+      .select(<span class="hljs-string">'*'</span>)
+      .eq(<span class="hljs-string">'id'</span>, newId)
+      .single();
+
+    <span class="hljs-keyword">const</span> { <span class="hljs-attr">data</span>: updatedStudent } = <span class="hljs-keyword">await</span> supabase
+      .from(<span class="hljs-string">'students'</span>)
+      .select(<span class="hljs-string">'*'</span>)
+      .eq(<span class="hljs-string">'user_id'</span>, newId)
+      .single();
+
+    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Updated User in DB:'</span>, updatedUser ? <span class="hljs-string">'Found'</span> : <span class="hljs-string">'NOT FOUND'</span>);
+    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Updated Student user_id in DB:'</span>, updatedStudent ? updatedStudent.user_id : <span class="hljs-string">'NOT FOUND'</span>);
+
+</pre>
+        </td>
+      </tr>
+    
+      <tr>
+        <td class="docs">
+          <div class="pilwrap">
+  <a class="pilcrow" href="#section-5" id="section-5"></a>
+</div>
+<p>Restore</p>
+
+        </td>
+        <td class="code highlight">
+          <pre class="javascript">    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Restoring...'</span>);
+    <span class="hljs-keyword">const</span> { <span class="hljs-attr">error</span>: restoreErr } = <span class="hljs-keyword">await</span> supabase
+      .from(<span class="hljs-string">'users'</span>)
+      .update({ <span class="hljs-attr">id</span>: originalId })
+      .eq(<span class="hljs-string">'id'</span>, newId);
+
+    <span class="hljs-keyword">if</span> (restoreErr) <span class="hljs-built_in">console</span>.error(<span class="hljs-string">'Restore failed:'</span>, restoreErr);
+    <span class="hljs-keyword">else</span> <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Restore succeeded!'</span>);
+
+  } <span class="hljs-keyword">catch</span> (err) {
+    <span class="hljs-built_in">console</span>.error(<span class="hljs-string">'Unexpected error:'</span>, err);
+  }
+}
+
+run();
+
+</pre>
+        </td>
+      </tr>
+    
+  </tbody>
+</table>
+
+  </div>
+</body>
+</html>

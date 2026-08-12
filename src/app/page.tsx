@@ -3,88 +3,49 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  LuShieldCheck, 
-  LuLock, 
   LuUser, 
-  LuEye, 
-  LuEyeOff, 
-  LuArrowRight,
+  LuShieldCheck, 
+  LuCircleHelp, 
   LuSparkles,
-  LuBuilding2,
-  LuGraduationCap
+  LuMoveRight,
+  LuArrowRight
 } from "react-icons/lu";
-import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
+import { db, clearStudentsCache } from "@/services/database";
 import { setLoggedStudentId } from "@/lib/dev-config";
-import { db } from "@/services/database";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export default function TenantEntryPage() {
-  const [activeTab, setActiveTab] = useState<"student" | "admin">("student");
-  const [userId, setUserId] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const showDemo = 
+    process.env.NEXT_PUBLIC_APP_ENV === "local" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "dev" ||
+    process.env.NEXT_PUBLIC_VERCEL_ENV === "preview" ||
+    process.env.NEXT_PUBLIC_VERCEL_ENV === "development" ||
+    process.env.NODE_ENV === "development";
+
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [activeTab, setActiveTab] = useState<"student" | "admin">("student");
   const [students, setStudents] = useState<any[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    async function loadProfiles() {
-      try {
-        const { data } = await db.getStudents({ pageSize: 15 });
-        setStudents(data || []);
-      } catch (err: any) {
-        console.error("Failed to load student profiles:", err);
-      } finally {
-        setLoadingStudents(false);
+    if (showDemo) {
+      async function loadProfiles() {
+        try {
+          clearStudentsCache();
+          const { data } = await db.getStudents({ pageSize: 30 });
+          setStudents(data || []);
+        } catch (err: any) {
+          console.error("Failed to load student profiles:", err);
+        } finally {
+          setLoadingStudents(false);
+        }
       }
+      loadProfiles();
     }
-    loadProfiles();
-  }, []);
-
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-
-    const cleanUserId = userId.trim().toLowerCase();
-    const cleanPassword = password.trim();
-
-    const authEmail = cleanUserId.includes('@') && !cleanUserId.includes('.') 
-      ? `${cleanUserId}.com` 
-      : cleanUserId;
-
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: authEmail,
-        password: cleanPassword,
-      });
-
-      if (authError || !authData.session) {
-        setIsLoggingIn(false);
-        toast.error("Invalid credentials! Please check User ID and Password.");
-        return;
-      }
-
-      setLoggedStudentId("");
-      toast.success("Login Successful! Accessing Admin Portal...");
-      setTimeout(() => {
-        router.push("/admin/dashboard");
-      }, 600);
-    } catch (err: any) {
-      console.error("Login error:", err);
-      setIsLoggingIn(false);
-      toast.error("Authentication error. Please try again.");
-    }
-  };
-
-  const handleStudentProfileSignIn = (studentId: string) => {
-    setIsLoggingIn(true);
-    setLoggedStudentId(studentId);
-    toast.success("Student session activated! Opening portal...");
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 600);
-  };
+  }, [showDemo]);
 
   const handleGoogleSignIn = async () => {
     setIsLoggingIn(true);
@@ -102,198 +63,240 @@ export default function TenantEntryPage() {
     }
   };
 
+  const handleStudentProfileSignIn = (studentId: string) => {
+    setIsLoggingIn(true);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("active_admin_email");
+    }
+    setLoggedStudentId(studentId);
+    toast.success("Student session activated! Opening portal...");
+    setTimeout(() => {
+      router.push("/dashboard");
+    }, 500);
+  };
+
+  const handleAdminSignIn = () => {
+    setIsLoggingIn(true);
+    setLoggedStudentId("");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("active_admin_email", "admin@placement.edu");
+    }
+    toast.success("Admin session activated! Accessing dashboard...");
+    setTimeout(() => {
+      router.push("/admin/dashboard");
+    }, 500);
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col lg:flex-row font-sans selection:bg-primary/20 overflow-x-hidden max-w-full">
+    <div className="min-h-screen bg-background flex flex-col lg:flex-row font-sans selection:bg-primary/20 text-foreground overflow-x-hidden max-w-full">
       
-      {/* Left Section: Dark Hero Visual */}
-      <div className="relative w-full lg:w-[55%] bg-[#08090D] text-white flex flex-col justify-center p-8 lg:p-20 overflow-hidden border-b lg:border-b-0 lg:border-r border-white/5">
+      {/* Left Section: Large Brand Hero */}
+      <div className="relative w-full lg:w-[55%] bg-[#0A0A0B] flex flex-col justify-center p-8 lg:p-24 overflow-hidden border-b lg:border-b-0 lg:border-r border-white/5">
+        {/* Background Visuals */}
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
           <div className="absolute top-[20%] left-[10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[140px] animate-pulse" />
-          <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] bg-cyan-500/10 rounded-full blur-[120px]" />
-          <div className="absolute top-0 left-0 w-full h-full opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '36px 36px' }} />
+          <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[120px]" />
+          <div className="absolute top-0 left-0 w-full h-full opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
         </div>
 
-        <div className="relative z-10 space-y-10 max-w-xl mx-auto lg:mx-0">
-          <div className="space-y-4">
-            <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white leading-[1.05]">
-              Department <br />
-              <span className="text-primary">Placement Cell.</span>
+        <div className="relative z-10 space-y-12 max-w-2xl">
+          <div className="space-y-6">
+            <h1 className="text-5xl lg:text-7xl font-black text-white tracking-tighter leading-[0.9] animate-in fade-in slide-in-from-left-6 duration-1000 delay-100">
+              The Future of <br />
+              <span className="text-primary">Campus Hiring.</span>
             </h1>
-            <p className="text-white/50 text-base sm:text-lg font-medium leading-relaxed max-w-md">
-              Unified placement portal for AI&amp;DS students, recruiters, and placement officers.
+            <p className="text-white/50 text-lg lg:text-xl font-medium max-w-lg leading-relaxed animate-in fade-in slide-in-from-left-8 duration-1000 delay-200">
+              Experience a unified placement ecosystem designed for the next generation of talent and recruiters.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-white/10">
-            <div>
-              <p className="text-2xl font-black text-white">163</p>
-              <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider mt-0.5">Students</p>
+          <div className="flex items-center gap-8 animate-in fade-in slide-in-from-left-10 duration-1000 delay-300">
+            <div className="space-y-1">
+              <p className="text-white text-2xl font-black">10k+</p>
+              <p className="text-white/40 text-xs font-bold uppercase tracking-widest">Active Students</p>
             </div>
-            <div>
-              <p className="text-2xl font-black text-primary">3</p>
-              <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider mt-0.5">Sections (A, B, C)</p>
+            <div className="h-10 w-px bg-white/10" />
+            <div className="space-y-1">
+              <p className="text-white text-2xl font-black">500+</p>
+              <p className="text-white/40 text-xs font-bold uppercase tracking-widest">Global Partners</p>
             </div>
-            <div>
-              <p className="text-2xl font-black text-blue-400">2027</p>
-              <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider mt-0.5">Batch Year</p>
-            </div>
-            <div>
-              <p className="text-2xl font-black text-emerald-400">100%</p>
-              <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider mt-0.5">Realtime Sync</p>
+            <div className="h-10 w-px bg-white/10" />
+            <div className="space-y-1">
+              <p className="text-white text-2xl font-black">95%</p>
+              <p className="text-white/40 text-xs font-bold uppercase tracking-widest">Placement Rate</p>
             </div>
           </div>
         </div>
+
+        {/* Floating Accent */}
+        <div className="absolute bottom-12 left-12 lg:left-24 flex items-center gap-4 text-white/20 animate-in fade-in duration-1000 delay-1000">
+           <LuSparkles size={20} />
+           <span className="text-[10px] font-black uppercase tracking-[0.3em]">Precision Orchestrated</span>
+        </div>
       </div>
 
-      {/* Right Section: Dual Login Tabs */}
-      <div className="w-full lg:w-[45%] flex flex-col justify-center p-8 sm:p-14 lg:p-20 bg-[#F8F9FA] relative">
-        <div className="max-w-[400px] mx-auto w-full space-y-8">
-          
-          {/* Tab Switcher */}
-          <div className="flex bg-slate-200/80 p-1.5 rounded-2xl gap-1">
-            <button
-              onClick={() => setActiveTab("student")}
-              className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                activeTab === "student"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <LuGraduationCap size={16} />
-              <span>Student Login</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("admin")}
-              className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                activeTab === "admin"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <LuShieldCheck size={16} />
-              <span>Staff / Admin</span>
-            </button>
+      {/* Right Section: Login Area */}
+      <div className="w-full lg:w-[45%] flex flex-col justify-center p-8 lg:p-20 bg-background relative border-l border-border-subtle">
+        <div className="max-w-[420px] mx-auto w-full space-y-8">
+
+          {/* Logo & Title Header */}
+          <div className="space-y-6 flex flex-col items-center text-center">
+            <div className="flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+              <img src="/careerbridge.png" alt="CareerBridge Logo" className="h-20 w-20 object-contain drop-shadow-md" />
+              <span className="text-4xl sm:text-5xl font-black tracking-tighter text-foreground leading-none">CareerBridge</span>
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-base font-bold tracking-tight text-muted">Sign in to your account</h2>
+            </div>
           </div>
 
-          {activeTab === "student" ? (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Student Portal</h2>
-                <p className="text-xs text-slate-500 font-medium">Access your drives, resume builder, and placement applications.</p>
-              </div>
-
-              {/* Google OAuth Login Button */}
+          <div className="space-y-6">
+            {/* Tab Switcher */}
+            <div className="flex bg-surface p-1.5 rounded-[20px] border border-border-subtle gap-1 shadow-inner">
               <button
-                onClick={handleGoogleSignIn}
-                disabled={isLoggingIn}
-                className="w-full h-13 rounded-2xl bg-white border border-slate-200 text-slate-800 font-bold text-sm hover:bg-slate-50 active:scale-[0.99] transition-all flex items-center justify-center gap-3 shadow-sm cursor-pointer"
+                onClick={() => setActiveTab("student")}
+                className={cn(
+                  "flex-1 py-3 rounded-[16px] text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2",
+                  activeTab === "student"
+                    ? "bg-background text-primary shadow-sm border border-border-subtle/30"
+                    : "text-muted hover:text-foreground"
+                )}
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                </svg>
-                <span>Continue with Google</span>
+                <LuUser size={14} />
+                Student Portal
               </button>
+              <button
+                onClick={() => setActiveTab("admin")}
+                className={cn(
+                  "flex-1 py-3 rounded-[16px] text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2",
+                  activeTab === "admin"
+                    ? "bg-background text-primary shadow-sm border border-border-subtle/30"
+                    : "text-muted hover:text-foreground"
+                )}
+              >
+                <LuShieldCheck size={14} />
+                Admin Portal
+              </button>
+            </div>
 
-              <div className="relative flex items-center justify-center my-4">
-                <div className="border-t border-slate-200 w-full" />
-                <span className="bg-[#F8F9FA] px-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest absolute">or select student</span>
-              </div>
+            {/* Google Sign-in Button */}
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={isLoggingIn}
+              className="w-full h-14 flex items-center justify-center gap-4 rounded-[20px] bg-white text-slate-800 border border-slate-200 hover:border-slate-300 text-sm font-black uppercase tracking-widest transition-all transform active:scale-[0.98] hover:shadow-md cursor-pointer disabled:opacity-75"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+              </svg>
+              <span>Continue with Google</span>
+            </button>
 
-              {/* Student Quick Profile Selector */}
-              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                {loadingStudents ? (
-                  <p className="text-xs text-slate-400 font-medium text-center py-4">Loading student profiles...</p>
-                ) : (
-                  students.map((s: any) => (
-                    <button
-                      key={s.id}
-                      onClick={() => handleStudentProfileSignIn(s.id)}
-                      className="w-full p-3 rounded-xl bg-white border border-slate-200 hover:border-primary/50 text-left transition-all flex items-center justify-between group cursor-pointer shadow-sm"
-                    >
-                      <div>
-                        <p className="text-xs font-bold text-slate-900 group-hover:text-primary transition-colors">{s.name}</p>
-                        <p className="text-[10px] text-slate-500 font-mono">{s.registerNumber} • {s.department}</p>
+            {/* Dev Mode Instant Login Buttons (Controlled via ENV) */}
+            {showDemo && (
+              <div className="space-y-4 pt-4 border-t border-border-subtle/50">
+                {activeTab === "student" ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center gap-2">
+                        <LuUser size={14} className="text-primary" />
+                        Dev Quick Login (All Students)
+                      </h3>
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">DEV ENV</span>
+                    </div>
+
+                    {loadingStudents ? (
+                      <div className="space-y-2">
+                        <div className="h-12 rounded-2xl bg-surface animate-pulse" />
+                        <div className="h-12 rounded-2xl bg-surface animate-pulse" />
                       </div>
-                      <LuArrowRight size={14} className="text-slate-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                    </button>
-                  ))
+                    ) : students.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-2 max-h-[220px] overflow-y-auto pr-1.5 no-scrollbar">
+                        {students.map((student) => {
+                          const avatar = (student.name || "U").split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+                          return (
+                            <button
+                              key={student.id}
+                              onClick={() => handleStudentProfileSignIn(student.id)}
+                              disabled={isLoggingIn}
+                              className="w-full p-3 rounded-2xl border border-border-subtle bg-surface/50 text-left hover:border-primary/40 hover:bg-surface transition-all flex items-center justify-between group active:scale-[0.99] disabled:opacity-70 disabled:pointer-events-none cursor-pointer shadow-sm hover:shadow-md"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-xs shrink-0 group-hover:scale-105 transition-transform">
+                                  {avatar}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-xs text-foreground leading-none mb-1 group-hover:text-primary transition-colors truncate">{student.name}</p>
+                                  <p className="text-[10px] font-black text-muted uppercase tracking-tighter flex items-center gap-1.5">
+                                    {student.regNo || student.registerNumber}
+                                    <span className="h-1 w-1 rounded-full bg-muted/40" />
+                                    <span className="text-primary">{student.dept || student.department}</span>
+                                  </p>
+                                </div>
+                              </div>
+                              <LuMoveRight size={16} className="text-muted/40 group-hover:text-primary transition-all translate-x-0 group-hover:translate-x-1" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] font-semibold text-muted text-center py-4">No student profiles in database. Run seed script to load demo students.</p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/80 flex items-center gap-2">
+                        <LuShieldCheck size={14} className="text-primary" />
+                        Dev Quick Login (Admin)
+                      </h3>
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">DEV ENV</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3">
+                      <button
+                        onClick={handleAdminSignIn}
+                        disabled={isLoggingIn}
+                        className="w-full p-4 rounded-2xl border border-border-subtle bg-surface/50 text-left hover:border-primary/40 hover:bg-surface transition-all flex items-center justify-between group active:scale-[0.99] disabled:opacity-70 disabled:pointer-events-none cursor-pointer shadow-sm hover:shadow-md"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-xs shrink-0 group-hover:scale-105 transition-transform">
+                            AD
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm text-foreground leading-none mb-1 group-hover:text-primary transition-colors truncate">System Administrator</p>
+                            <p className="text-[9px] font-black text-muted uppercase tracking-tighter flex items-center gap-1">
+                              Placement Officer
+                              <span className="h-1 w-1 rounded-full bg-muted/40" />
+                              <span className="text-primary">TPO Admin</span>
+                            </p>
+                          </div>
+                        </div>
+                        <LuArrowRight size={16} className="text-muted/40 group-hover:text-primary transition-all translate-x-0 group-hover:translate-x-1" />
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
-            </div>
-          ) : (
-            /* Staff / Admin Form */
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Staff Login</h2>
-                <p className="text-xs text-slate-500 font-medium">Enter credentials to access administrative dashboard.</p>
-              </div>
+            )}
+          </div>
 
-              <form onSubmit={handleAdminLogin} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">User ID / Email</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <LuUser size={16} />
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      value={userId}
-                      onChange={(e) => setUserId(e.target.value)}
-                      placeholder="admin@aids"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-900 text-xs font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Password</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <LuLock size={16} />
-                    </div>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••••••"
-                      className="w-full pl-10 pr-10 py-3 rounded-xl bg-white border border-slate-200 text-slate-900 text-xs font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
-                    >
-                      {showPassword ? <LuEyeOff size={16} /> : <LuEye size={16} />}
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoggingIn}
-                  className="w-full h-12 mt-2 rounded-xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-widest hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/20 cursor-pointer"
-                >
-                  {isLoggingIn ? (
-                    <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <span>Sign In</span>
-                      <LuArrowRight size={16} />
-                    </>
-                  )}
-                </button>
-              </form>
-            </div>
-          )}
+          <div className="flex items-center justify-between pt-4">
+            <button className="text-[10px] font-black uppercase tracking-widest text-muted hover:text-primary transition-colors">Enterprise SSO</button>
+            <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted hover:text-primary transition-colors">
+              <LuCircleHelp size={14} />
+              Help Center
+            </button>
+          </div>
 
         </div>
-      </div>
 
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-center opacity-40">
+           <p className="text-[9px] font-black uppercase tracking-[0.2em]">Powered by CareerBridge Unified Infrastructure</p>
+        </div>
+      </div>
     </div>
   );
 }

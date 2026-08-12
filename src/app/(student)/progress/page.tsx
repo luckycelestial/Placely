@@ -151,8 +151,8 @@ export default function ProgressPage() {
         db.getStudentApplications(studentId),
         db.getStudentOffers(studentId),
         db.getStudentApplicationStats(studentId),
-        supabase.from('student_profiles').select('*').eq('student_id', studentId).single(),
-        supabase.from('student_projects').select('*').eq('student_id', studentId).order('created_at', { ascending: false })
+        supabase.from('student_profiles').select('*').eq('student_id', studentId).maybeSingle(),
+        Promise.resolve(supabase.from('student_projects').select('*').eq('student_id', studentId).order('created_at', { ascending: false })).catch(() => ({ data: [] }))
       ]);
       
       const formatted = data.map((app: any) => {

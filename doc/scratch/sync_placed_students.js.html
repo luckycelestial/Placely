@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>sync_placed_students.js</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="../doc-style.css" />
+  <script src="../doc-filelist.js"></script>
+  <script>
+    var relativeDir = "../";
+    var thisFile = "scratch/sync_placed_students.js";
+    var defaultSidebar = true;
+  </script>
+  <script src="../doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="background highlight"></div>
+<table cellpadding="0" cellspacing="0">
+  <tbody>
+    
+      <tr>
+        <td class="docs">
+          <h1>sync_placed_students.js</h1>
+        </td>
+        <td class="code highlight"></td>
+      </tr>
+    
+    
+      <tr>
+        <td class="docs">
+          <div class="pilwrap">
+  <a class="pilcrow" href="#section-1" id="section-1"></a>
+</div>
+
+        </td>
+        <td class="code highlight">
+          <pre class="javascript"><span class="hljs-keyword">const</span> { createClient } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'@supabase/supabase-js'</span>);
+
+<span class="hljs-keyword">const</span> SUPABASE_URL = <span class="hljs-string">'https://vzwcbddpgjjfcrrelkbq.supabase.co'</span>;
+<span class="hljs-keyword">const</span> SERVICE_ROLE_KEY = <span class="hljs-string">'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6d2NiZGRwZ2pqZmNycmVsa2JxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTc0MTQ0NCwiZXhwIjoyMTAxMzE3NDQ0fQ.BXQ1rIdKcQs9EI5kZdobHtooJBR6LBPapn6UjVIEvxo'</span>;
+
+<span class="hljs-keyword">const</span> supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+<span class="hljs-keyword">const</span> rawData = [
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243055'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD055'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'JEEVANANTHAM S'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Anthill Networks'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">8.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-05-18'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243098'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD098'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'Peer Mohideen Hameed A'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Anthill Networks'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">8.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-05-18'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243111'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD111'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'Ramya T'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'ServiceNow'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">44.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-05-11'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243120'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD120'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SANJANA S PILLAI'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Metropolis Technologies'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">14.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-06-01'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243140'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD140'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'Sruthy Suji'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'C'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Caterpillar'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">10.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-02-09'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243149'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD149'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'Tarun J'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'C'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'ServiceNow'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">44.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-05-11'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243046'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD046'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'Harish R'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Akaike Technologies'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.2</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-06-01'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243027'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD027'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'CHANDRAMUHILAN M'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Mr Cooper'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">8.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-06-01'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243116'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD116'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SAKTHIVEL M'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Amazon'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">45.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-07-06'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243085'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD085'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'NIDHISH M'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Integra Connect'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">3.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-05-18'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243009'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD009'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'AKASH G'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'BIG VISION'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">15.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-06-01'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243012'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD012'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'ANANDHI G'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hyland'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">10.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-07-06'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243079'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD079'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'MUTHU VISALAKSHI M'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Cloud Destinations'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">8.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243083'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD083'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'NAVIYA DHARSHINI A S'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Cloud Destinations'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">8.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243053'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD053'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'JAGATH VISHNU'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Schneider Electric'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">5.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-07-01'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243101'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD101'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'PRAJESH U R'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Schneider Electric'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">5.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-07-01'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243115'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD115'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SAKTHEESWAR KUMARAN'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Schneider Electric'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">5.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-07-01'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243135'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD135'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SNEYA B R'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'C'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Schneider Electric'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">5.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-07-13'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243086'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD086'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'NISHAD N'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Infinite Solutions'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243091'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD091'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'NITHYA SREE G'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Infinite Solutions'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243097'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD097'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'PAVITHRA A'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Infinite Solutions'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243126'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD126'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SARA DAWOOD S'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Infinite Solutions'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243056'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD056'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'KAMALESH G J'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Infinite Solutions'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243080'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD080'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'NANDHINI K P'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Infinite Solutions'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243144'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD144'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SURIYA A'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'C'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Caresoft'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-06-22'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243024'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD024'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'ATHITHYAN M'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Caresoft'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-06-22'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243023'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD023'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'ATHIKESAVAN M'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Caresoft'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-06-22'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243048'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD048'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'HARISMITA B'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Jocata'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">8.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-07-13'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243005'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD005'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'ADHITHIYA G'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Jocata'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">8.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-07-13'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243153'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD153'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'VASANTH R'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'C'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Jocata'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">8.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-07-13'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243038'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD038'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'DIVYASREERITHA R'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hudsmer Business Solutions'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243158'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD158'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'VISHNU YOGESH V K'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'C'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Dassault Systems'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">12.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-07-13'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243002'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD002'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'ABHIRAMI T'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'PSIOG'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243130'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD130'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SHASTY VENKATESH G'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'PSIOG'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243121'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD121'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SANJAY P C'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'PSIOG'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243146'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD146'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SUSITHA C'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'C'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'cloudvice'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243047'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD047'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'HARISH S'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'cloudvice'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243013'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD013'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'ANBUCHEZHIYAN A M'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Zoho'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">5.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243011'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD011'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'AKSHAYA N'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Digifortex'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">5.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-07-27'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243118'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD118'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SANDHYA A'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Danfoss'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">5.5</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-string">'2026-08-03'</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243104'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD104'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'PRIYADHARSHINI M'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hexaware'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243123'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD123'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SANJEEVITHA C S'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hexaware'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243088'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD088'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'NITHIN PRANAV R'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hexaware'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243032'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD032'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'DEVDARSHAN A'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hexaware'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243022'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD022'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'ATHARSHA P'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hexaware'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243125'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD125'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SANTHOSH S'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hexaware'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243050'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD050'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'HARSHAVARSHINI P S'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'A'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hexaware'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243099'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD099'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'POOJA M'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hexaware'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243143'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD143'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SURENDAR P S'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'C'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hexaware'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+  { <span class="hljs-attr">regNo</span>: <span class="hljs-string">'722823243129'</span>, <span class="hljs-attr">rollNo</span>: <span class="hljs-string">'23AD129'</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">'SHAAM S R'</span>, <span class="hljs-attr">section</span>: <span class="hljs-string">'B'</span>, <span class="hljs-attr">company</span>: <span class="hljs-string">'Hexaware'</span>, <span class="hljs-attr">ctc</span>: <span class="hljs-number">4.0</span>, <span class="hljs-attr">joiningDate</span>: <span class="hljs-literal">null</span> },
+];
+
+<span class="hljs-keyword">async</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">sync</span>(<span class="hljs-params"></span>) </span>{
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'1. Resetting all students placement_status to unplaced...'</span>);
+  <span class="hljs-keyword">const</span> { <span class="hljs-attr">error</span>: resetErr } = <span class="hljs-keyword">await</span> supabase
+    .from(<span class="hljs-string">'students'</span>)
+    .update({ <span class="hljs-attr">placement_status</span>: <span class="hljs-string">'unplaced'</span> })
+    .neq(<span class="hljs-string">'id'</span>, <span class="hljs-string">'00000000-0000-0000-0000-000000000000'</span>);
+  
+  <span class="hljs-keyword">if</span> (resetErr) <span class="hljs-built_in">console</span>.error(<span class="hljs-string">'Error resetting students:'</span>, resetErr);
+
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'2. Deleting old/dummy offers...'</span>);
+  <span class="hljs-keyword">const</span> { <span class="hljs-attr">error</span>: delErr } = <span class="hljs-keyword">await</span> supabase.from(<span class="hljs-string">'offers'</span>).delete().neq(<span class="hljs-string">'id'</span>, <span class="hljs-string">'00000000-0000-0000-0000-000000000000'</span>);
+  <span class="hljs-keyword">if</span> (delErr) <span class="hljs-built_in">console</span>.error(<span class="hljs-string">'Error deleting offers:'</span>, delErr);
+
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'3. Ensuring all companies exist...'</span>);
+  <span class="hljs-keyword">const</span> companyMap = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Map</span>();
+  <span class="hljs-keyword">const</span> { <span class="hljs-attr">data</span>: existingCos } = <span class="hljs-keyword">await</span> supabase.from(<span class="hljs-string">'companies'</span>).select(<span class="hljs-string">'id, name'</span>);
+  (existingCos || []).forEach(<span class="hljs-function"><span class="hljs-params">c</span> =&gt;</span> companyMap.set(c.name.toLowerCase().trim(), c.id));
+
+  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">const</span> item <span class="hljs-keyword">of</span> rawData) {
+    <span class="hljs-keyword">const</span> key = item.company.toLowerCase().trim();
+    <span class="hljs-keyword">if</span> (!companyMap.has(key)) {
+      <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Creating company: <span class="hljs-subst">${item.company}</span>`</span>);
+      <span class="hljs-keyword">const</span> { <span class="hljs-attr">data</span>: newCo, <span class="hljs-attr">error</span>: coErr } = <span class="hljs-keyword">await</span> supabase
+        .from(<span class="hljs-string">'companies'</span>)
+        .insert([{ <span class="hljs-attr">name</span>: item.company, <span class="hljs-attr">status</span>: <span class="hljs-string">'active'</span> }])
+        .select()
+        .single();
+      <span class="hljs-keyword">if</span> (newCo) companyMap.set(key, newCo.id);
+      <span class="hljs-keyword">if</span> (coErr) <span class="hljs-built_in">console</span>.error(<span class="hljs-string">`Error creating company <span class="hljs-subst">${item.company}</span>:`</span>, coErr);
+    }
+  }
+
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'4. Fetching student IDs...'</span>);
+  <span class="hljs-keyword">const</span> { <span class="hljs-attr">data</span>: allStudents } = <span class="hljs-keyword">await</span> supabase.from(<span class="hljs-string">'students'</span>).select(<span class="hljs-string">'id, register_number, name'</span>);
+  <span class="hljs-keyword">const</span> studentMap = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Map</span>();
+  (allStudents || []).forEach(<span class="hljs-function"><span class="hljs-params">s</span> =&gt;</span> studentMap.set(<span class="hljs-built_in">String</span>(s.register_number).trim(), s.id));
+
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'5. Inserting exact 50 offers &amp; marking students placed...'</span>);
+  <span class="hljs-keyword">const</span> offersToInsert = [];
+  <span class="hljs-keyword">const</span> placedStudentIds = [];
+
+  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">const</span> item <span class="hljs-keyword">of</span> rawData) {
+    <span class="hljs-keyword">const</span> studentId = studentMap.get(item.regNo);
+    <span class="hljs-keyword">const</span> companyId = companyMap.get(item.company.toLowerCase().trim());
+
+    <span class="hljs-keyword">if</span> (!studentId) {
+      <span class="hljs-built_in">console</span>.warn(<span class="hljs-string">`⚠️ Student not found in DB for regNo <span class="hljs-subst">${item.regNo}</span> (<span class="hljs-subst">${item.name}</span>)`</span>);
+      <span class="hljs-keyword">continue</span>;
+    }
+
+    <span class="hljs-keyword">if</span> (!companyId) {
+      <span class="hljs-built_in">console</span>.warn(<span class="hljs-string">`⚠️ Company not found in DB for <span class="hljs-subst">${item.company}</span>`</span>);
+      <span class="hljs-keyword">continue</span>;
+    }
+
+    placedStudentIds.push(studentId);
+
+    offersToInsert.push({
+      <span class="hljs-attr">student_id</span>: studentId,
+      <span class="hljs-attr">company_id</span>: companyId,
+      <span class="hljs-attr">role_title</span>: <span class="hljs-string">'Software Engineer'</span>,
+      <span class="hljs-attr">package_ctc</span>: item.ctc,
+      <span class="hljs-attr">offer_status</span>: <span class="hljs-string">'issued'</span>,
+      <span class="hljs-attr">acceptance_status</span>: <span class="hljs-string">'accepted'</span>,
+      <span class="hljs-attr">joining_status</span>: <span class="hljs-string">'pending'</span>,
+    });
+  }
+
+  <span class="hljs-keyword">if</span> (offersToInsert.length &gt; <span class="hljs-number">0</span>) {
+    <span class="hljs-keyword">const</span> { <span class="hljs-attr">error</span>: insErr } = <span class="hljs-keyword">await</span> supabase.from(<span class="hljs-string">'offers'</span>).insert(offersToInsert);
+    <span class="hljs-keyword">if</span> (insErr) <span class="hljs-built_in">console</span>.error(<span class="hljs-string">'Error inserting offers:'</span>, insErr);
+    <span class="hljs-keyword">else</span> <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`✅ Successfully inserted <span class="hljs-subst">${offersToInsert.length}</span> offers!`</span>);
+  }
+
+  <span class="hljs-keyword">if</span> (placedStudentIds.length &gt; <span class="hljs-number">0</span>) {
+    <span class="hljs-keyword">const</span> { <span class="hljs-attr">error</span>: updateErr } = <span class="hljs-keyword">await</span> supabase
+      .from(<span class="hljs-string">'students'</span>)
+      .update({ <span class="hljs-attr">placement_status</span>: <span class="hljs-string">'placed'</span> })
+      .in(<span class="hljs-string">'id'</span>, placedStudentIds);
+
+    <span class="hljs-keyword">if</span> (updateErr) <span class="hljs-built_in">console</span>.error(<span class="hljs-string">'Error updating placement status:'</span>, updateErr);
+    <span class="hljs-keyword">else</span> <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`✅ Successfully updated <span class="hljs-subst">${placedStudentIds.length}</span> students to 'placed'!`</span>);
+  }
+
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'🎉 Clean sync complete!'</span>);
+}
+
+sync().catch(<span class="hljs-built_in">console</span>.error);
+
+</pre>
+        </td>
+      </tr>
+    
+  </tbody>
+</table>
+
+  </div>
+</body>
+</html>

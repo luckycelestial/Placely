@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
   try {
+    // API Authorization check via x-api-key header or dev mode override
+    const apiKey = req.headers.get("x-api-key");
+    const expectedKey = process.env.SHEET_SYNC_API_KEY;
+    const isDev = process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_APP_ENV === "local";
+
+    if (!isDev && (!expectedKey || apiKey !== expectedKey)) {
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid or missing API key" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { students } = body;
 

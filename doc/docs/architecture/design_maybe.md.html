@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>design_maybe.md</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="../../doc-style.css" />
+  <script src="../../doc-filelist.js"></script>
+  <script>
+    var relativeDir = "../../";
+    var thisFile = "docs/architecture/design_maybe.md";
+    var defaultSidebar = true;
+  </script>
+  <script src="../../doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+      <div class="heading h1">
+        <a href="#design-maybe-hospitality-premium-aesthetic">Design Maybe: Hospitality-Premium Aesthetic</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#color-palette">🎨 Color Palette</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#geometry-and-spacing">📐 Geometry &amp;amp; Spacing</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#key-components">🧱 Key Components</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#1.minimalist-command-sidebar">1. Minimalist Command Sidebar</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#2.floating-header">2. Floating Header</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#3.the-stage-main-content">3. &amp;quot;The Stage&amp;quot; (Main Content)</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#4.interactive-tools-reservationstatus">4. Interactive Tools (Reservation/Status)</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#sparkles-interaction-philosophy">✨ Interaction Philosophy</a>
+      </div>
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="docs markdown"><div class="pilwrap" id="design-maybe-hospitality-premium-aesthetic">
+  <h1>
+    <a href="#design-maybe-hospitality-premium-aesthetic" name="design-maybe-hospitality-premium-aesthetic" class="pilcrow"></a>
+Design Maybe: Hospitality-Premium Aesthetic
+  </h1>
+</div>
+<p>This design system is inspired by the &quot;Food City&quot; reservation interface, focusing on high-energy interactions, airy layouts, and a &quot;Floating Surface&quot; architecture.</p>
+<div class="pilwrap" id="color-palette">
+  <h2>
+    <a href="#color-palette" name="color-palette" class="pilcrow"></a>
+🎨 Color Palette
+  </h2>
+</div>
+<ul>
+<li><strong>Primary (Action)</strong>: <code>#D35400</code> (Energetic Orange) - Used for call-to-actions, selection states, and primary highlights.</li>
+<li><strong>Background</strong>: <code>#F9FAFB</code> (Soft Off-White) - Providing a clean, breathable canvas.</li>
+<li><strong>Surface</strong>: <code>#FFFFFF</code> (Pure White) - For all primary cards and interactive containers.</li>
+<li><strong>Text (Primary)</strong>: <code>#1A202C</code> (Deep Charcoal) - For high-contrast readability.</li>
+<li><strong>Text (Muted)</strong>: <code>#718096</code> (Cool Gray) - For labels and secondary information.</li>
+<li><strong>Borders</strong>: <code>#EDF2F7</code> (Whisp Gray) - Ultra-thin borders for subtle separation.</li>
+</ul>
+<div class="pilwrap" id="geometry-and-spacing">
+  <h2>
+    <a href="#geometry-and-spacing" name="geometry-and-spacing" class="pilcrow"></a>
+📐 Geometry &amp; Spacing
+  </h2>
+</div>
+<ul>
+<li><strong>Card Radius</strong>: <code>16px</code> - Soft, approachable corners for all main containers.</li>
+<li><strong>Element Radius</strong>: <code>12px</code> - For inputs, buttons, and smaller components.</li>
+<li><strong>Sidebar Width</strong>: <code>80px</code> - Ultra-slim, icon-only navigation to maximize workspace.</li>
+<li><strong>Gutter/Gap</strong>: <code>24px</code> - Generous spacing to maintain &quot;airy&quot; feel.</li>
+</ul>
+<div class="pilwrap" id="key-components">
+  <h2>
+    <a href="#key-components" name="key-components" class="pilcrow"></a>
+🧱 Key Components
+  </h2>
+</div>
+<div class="pilwrap" id="1.minimalist-command-sidebar">
+  <h3>
+    <a href="#1.minimalist-command-sidebar" name="1.minimalist-command-sidebar" class="pilcrow"></a>
+1. Minimalist Command Sidebar
+  </h3>
+</div>
+<ul>
+<li><strong>Style</strong>: Floating vertical bar on the left.</li>
+<li><strong>Items</strong>: Simple, linear icons with a vertical &quot;Selection Indicator&quot; (3px orange line) on the left of the active item.</li>
+<li><strong>Interaction</strong>: Subtle scale-up effect on hover.</li>
+</ul>
+<div class="pilwrap" id="2.floating-header">
+  <h3>
+    <a href="#2.floating-header" name="2.floating-header" class="pilcrow"></a>
+2. Floating Header
+  </h3>
+</div>
+<ul>
+<li><strong>Search Bar</strong>: Centered, large-radius input with a subtle inner shadow.</li>
+<li><strong>Profile Hub</strong>: Integrated avatar and &quot;Hi [Name] &gt;&quot; dropdown for a personalized touch.</li>
+<li><strong>Notifications</strong>: Minimal bell icon with a vibrant red dot badge.</li>
+</ul>
+<div class="pilwrap" id="3.the-stage-main-content">
+  <h3>
+    <a href="#3.the-stage-main-content" name="3.the-stage-main-content" class="pilcrow"></a>
+3. &quot;The Stage&quot; (Main Content)
+  </h3>
+</div>
+<ul>
+<li><strong>Header Section</strong>: Large, bold titles with metadata (like ratings or status) positioned to the right.</li>
+<li><strong>Hero Containers</strong>: Large-scale imagery or maps with overflow-hidden rounded corners.</li>
+<li><strong>Contact/Info Chips</strong>: Use icons (Location, Call, Message) paired with semi-bold text for tactile information display.</li>
+</ul>
+<div class="pilwrap" id="4.interactive-tools-reservationstatus">
+  <h3>
+    <a href="#4.interactive-tools-reservationstatus" name="4.interactive-tools-reservationstatus" class="pilcrow"></a>
+4. Interactive Tools (Reservation/Status)
+  </h3>
+</div>
+<ul>
+<li><strong>Tactile Calendar</strong>: A clean, grid-based date picker with &quot;Dot Indicators&quot; for active events (e.g., green for available, orange for selected).</li>
+<li><strong>Input Stack</strong>: Vertical stack of dropdown-style selectors for Date, Time, and Category.</li>
+<li><strong>Button Duo</strong>: A primary solid orange button (&quot;Action&quot;) paired with a ghost/outline button (&quot;Alternative&quot;).</li>
+</ul>
+<div class="pilwrap" id="sparkles-interaction-philosophy">
+  <h2>
+    <a href="#sparkles-interaction-philosophy" name="sparkles-interaction-philosophy" class="pilcrow"></a>
+✨ Interaction Philosophy
+  </h2>
+</div>
+<ul>
+<li><strong>Soft Depth</strong>: Use very light, blurred drop shadows (<code>0 4px 6px -1px rgba(0, 0, 0, 0.05)</code>) to make cards feel like they are floating above the gray background.</li>
+<li><strong>Tactile Feedback</strong>: Every interactive element should have a hover state that feels &quot;clickable&quot;—either a background color shift or a slight lift.</li>
+<li><strong>Directional Navigation</strong>: Use clean, rounded arrow buttons for carousels and pagination.</li>
+</ul>
+</div>
+  </div>
+</body>
+</html>

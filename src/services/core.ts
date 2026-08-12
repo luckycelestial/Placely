@@ -86,31 +86,36 @@ export async function updateTableCell(tableName: string, id: string, updatedFiel
 }
 
 export async function getPendingApprovals() {
-  const { data, error } = await supabase
-    .from('offers')
-    .select(`
-      id,
-      verification_status,
-      role_title,
-      created_at,
-      companies (name),
-      students (
-        name,
-        department,
-        users (name)
-      )
-    `)
-    .eq('verification_status', 'pending')
-    .limit(4);
+  try {
+    const { data, error } = await supabase
+      .from('offers')
+      .select(`
+        id,
+        offer_status,
+        acceptance_status,
+        role_title,
+        created_at,
+        companies (name),
+        students (
+          name,
+          department,
+          users (name)
+        )
+      `)
+      .eq('acceptance_status', 'pending')
+      .limit(4);
 
-  if (error) throw error;
+    if (error || !data) return [];
 
-  return data.map(o => ({
-    id: o.id,
-    type: 'Offer Letter',
-    target: `${(o.students as any)?.name || (o.students as any)?.users?.name || (o.students as any)?.[0]?.name || (o.students as any)?.[0]?.users?.[0]?.name || 'Unknown'} (${(o.students as any)?.department || (o.students as any)?.[0]?.department || 'N/A'})`,
-    company: (o.companies as any)?.name || (o.companies as any)?.[0]?.name || 'N/A',
-    time: formatRelativeTime(o.created_at),
-    status: 'pending'
-  }));
+    return data.map(o => ({
+      id: o.id,
+      type: 'Offer Letter',
+      target: `${(o.students as any)?.name || (o.students as any)?.users?.name || (o.students as any)?.[0]?.name || (o.students as any)?.[0]?.users?.[0]?.name || 'Unknown'} (${(o.students as any)?.department || (o.students as any)?.[0]?.department || 'N/A'})`,
+      company: (o.companies as any)?.name || (o.companies as any)?.[0]?.name || 'N/A',
+      time: formatRelativeTime(o.created_at),
+      status: 'pending'
+    }));
+  } catch (e) {
+    return [];
+  }
 }

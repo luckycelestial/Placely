@@ -25,6 +25,7 @@ export const metadata: Metadata = {
 };
 
 import { Toaster } from "sonner";
+import { DevDock } from "@/components/dev/DevDock";
 
 export default function RootLayout({
   children,
@@ -50,8 +51,10 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         {children}
+        <DevDock />
         <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   );
 }
+

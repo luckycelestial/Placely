@@ -12,7 +12,6 @@ export async function getPlacementHistoryFallback(filters: { year?: number; dept
   return data || [];
 }
 
-
 export async function getDashboardStats() {
   const [students, companies, drives, offersCount, placedStudents, offersData] = await Promise.all([
     supabase.from('students').select('*', { count: 'exact', head: true }),

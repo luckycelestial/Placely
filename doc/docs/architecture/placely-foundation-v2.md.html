@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>placely-foundation-v2.md</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="../../doc-style.css" />
+  <script src="../../doc-filelist.js"></script>
+  <script>
+    var relativeDir = "../../";
+    var thisFile = "docs/architecture/placely-foundation-v2.md";
+    var defaultSidebar = true;
+  </script>
+  <script src="../../doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+      <div class="heading h1">
+        <a href="#student-profile">Student Profile</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#purpose">Purpose</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#user-role">User role</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#navigation-placement">Navigation placement</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#screen-goal">Screen goal</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#core-sections">Core sections</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#key-actions">Key actions</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#content-rules">Content rules</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#states">States</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#data-needed">Data needed</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#ux-notes">UX notes</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#related-screens">Related screens</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#file-name">File name</a>
+      </div>
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="docs markdown"><div class="pilwrap" id="student-profile">
+  <h1>
+    <a href="#student-profile" name="student-profile" class="pilcrow"></a>
+Student Profile
+  </h1>
+</div>
+<div class="pilwrap" id="purpose">
+  <h2>
+    <a href="#purpose" name="purpose" class="pilcrow"></a>
+Purpose
+  </h2>
+</div>
+<p>The Student Profile screen is where students manage their core placement identity, academic data, preferences, professional links, and documents. It should feel like a structured record system, not a casual settings page.</p>
+<div class="pilwrap" id="user-role">
+  <h2>
+    <a href="#user-role" name="user-role" class="pilcrow"></a>
+User role
+  </h2>
+</div>
+<ul>
+<li>Student only.</li>
+</ul>
+<div class="pilwrap" id="navigation-placement">
+  <h2>
+    <a href="#navigation-placement" name="navigation-placement" class="pilcrow"></a>
+Navigation placement
+  </h2>
+</div>
+<ul>
+<li>Student desktop shell uses sidebar-based navigation.</li>
+<li>Student mobile shell uses bottom navigation.</li>
+<li>This screen is one of the core student account pages.</li>
+</ul>
+<div class="pilwrap" id="screen-goal">
+  <h2>
+    <a href="#screen-goal" name="screen-goal" class="pilcrow"></a>
+Screen goal
+  </h2>
+</div>
+<p>This screen should show the student’s full placement profile in a clear, sectioned layout and make it obvious what is complete, what is missing, and what needs verification.</p>
+<div class="pilwrap" id="core-sections">
+  <h2>
+    <a href="#core-sections" name="core-sections" class="pilcrow"></a>
+Core sections
+  </h2>
+</div>
+<ul>
+<li>Personal information.</li>
+<li>Contact details.</li>
+<li>Academic details.</li>
+<li>Placement preferences.</li>
+<li>Professional links and achievements.</li>
+<li>Verification status.</li>
+<li>Profile completeness.</li>
+<li>Change request or approval history where relevant.</li>
+</ul>
+<div class="pilwrap" id="key-actions">
+  <h2>
+    <a href="#key-actions" name="key-actions" class="pilcrow"></a>
+Key actions
+  </h2>
+</div>
+<ul>
+<li>Edit profile fields.</li>
+<li>Save profile changes.</li>
+<li>Request approval for sensitive updates.</li>
+<li>Add or update LinkedIn, resume link, and other professional links.</li>
+<li>Add documents or document links.</li>
+<li>Review completeness gaps.</li>
+</ul>
+<div class="pilwrap" id="content-rules">
+  <h2>
+    <a href="#content-rules" name="content-rules" class="pilcrow"></a>
+Content rules
+  </h2>
+</div>
+<ul>
+<li>Keep the profile sectioned and easy to scan.</li>
+<li>Show completeness prominently.</li>
+<li>Show verification status prominently.</li>
+<li>Make sensitive edits clearly separated from normal edits.</li>
+<li>Support link-first document handling so storage-heavy uploads are not required.</li>
+</ul>
+<div class="pilwrap" id="states">
+  <h2>
+    <a href="#states" name="states" class="pilcrow"></a>
+States
+  </h2>
+</div>
+<ul>
+<li>Complete profile.</li>
+<li>Partially complete profile.</li>
+<li>Pending verification or approval.</li>
+<li>Missing critical academic or contact details.</li>
+<li>Empty profile for newly onboarded students.</li>
+</ul>
+<div class="pilwrap" id="data-needed">
+  <h2>
+    <a href="#data-needed" name="data-needed" class="pilcrow"></a>
+Data needed
+  </h2>
+</div>
+<ul>
+<li>Identity details.</li>
+<li>Contact details.</li>
+<li>Academic marks and CGPA.</li>
+<li>Backlog or eligibility data.</li>
+<li>Placement preferences.</li>
+<li>Resume link and other professional links.</li>
+<li>Achievement entries.</li>
+<li>Verification metadata.</li>
+<li>Completion percentage.</li>
+</ul>
+<div class="pilwrap" id="ux-notes">
+  <h2>
+    <a href="#ux-notes" name="ux-notes" class="pilcrow"></a>
+UX notes
+  </h2>
+</div>
+<ul>
+<li>Use tabs or clean sections instead of one long form.</li>
+<li>Keep read mode and edit mode distinct.</li>
+<li>Make it easy to see what impacts eligibility.</li>
+<li>Show warnings when a field may affect placement workflows.</li>
+</ul>
+<div class="pilwrap" id="related-screens">
+  <h2>
+    <a href="#related-screens" name="related-screens" class="pilcrow"></a>
+Related screens
+  </h2>
+</div>
+<ul>
+<li>Student Dashboard.</li>
+<li>Job Opportunities / Drives.</li>
+<li>My Applications.</li>
+<li>Documents Center.</li>
+</ul>
+<div class="pilwrap" id="file-name">
+  <h2>
+    <a href="#file-name" name="file-name" class="pilcrow"></a>
+File name
+  </h2>
+</div>
+<p>student-profile.md</p>
+</div>
+  </div>
+</body>
+</html>

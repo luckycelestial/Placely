@@ -15,7 +15,8 @@ export async function getDrives(options: {
         name,
         logo_url,
         theme_color
-      )
+      ),
+      applications (count)
     `);
 
   // Search filter is processed client-side to avoid PostgREST nested table join syntax errors
@@ -39,7 +40,9 @@ export async function getDrives(options: {
 
   return (data || []).map(d => ({
     ...d,
-    applications: [{ count: d.total_applicants || 0 }]
+    applications: Array.isArray(d.applications) && d.applications.length > 0 
+      ? d.applications 
+      : [{ count: d.total_applicants || 0 }]
   }));
 }
 
@@ -62,20 +65,17 @@ export async function getDistinctBatches(): Promise<string[]> {
   const { data, error } = await supabase
     .from('job_drives')
     .select('batch');
-  if (error) throw error;
+  if (error) return [String(currentYear + 1), String(currentYear)];
 
   const years = new Set<string>();
-  // Always include current year + next year as base options
   years.add(String(currentYear));
   years.add(String(currentYear + 1));
 
-  // Add any years that actually have drives (treating null as current year)
   (data || []).forEach((row: any) => {
     const b = row.batch || String(currentYear);
     years.add(b);
   });
 
-  // Sort descending (most recent first)
   return Array.from(years).sort((a, b) => Number(b) - Number(a));
 }
 
@@ -83,7 +83,7 @@ export async function getDistinctDepartments(): Promise<string[]> {
   const { data, error } = await supabase.from('students').select('department');
   if (error) return ['AI&DS', 'CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT'];
   const depts = new Set<string>();
-  (data || []).forEach(s => { if (s.department) depts.add(s.department); });
+  (data || []).forEach((s: any) => { if (s.department) depts.add(s.department); });
   return Array.from(depts).sort();
 }
 
@@ -304,19 +304,27 @@ export async function deleteTemplate(id: string) {
 }
 
 export async function updateDriveStages(driveId: string, stages: any[]) {
-  const { error } = await supabase.rpc('update_drive_stages', { 
-    drive_id: driveId, 
-    new_stages: stages 
-  });
+  const { data: drive } = await supabase.from('job_drives').select('eligibility_rules').eq('id', driveId).single();
+  const currentRules = (drive?.eligibility_rules as any) || {};
+  const updatedRules = { ...currentRules, stages };
+  
+  const { error } = await supabase
+    .from('job_drives')
+    .update({ eligibility_rules: updatedRules })
+    .eq('id', driveId);
   if (error) throw error;
   return { success: true };
 }
 
 export async function updateAllDriveStages(stages: any[]) {
-  const { error } = await supabase.rpc('update_all_drive_stages', { 
-    new_stages: stages 
-  });
-  if (error) throw error;
+  const { data: drives } = await supabase.from('job_drives').select('id, eligibility_rules');
+  if (drives) {
+    for (const drive of drives) {
+      const currentRules = (drive.eligibility_rules as any) || {};
+      const updatedRules = { ...currentRules, stages };
+      await supabase.from('job_drives').update({ eligibility_rules: updatedRules }).eq('id', drive.id);
+    }
+  }
   return { success: true };
 }
 

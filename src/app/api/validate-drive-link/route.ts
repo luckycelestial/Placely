@@ -9,8 +9,18 @@ export async function GET(request: NextRequest) {
   }
 
   const cleanUrl = url.trim();
-  const isGoogleDrive = cleanUrl.includes('drive.google.com') || cleanUrl.includes('docs.google.com');
   
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(cleanUrl);
+  } catch {
+    return Response.json({ valid: false, error: 'Invalid URL format' });
+  }
+
+  const allowedHosts = ['drive.google.com', 'docs.google.com'];
+  const isGoogleDrive = allowedHosts.includes(parsedUrl.hostname.toLowerCase()) && 
+                        (parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:');
+
   if (!isGoogleDrive) {
     return Response.json({ valid: false, error: 'Must be a Google Drive or Google Docs link' });
   }

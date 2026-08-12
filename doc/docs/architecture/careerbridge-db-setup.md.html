@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>careerbridge-db-setup.md</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="../../doc-style.css" />
+  <script src="../../doc-filelist.js"></script>
+  <script>
+    var relativeDir = "../../";
+    var thisFile = "docs/architecture/careerbridge-db-setup.md";
+    var defaultSidebar = true;
+  </script>
+  <script src="../../doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+      <div class="heading h1">
+        <a href="#careerbridge-database-setup-instructions">CareerBridge database setup instructions</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#goal">Goal</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#important-direction">Important direction</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#architecture-note">Architecture note</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#tables-to-create">Tables to create</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#1.users">1. users</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#2.students">2. students</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#3.student_contacts">3. student_contacts</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#4.student_academics">4. student_academics</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#5.student_preferences">5. student_preferences</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#6.student_profiles">6. student_profiles</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#7.student_documents">7. student_documents</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#8.companies">8. companies</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#9.job_drives">9. job_drives</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#10.drive_rounds">10. drive_rounds</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#11.applications">11. applications</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#12.application_timeline">12. application_timeline</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#13.offers">13. offers</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#14.joinees">14. joinees</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#15.notices">15. notices</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#16.events">16. events</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#17.notifications">17. notifications</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#18.analytics_snapshots">18. analytics_snapshots</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#19.audit_logs">19. audit_logs</a>
+      </div>
+
+      <div class="heading h3">
+        <a href="#20.settings">20. settings</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#relationship-rules">Relationship rules</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#indexing-rules">Indexing rules</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#constraints-to-add">Constraints to add</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#supporting-views">Supporting views</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#seed-data">Seed data</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#verification-of-setup">Verification of setup</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#deliverable-expectation">Deliverable expectation</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#notes-for-the-agent">Notes for the agent</a>
+      </div>
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="docs markdown"><div class="pilwrap" id="careerbridge-database-setup-instructions">
+  <h1>
+    <a href="#careerbridge-database-setup-instructions" name="careerbridge-database-setup-instructions" class="pilcrow"></a>
+CareerBridge database setup instructions
+  </h1>
+</div>
+<div class="pilwrap" id="goal">
+  <h2>
+    <a href="#goal" name="goal" class="pilcrow"></a>
+Goal
+  </h2>
+</div>
+<p>Create the full CareerBridge Supabase database schema for the v2 platform. The database should support the student portal, admin portal, placement workflows, analytics, and document references.</p>
+<div class="pilwrap" id="important-direction">
+  <h2>
+    <a href="#important-direction" name="important-direction" class="pilcrow"></a>
+Important direction
+  </h2>
+</div>
+<ul>
+<li>Build for PostgreSQL on Supabase.</li>
+<li>Keep the schema normalized.</li>
+<li>Use UUID primary keys where appropriate.</li>
+<li>Add timestamps on all major tables.</li>
+<li>Use foreign keys everywhere data is related.</li>
+<li>Add unique constraints for identity fields that must not duplicate.</li>
+<li>Use link-first document storage where possible.</li>
+<li>Do not store large binary files in tables.</li>
+</ul>
+<div class="pilwrap" id="architecture-note">
+  <h2>
+    <a href="#architecture-note" name="architecture-note" class="pilcrow"></a>
+Architecture note
+  </h2>
+</div>
+<p>Each college will have its own separate Supabase project.</p>
+<ul>
+<li>Do not add <code>college_id</code> to every table.</li>
+<li>Keep the schema clean for a single college deployment.</li>
+<li>Reuse the same schema across colleges, but each deployment has its own isolated database.</li>
+<li>This keeps the app simpler while preserving data ownership and trust.</li>
+</ul>
+<div class="pilwrap" id="tables-to-create">
+  <h2>
+    <a href="#tables-to-create" name="tables-to-create" class="pilcrow"></a>
+Tables to create
+  </h2>
+</div>
+<div class="pilwrap" id="1.users">
+  <h3>
+    <a href="#1.users" name="1.users" class="pilcrow"></a>
+1. users
+  </h3>
+</div>
+<p>Stores every system user.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>role</li>
+<li>name</li>
+<li>email</li>
+<li>phone</li>
+<li>avatar_url</li>
+<li>status</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="2.students">
+  <h3>
+    <a href="#2.students" name="2.students" class="pilcrow"></a>
+2. students
+  </h3>
+</div>
+<p>Stores student identity and academic basics.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>user_id</li>
+<li>register_number</li>
+<li>roll_number</li>
+<li>department</li>
+<li>year</li>
+<li>section</li>
+<li>gender</li>
+<li>date_of_birth</li>
+<li>placement_status</li>
+<li>profile_completion</li>
+<li>verification_status</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="3.student_contacts">
+  <h3>
+    <a href="#3.student_contacts" name="3.student_contacts" class="pilcrow"></a>
+3. student_contacts
+  </h3>
+</div>
+<p>Stores contact details for students.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>student_id</li>
+<li>college_email</li>
+<li>personal_email</li>
+<li>phone</li>
+<li>address</li>
+<li>city</li>
+<li>state</li>
+<li>pincode</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="4.student_academics">
+  <h3>
+    <a href="#4.student_academics" name="4.student_academics" class="pilcrow"></a>
+4. student_academics
+  </h3>
+</div>
+<p>Stores academic performance and eligibility inputs.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>student_id</li>
+<li>cgpa</li>
+<li>tenth_score</li>
+<li>twelfth_score</li>
+<li>diploma_score</li>
+<li>backlog_count</li>
+<li>current_backlogs</li>
+<li>history_of_backlogs</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="5.student_preferences">
+  <h3>
+    <a href="#5.student_preferences" name="5.student_preferences" class="pilcrow"></a>
+5. student_preferences
+  </h3>
+</div>
+<p>Stores placement preferences.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>student_id</li>
+<li>preferred_roles</li>
+<li>preferred_locations</li>
+<li>shift_preference</li>
+<li>travel_preference</li>
+<li>placement_interest</li>
+<li>work_mode_preference</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="6.student_profiles">
+  <h3>
+    <a href="#6.student_profiles" name="6.student_profiles" class="pilcrow"></a>
+6. student_profiles
+  </h3>
+</div>
+<p>Stores profile completeness and structured placement profile metadata.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>student_id</li>
+<li>resume_url</li>
+<li>linkedin_url</li>
+<li>github_url</li>
+<li>portfolio_url</li>
+<li>profile_completion</li>
+<li>verification_status</li>
+<li>notes</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="7.student_documents">
+  <h3>
+    <a href="#7.student_documents" name="7.student_documents" class="pilcrow"></a>
+7. student_documents
+  </h3>
+</div>
+<p>Stores document metadata using link-first references.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>student_id</li>
+<li>document_type</li>
+<li>title</li>
+<li>url</li>
+<li>storage_path</li>
+<li>is_required</li>
+<li>verification_status</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="8.companies">
+  <h3>
+    <a href="#8.companies" name="8.companies" class="pilcrow"></a>
+8. companies
+  </h3>
+</div>
+<p>Stores company master data.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>name</li>
+<li>website</li>
+<li>industry</li>
+<li>hr_name</li>
+<li>hr_email</li>
+<li>hr_phone</li>
+<li>status</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="9.job_drives">
+  <h3>
+    <a href="#9.job_drives" name="9.job_drives" class="pilcrow"></a>
+9. job_drives
+  </h3>
+</div>
+<p>Stores structured drive data.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>company_id</li>
+<li>title</li>
+<li>role_title</li>
+<li>drive_type</li>
+<li>package_ctc</li>
+<li>location</li>
+<li>job_description</li>
+<li>eligibility_rules</li>
+<li>application_start</li>
+<li>application_end</li>
+<li>drive_start</li>
+<li>drive_end</li>
+<li>status</li>
+<li>created_by</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="10.drive_rounds">
+  <h3>
+    <a href="#10.drive_rounds" name="10.drive_rounds" class="pilcrow"></a>
+10. drive_rounds
+  </h3>
+</div>
+<p>Stores ATS or hiring stages for each drive.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>drive_id</li>
+<li>round_name</li>
+<li>round_order</li>
+<li>round_type</li>
+<li>instructions</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="11.applications">
+  <h3>
+    <a href="#11.applications" name="11.applications" class="pilcrow"></a>
+11. applications
+  </h3>
+</div>
+<p>Stores student applications to drives.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>student_id</li>
+<li>drive_id</li>
+<li>status</li>
+<li>applied_at</li>
+<li>current_stage</li>
+<li>next_step</li>
+<li>outcome</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="12.application_timeline">
+  <h3>
+    <a href="#12.application_timeline" name="12.application_timeline" class="pilcrow"></a>
+12. application_timeline
+  </h3>
+</div>
+<p>Stores stage history for each application.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>application_id</li>
+<li>stage_name</li>
+<li>stage_order</li>
+<li>event_type</li>
+<li>notes</li>
+<li>event_at</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="13.offers">
+  <h3>
+    <a href="#13.offers" name="13.offers" class="pilcrow"></a>
+13. offers
+  </h3>
+</div>
+<p>Stores offer details and lifecycle status.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>student_id</li>
+<li>drive_id</li>
+<li>company_id</li>
+<li>role_title</li>
+<li>package_ctc</li>
+<li>offer_status</li>
+<li>acceptance_status</li>
+<li>joining_date</li>
+<li>verification_status</li>
+<li>mismatch_flag</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="14.joinees">
+  <h3>
+    <a href="#14.joinees" name="14.joinees" class="pilcrow"></a>
+14. joinees
+  </h3>
+</div>
+<p>Stores final joining records.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>offer_id</li>
+<li>student_id</li>
+<li>company_id</li>
+<li>joining_status</li>
+<li>joined_at</li>
+<li>remarks</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="15.notices">
+  <h3>
+    <a href="#15.notices" name="15.notices" class="pilcrow"></a>
+15. notices
+  </h3>
+</div>
+<p>Stores placement notices.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>title</li>
+<li>body</li>
+<li>audience</li>
+<li>priority</li>
+<li>status</li>
+<li>publish_at</li>
+<li>created_by</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="16.events">
+  <h3>
+    <a href="#16.events" name="16.events" class="pilcrow"></a>
+16. events
+  </h3>
+</div>
+<p>Stores placement events.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>title</li>
+<li>description</li>
+<li>event_date</li>
+<li>start_time</li>
+<li>end_time</li>
+<li>audience</li>
+<li>status</li>
+<li>created_by</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="17.notifications">
+  <h3>
+    <a href="#17.notifications" name="17.notifications" class="pilcrow"></a>
+17. notifications
+  </h3>
+</div>
+<p>Stores in-app notifications and task alerts.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>user_id</li>
+<li>title</li>
+<li>message</li>
+<li>notification_type</li>
+<li>priority</li>
+<li>is_read</li>
+<li>related_entity_type</li>
+<li>related_entity_id</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="18.analytics_snapshots">
+  <h3>
+    <a href="#18.analytics_snapshots" name="18.analytics_snapshots" class="pilcrow"></a>
+18. analytics_snapshots
+  </h3>
+</div>
+<p>Stores precomputed summary data.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>snapshot_type</li>
+<li>snapshot_date</li>
+<li>payload_json</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="19.audit_logs">
+  <h3>
+    <a href="#19.audit_logs" name="19.audit_logs" class="pilcrow"></a>
+19. audit_logs
+  </h3>
+</div>
+<p>Stores important change history.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>actor_user_id</li>
+<li>entity_type</li>
+<li>entity_id</li>
+<li>action</li>
+<li>old_data_json</li>
+<li>new_data_json</li>
+<li>created_at</li>
+</ul>
+<div class="pilwrap" id="20.settings">
+  <h3>
+    <a href="#20.settings" name="20.settings" class="pilcrow"></a>
+20. settings
+  </h3>
+</div>
+<p>Stores college-level configuration.</p>
+<p>Suggested fields:</p>
+<ul>
+<li>id</li>
+<li>setting_key</li>
+<li>setting_value_json</li>
+<li>created_at</li>
+<li>updated_at</li>
+</ul>
+<div class="pilwrap" id="relationship-rules">
+  <h2>
+    <a href="#relationship-rules" name="relationship-rules" class="pilcrow"></a>
+Relationship rules
+  </h2>
+</div>
+<ul>
+<li><code>students.user_id</code> should reference <code>users.id</code>.</li>
+<li><code>student_contacts.student_id</code> should reference <code>students.id</code>.</li>
+<li><code>student_academics.student_id</code> should reference <code>students.id</code>.</li>
+<li><code>student_preferences.student_id</code> should reference <code>students.id</code>.</li>
+<li><code>student_profiles.student_id</code> should reference <code>students.id</code>.</li>
+<li><code>student_documents.student_id</code> should reference <code>students.id</code>.</li>
+<li><code>job_drives.company_id</code> should reference <code>companies.id</code>.</li>
+<li><code>drive_rounds.drive_id</code> should reference <code>job_drives.id</code>.</li>
+<li><code>applications.student_id</code> should reference <code>students.id</code>.</li>
+<li><code>applications.drive_id</code> should reference <code>job_drives.id</code>.</li>
+<li><code>application_timeline.application_id</code> should reference <code>applications.id</code>.</li>
+<li><code>offers.student_id</code> should reference <code>students.id</code>.</li>
+<li><code>offers.drive_id</code> should reference <code>job_drives.id</code>.</li>
+<li><code>offers.company_id</code> should reference <code>companies.id</code>.</li>
+<li><code>joinees.offer_id</code> should reference <code>offers.id</code>.</li>
+<li><code>joinees.student_id</code> should reference <code>students.id</code>.</li>
+<li><code>joinees.company_id</code> should reference <code>companies.id</code>.</li>
+<li><code>notifications.user_id</code> should reference <code>users.id</code>.</li>
+<li><code>audit_logs.actor_user_id</code> should reference <code>users.id</code>.</li>
+</ul>
+<div class="pilwrap" id="indexing-rules">
+  <h2>
+    <a href="#indexing-rules" name="indexing-rules" class="pilcrow"></a>
+Indexing rules
+  </h2>
+</div>
+<p>Add indexes on:</p>
+<ul>
+<li><code>student_id</code>, <code>user_id</code>, <code>company_id</code>, <code>drive_id</code>, and <code>application_id</code> where relevant.</li>
+<li><code>email</code> and <code>register_number</code> where used for lookups.</li>
+<li><code>status</code>, <code>placement_status</code>, <code>verification_status</code>, and <code>is_read</code> where filtered frequently.</li>
+<li><code>snapshot_type</code> and <code>snapshot_date</code> in analytics tables.</li>
+</ul>
+<div class="pilwrap" id="constraints-to-add">
+  <h2>
+    <a href="#constraints-to-add" name="constraints-to-add" class="pilcrow"></a>
+Constraints to add
+  </h2>
+</div>
+<ul>
+<li>Unique <code>email</code> in users where appropriate.</li>
+<li>Unique <code>register_number</code> in students.</li>
+<li>Unique <code>roll_number</code> if used.</li>
+<li>Unique <code>college_email</code> if required.</li>
+<li>Unique combination rules for application and drive if one student can apply only once.</li>
+<li>Enforce non-null values for critical identity fields.</li>
+<li>Use check constraints for allowed statuses and enums if needed.</li>
+</ul>
+<div class="pilwrap" id="supporting-views">
+  <h2>
+    <a href="#supporting-views" name="supporting-views" class="pilcrow"></a>
+Supporting views
+  </h2>
+</div>
+<p>Create useful SQL views or materialized views for:</p>
+<ul>
+<li>student dashboard summary</li>
+<li>eligible drives view</li>
+<li>application progress view</li>
+<li>offer summary view</li>
+<li>placement funnel analytics</li>
+<li>year-wise department analytics</li>
+<li>company yield analytics</li>
+<li>student readiness summary</li>
+</ul>
+<div class="pilwrap" id="seed-data">
+  <h2>
+    <a href="#seed-data" name="seed-data" class="pilcrow"></a>
+Seed data
+  </h2>
+</div>
+<p>Create starter seed rows for:</p>
+<ul>
+<li>one set of users and roles</li>
+<li>a few departments</li>
+<li>a few sample students</li>
+<li>a few companies</li>
+<li>sample job drives</li>
+<li>sample applications</li>
+<li>sample notices</li>
+<li>sample events</li>
+<li>sample analytics snapshots</li>
+</ul>
+<div class="pilwrap" id="verification-of-setup">
+  <h2>
+    <a href="#verification-of-setup" name="verification-of-setup" class="pilcrow"></a>
+Verification of setup
+  </h2>
+</div>
+<p>After creating the schema, confirm:</p>
+<ul>
+<li>all tables exist</li>
+<li>foreign keys are connected</li>
+<li>indexes are created</li>
+<li>the main views work</li>
+<li>basic seed data inserts correctly</li>
+<li>student and admin workflows can query the schema cleanly</li>
+</ul>
+<div class="pilwrap" id="deliverable-expectation">
+  <h2>
+    <a href="#deliverable-expectation" name="deliverable-expectation" class="pilcrow"></a>
+Deliverable expectation
+  </h2>
+</div>
+<p>The final database should support the CareerBridge screens already planned, especially:</p>
+<ul>
+<li>student dashboard</li>
+<li>student profile</li>
+<li>drives</li>
+<li>applications</li>
+<li>ATS timeline</li>
+<li>offers and joining</li>
+<li>admin dashboard</li>
+<li>student management</li>
+<li>drives management</li>
+<li>reports and analytics</li>
+<li>settings</li>
+</ul>
+<div class="pilwrap" id="notes-for-the-agent">
+  <h2>
+    <a href="#notes-for-the-agent" name="notes-for-the-agent" class="pilcrow"></a>
+Notes for the agent
+  </h2>
+</div>
+<ul>
+<li>Build the schema carefully and in a logical order.</li>
+<li>Connect tables with proper foreign keys.</li>
+<li>Prefer normalized design over oversized tables.</li>
+<li>Keep the schema future-proof for a single-college deployment.</li>
+<li>Ensure the schema supports production use, not just demo data.</li>
+</ul>
+</div>
+  </div>
+</body>
+</html>

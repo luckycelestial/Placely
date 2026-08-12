@@ -24,25 +24,25 @@ export async function createStudent(studentData: any) {
       register_number: studentData.regNo,
       department: studentData.dept,
       year: parseInt(studentData.year),
-      placement_status: 'not_placed',
-      profile_completion: 0,
-      verification_status: 'verified'
+      placement_status: 'unplaced',
+      college_email: studentData.email || null,
+      personal_email: studentData.personalEmail || studentData.personal_email || null,
     }])
     .select()
     .single();
 
   if (studentError) throw studentError;
 
-  // 3. Create Student Contacts
-  const { error: contactError } = await supabase
-    .from('student_contacts')
+  // 3. Create Student Profile
+  const { error: profileError } = await supabase
+    .from('student_profiles')
     .insert([{
       student_id: student.id,
-      college_email: studentData.email || null,
-      personal_email: studentData.personalEmail || studentData.personal_email || null
+      profile_completion: 0,
+      verification_status: 'verified',
     }]);
 
-  if (contactError) throw contactError;
+  if (profileError) throw profileError;
 
   return student;
 }
