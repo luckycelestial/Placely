@@ -15,8 +15,8 @@ export async function getApplications(options: {
   const hasSearch = options.search && options.search.trim() !== "";
 
   const studentsSelect = (hasDeptFilter || hasSearch)
-    ? `students!inner(name, register_number, department, year, users(name))`
-    : `students(name, register_number, department, year, users(name))`;
+    ? `students!inner(name, register_number, roll_number, department, year, users(name))`
+    : `students(name, register_number, roll_number, department, year, users(name))`;
 
   const drivesSelect = hasBatchFilter
     ? `job_drives!inner(role_title, batch, companies(name))`
@@ -40,7 +40,7 @@ export async function getApplications(options: {
 
   if (hasSearch) {
     const searchVal = `%${options.search!.trim()}%`;
-    query = query.or(`name.ilike.${searchVal},register_number.ilike.${searchVal}`, { foreignTable: 'students' });
+    query = query.or(`name.ilike.${searchVal},register_number.ilike.${searchVal},roll_number.ilike.${searchVal}`, { foreignTable: 'students' });
   }
 
   if (hasBatchFilter) {
@@ -69,29 +69,38 @@ export async function getApplications(options: {
 }
 
 export async function getStudentApplications(studentId: string) {
-  const { data, error } = await supabase
-    .from('applications')
-    .select(`
-      *,
-      job_drives (
-        company_id,
-        role_title,
-        drive_type,
-        package_ctc,
-        location,
-        eligibility_rules,
-        companies (
-          id,
-          name,
-          logo_url,
-          theme_color
+  if (!studentId || studentId.trim() === '') return [];
+  try {
+    const { data, error } = await supabase
+      .from('applications')
+      .select(`
+        *,
+        job_drives (
+          company_id,
+          role_title,
+          drive_type,
+          package_ctc,
+          location,
+          eligibility_rules,
+          companies (
+            id,
+            name,
+            logo_url,
+            theme_color
+          )
         )
-      )
-    `)
-    .eq('student_id', studentId)
-    .order('applied_at', { ascending: false });
-  if (error) throw error;
-  return data || [];
+      `)
+      .eq('student_id', studentId)
+      .order('applied_at', { ascending: false });
+    if (error) {
+      console.error("getStudentApplications error:", error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error("getStudentApplications exception:", err);
+    return [];
+  }
 }
 
 export async function applyToDrive(studentId: string, driveId: string) {
@@ -323,48 +332,16 @@ export async function updateOfferVerification(id: string, status: string) {
 
 /**
  * Stamps the given student's custom-group preference with { placement_lock: "Active" }.
- * Uses the security-definer RPC to bypass RLS restrictions.
- * Falls back to direct write if RPC is unavailable.
+ * Uses direct PostgREST table update to mark student as placed.
  */
 async function assignPlacementLockIfEnabled(studentId: string) {
-  // Primary path: use security-definer RPC (bypasses RLS)
-  const { error: rpcError } = await supabase.rpc('assign_placement_lock', { p_student_id: studentId });
-  if (!rpcError) return;
-
-  // Fallback: direct write
-  console.warn('assign_placement_lock RPC unavailable, falling back to direct write:', rpcError.message);
   try {
-    const { data: pref } = await supabase
-      .from('student_preferences')
-      .select('id, work_mode_preference')
-      .eq('student_id', studentId)
-      .maybeSingle();
-
-    let map: Record<string, string> = {};
-    const raw = pref?.work_mode_preference || '';
-    if (typeof raw === 'string' && raw.trim().startsWith('{')) {
-      try { map = JSON.parse(raw); } catch (e) { /* ignore */ }
-    } else if (raw) {
-      map['placement_group'] = raw;
-    }
-
-    map['placement_lock'] = 'Active';
-    const newPref = JSON.stringify(map);
-
-    if (pref?.id) {
-      const { error: updErr } = await supabase
-        .from('student_preferences')
-        .update({ work_mode_preference: newPref, updated_at: new Date().toISOString() })
-        .eq('id', pref.id);
-      if (updErr) console.error('placement lock update error:', updErr.message);
-    } else {
-      const { error: insErr } = await supabase
-        .from('student_preferences')
-        .insert([{ student_id: studentId, work_mode_preference: newPref, updated_at: new Date().toISOString() }]);
-      if (insErr) console.error('placement lock insert error:', insErr.message);
-    }
+    await supabase
+      .from('students')
+      .update({ placement_status: 'placed' })
+      .eq('id', studentId);
   } catch (err) {
-    console.error('assignPlacementLockIfEnabled fallback error:', err);
+    console.error('Failed to update student placement status:', err);
   }
 }
 
@@ -471,12 +448,20 @@ export async function updateApplicationCtc(id: string, ctc: string) {
 }
 
 export async function getStudentOffers(studentId: string) {
-  const { data, error } = await supabase
-    .from('offers')
-    .select('*')
-    .eq('student_id', studentId);
-  if (error) throw error;
-  return data || [];
+  if (!studentId || studentId.trim() === '') return [];
+  try {
+    const { data, error } = await supabase
+      .from('offers')
+      .select('*')
+      .eq('student_id', studentId);
+    if (error) {
+      console.error("getStudentOffers error:", error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    return [];
+  }
 }
 
 export async function acceptOffer(
@@ -583,8 +568,21 @@ export async function setOfferJoiningDate(
 }
 
 export async function getStudentApplicationStats(studentId: string) {
-  const { data, error } = await supabase
-    .rpc('get_student_application_stats', { p_student_id: studentId });
-  if (error) throw error;
-  return data && data.length > 0 ? data[0] : { active_count: 0, placed_count: 0, offered_count: 0 };
+  const defaultStats = { active_count: 0, placed_count: 0, offered_count: 0 };
+  if (!studentId || studentId.trim() === '') return defaultStats;
+
+  try {
+    const [appsRes, offersRes] = await Promise.all([
+      supabase.from('applications').select('status').eq('student_id', studentId),
+      supabase.from('offers').select('id, acceptance_status').eq('student_id', studentId)
+    ]);
+    const apps = appsRes.data || [];
+    const offers = offersRes.data || [];
+    const activeCount = apps.filter(a => a.status !== 'Rejected' && a.status !== 'Withdrawn').length;
+    const placedCount = offers.filter(o => o.acceptance_status === 'accepted').length;
+    const offeredCount = offers.length;
+    return { active_count: activeCount, placed_count: placedCount, offered_count: offeredCount };
+  } catch (err) {
+    return defaultStats;
+  }
 }

@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { LuDownload, LuMoveRight, LuPlus } from "react-icons/lu";
+import { LuDownload, LuMoveRight, LuPlus, LuSlidersHorizontal, LuX, LuRotateCcw, LuSearch, LuFilter, LuEye } from "react-icons/lu";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { db } from "@/services/database";
 import * as XLSX from "xlsx";
@@ -38,6 +38,8 @@ function ATSTrackerContent() {
   const [activeDept, setActiveDept] = useState("All Departments");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [showHoverPreview, setShowHoverPreview] = useState(false);
 
   // Selection
   const [selectedApps, setSelectedApps] = useState<Set<string>>(new Set());
@@ -81,6 +83,7 @@ function ATSTrackerContent() {
             id: app.id,
             name: user?.name || "Unknown",
             regNo: student?.register_number || "N/A",
+            rollNo: student?.roll_number || student?.register_number || "N/A",
             dept: student?.department || "N/A",
             batch: drive?.batch || "N/A",
             company: company?.name || "Unknown",
@@ -381,27 +384,100 @@ function ATSTrackerContent() {
     (app) =>
       app.name.toLowerCase().includes(search.toLowerCase()) ||
       app.company.toLowerCase().includes(search.toLowerCase()) ||
-      app.regNo.toLowerCase().includes(search.toLowerCase())
+      app.regNo.toLowerCase().includes(search.toLowerCase()) ||
+      (app.rollNo && app.rollNo.toLowerCase().includes(search.toLowerCase()))
   );
 
+  const activeFilterCount =
+    (activeBatch !== "All Batches" ? 1 : 0) +
+    (activeDept !== "All Departments" ? 1 : 0) +
+    (startDate ? 1 : 0) +
+    (endDate ? 1 : 0);
+
   return (
-    <div className="space-y-6 h-[calc(100vh-184px)] md:h-[calc(100vh-112px)] flex flex-col relative">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between shrink-0">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight">ATS Tracker</h1>
-          <p className="text-muted text-sm font-medium">Manage pipeline stages and track candidate progress.</p>
+    <div className="space-y-4 h-[calc(100vh-184px)] md:h-[calc(100vh-112px)] flex flex-col relative -mt-3">
+      {/* Top Bar Controls (Equal Shape & Heights, Extended Width, Pushed Up) */}
+      <div className="flex items-center justify-between gap-3 shrink-0 w-full">
+        <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+          {/* Standalone Search Bar with Search Icon */}
+          <div className="relative flex-1 max-w-sm">
+            <LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={14} />
+            <input
+              type="text"
+              placeholder="Search by name, register number, or skills..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full h-9 rounded-lg border border-border-subtle bg-surface pl-9 pr-3 text-xs font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+            />
+          </div>
+
+          {/* Expanded Drive Dropdown Box (Fills Middle Gap) */}
+          <div className="flex-1 min-w-[260px]">
+            <SearchableSelect
+              options={[
+                { value: "All Drives", label: "All Drives" },
+                ...[...drives]
+                  .sort((a, b) => {
+                    const countA = (a.applications as any)?.[0]?.count ?? 0;
+                    const countB = (b.applications as any)?.[0]?.count ?? 0;
+                    return countB - countA;
+                  })
+                  .map((d) => {
+                    const count = (d.applications as any)?.[0]?.count ?? 0;
+                    return { value: d.id, label: `(${count}) ${d.companies?.name} - ${d.role_title}` };
+                  }),
+              ]}
+              value={activeDrive}
+              onChange={setActiveDrive}
+              placeholder="Select Drive"
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2.5 shrink-0">
           {selectedApps.size > 0 && (
             <button
               onClick={() => setShowMoveModal(true)}
-              className="flex items-center gap-2 rounded-xl bg-surface border border-border-subtle px-4 py-2 text-sm font-bold shadow-sm hover:bg-background transition-colors"
+              className="flex items-center gap-2 h-9 rounded-lg bg-surface border border-border-subtle px-3.5 text-xs font-bold shadow-sm hover:bg-background transition-colors"
             >
-              <LuMoveRight size={16} />
+              <LuMoveRight size={14} />
               Move Selected ({selectedApps.size})
             </button>
           )}
+
+          {/* Standalone Filter Button */}
+          <button
+            onClick={() => setIsFilterOpen(true)}
+            className={`flex items-center gap-2 h-9 rounded-lg border px-3.5 text-xs font-bold shadow-sm transition-all ${
+              activeFilterCount > 0
+                ? "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+                : "bg-surface border-border-subtle hover:bg-background text-foreground"
+            }`}
+          >
+            <LuFilter size={14} />
+            <span>Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-black text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          {/* Hover Details Toggle Button */}
+          <button
+            onClick={() => setShowHoverPreview(!showHoverPreview)}
+            className={`flex items-center gap-2 h-9 rounded-lg border px-3.5 text-xs font-bold shadow-sm transition-all ${
+              showHoverPreview
+                ? "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+                : "bg-surface border-border-subtle hover:bg-background text-foreground"
+            }`}
+            title="Toggle candidate details preview on hover"
+          >
+            <LuEye size={14} />
+            <span>Hover Details</span>
+          </button>
+
+          {/* Standalone Export Dropdown */}
           <ExportDropdown
             onExportExcel={handleExportData}
             onExportPDF={handleExportPDF}
@@ -409,68 +485,110 @@ function ATSTrackerContent() {
         </div>
       </div>
 
-      {/* Filters bar */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 shrink-0 bg-surface/50 p-3 rounded-2xl border border-border-subtle w-full">
-        <input
-          type="text"
-          placeholder="Search..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-        />
-        <SearchableSelect
-          options={[
-            { value: "All Drives", label: "All Drives" },
-            ...[...drives]
-              .sort((a, b) => {
-                const countA = (a.applications as any)?.[0]?.count ?? 0;
-                const countB = (b.applications as any)?.[0]?.count ?? 0;
-                return countB - countA;
-              })
-              .map((d) => {
-                const count = (d.applications as any)?.[0]?.count ?? 0;
-                return { value: d.id, label: `(${count}) ${d.companies?.name} - ${d.role_title}` };
-              }),
-          ]}
-          value={activeDrive}
-          onChange={setActiveDrive}
-          placeholder="Select Drive"
-        />
-        <SearchableSelect
-          options={[
-            { value: "All Batches", label: "All Batches" },
-            ...batches.map((b) => ({ value: b, label: b })),
-          ]}
-          value={activeBatch}
-          onChange={setActiveBatch}
-          placeholder="Select Batch"
-        />
-        <SearchableSelect
-          options={[
-            { value: "All Departments", label: "All Departments" },
-            ...departments.map((d) => ({ value: d, label: d })),
-          ]}
-          value={activeDept}
-          onChange={setActiveDept}
-          placeholder="Select Department"
-        />
-        <div className="flex items-center gap-2 xl:col-span-2">
-          <span className="text-xs font-bold text-muted whitespace-nowrap">Date:</span>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="w-full rounded-lg border border-border-subtle bg-background px-2 py-2 text-xs font-bold shadow-sm focus:outline-none"
+      {/* Slide-over Filter Panel (Right Drawer Tab) */}
+      {isFilterOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setIsFilterOpen(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs z-40 transition-opacity"
           />
-          <span className="text-xs font-bold text-muted">-</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="w-full rounded-lg border border-border-subtle bg-background px-2 py-2 text-xs font-bold shadow-sm focus:outline-none"
-          />
-        </div>
-      </div>
+
+          {/* Drawer Container */}
+          <div className="fixed inset-y-0 right-0 w-80 md:w-96 bg-surface border-l border-border-subtle shadow-2xl z-50 flex flex-col justify-between animate-in slide-in-from-right duration-200">
+            {/* Header */}
+            <div className="p-4 border-b border-border-subtle flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <LuSlidersHorizontal className="text-primary" size={18} />
+                <h3 className="font-bold text-sm">Filter Candidates</h3>
+                {activeFilterCount > 0 && (
+                  <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full">
+                    {activeFilterCount} Active
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setIsFilterOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-background text-muted hover:text-foreground transition-colors"
+              >
+                <LuX size={16} />
+              </button>
+            </div>
+
+            {/* Body: Filter Options */}
+            <div className="p-4 space-y-5 flex-1 overflow-y-auto">
+              {/* Batch Filter */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-muted uppercase tracking-wider">Batch / Graduation Year</label>
+                <SearchableSelect
+                  options={[
+                    { value: "All Batches", label: "All Batches" },
+                    ...batches.map((b) => ({ value: b, label: b })),
+                  ]}
+                  value={activeBatch}
+                  onChange={setActiveBatch}
+                  placeholder="Select Batch"
+                />
+              </div>
+
+              {/* Department Filter */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-muted uppercase tracking-wider">Department</label>
+                <SearchableSelect
+                  options={[
+                    { value: "All Departments", label: "All Departments" },
+                    ...departments.map((d) => ({ value: d, label: d })),
+                  ]}
+                  value={activeDept}
+                  onChange={setActiveDept}
+                  placeholder="Select Department"
+                />
+              </div>
+
+              {/* Date Range Filter */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-muted uppercase tracking-wider">Application Date Range</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-muted font-medium block mb-1">From Date</span>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full rounded-xl border border-border-subtle bg-background px-3 py-2 text-xs font-medium shadow-sm focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted font-medium block mb-1">To Date</span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full rounded-xl border border-border-subtle bg-background px-3 py-2 text-xs font-medium shadow-sm focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Clear Filters Button */}
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={() => {
+                    setActiveBatch("All Batches");
+                    setActiveDept("All Departments");
+                    setStartDate("");
+                    setEndDate("");
+                  }}
+                  className="flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-600 transition-colors pt-2"
+                >
+                  <LuRotateCcw size={14} />
+                  <span>Reset All Filters</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Kanban board */}
       <div className="flex-1 overflow-x-auto pb-4 no-scrollbar">
@@ -488,6 +606,7 @@ function ATSTrackerContent() {
               selectedApps={selectedApps}
               editingCtcId={editingCtcId}
               openMappingDropdown={openMappingDropdown}
+              showHoverPreview={showHoverPreview}
               onDragStart={handleDragStart}
               onDrop={handleDrop}
               onDragOver={handleDragOver}

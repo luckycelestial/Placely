@@ -11,6 +11,7 @@ export interface Application {
   id: string;
   name: string;
   regNo: string;
+  rollNo?: string;
   company: string;
   role: string;
   stage: string;
