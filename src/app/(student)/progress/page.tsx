@@ -339,7 +339,13 @@ export default function ProgressPage() {
     return baseStages;
   }
 
-  const handleAcceptOffer = async (app: any) => {
+  const [offerToConfirm, setOfferToConfirm] = useState<any | null>(null);
+
+  const handleAcceptOffer = (app: any) => {
+    setOfferToConfirm(app);
+  };
+
+  const executeAcceptOffer = async (app: any) => {
     try {
       const studentId = DEV_STUDENT_ID;
       const companyId = app.offer?.companyId || "";
@@ -376,7 +382,7 @@ export default function ProgressPage() {
         return p;
       }));
 
-      toast.success("Offer Accepted Successfully! Preparing your day-one onboarding dashboard.");
+      toast.success("Offer Accepted Successfully! Placement Lock activated.");
     } catch (err) {
       console.error("Failed to accept offer:", err);
       toast.error("Failed to accept offer. Please try again.");
@@ -1427,6 +1433,41 @@ export default function ProgressPage() {
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Offer Acceptance Modal */}
+      {offerToConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-surface border border-border-subtle rounded-3xl w-full max-w-md shadow-2xl p-8 space-y-6 animate-in zoom-in-95 duration-300">
+            <div className="h-14 w-14 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center mx-auto">
+              <LuShieldCheck size={28} />
+            </div>
+            <div className="space-y-2 text-center">
+              <h4 className="font-display text-xl font-black tracking-tight text-foreground">Confirm Offer Acceptance</h4>
+              <p className="text-xs font-semibold text-muted leading-relaxed">
+                Accepting this offer from <span className="font-bold text-foreground">{offerToConfirm.company}</span> ({offerToConfirm.ctc}) will activate your <span className="font-bold text-amber-500">Placement Lock</span> and finalize your placement choice.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={() => setOfferToConfirm(null)}
+                className="flex-1 py-3.5 rounded-xl border border-border-subtle text-[10px] font-black uppercase tracking-widest text-muted hover:bg-background transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const app = offerToConfirm;
+                  setOfferToConfirm(null);
+                  executeAcceptOffer(app);
+                }}
+                className="flex-1 py-3.5 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-dark transition-colors cursor-pointer"
+              >
+                Confirm & Accept
               </button>
             </div>
           </div>

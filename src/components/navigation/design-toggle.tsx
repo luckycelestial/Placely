@@ -1,31 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LuCheck } from "react-icons/lu";
+import { LuCheck, LuChevronDown, LuPalette } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 
 const DESIGN_THEMES = [
-  { id: "default", name: "Timespent", class: "" },
-  { id: "geometric", name: "Geometric", class: "design-geometric" },
-  { id: "hp", name: "HP Enterprise", class: "design-hp" },
-  { id: "sece", name: "SECE Academic", class: "design-sece" },
+  { id: "default", name: "Default Design", class: "" },
+  { id: "executive", name: "Executive Navy (New)", class: "design-executive" },
 ];
-
-const DIcon = ({ className }: { className?: string }) => (
-  <svg 
-    width="18" 
-    height="18" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2.5" 
-    strokeLinecap="round" 
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M4 4h6a8 8 0 0 1 0 16H4V4z" />
-  </svg>
-);
 
 export function DesignToggle() {
   const [currentDesign, setCurrentDesign] = useState("default");
@@ -38,15 +20,15 @@ export function DesignToggle() {
   }, []);
 
   const applyDesign = (designId: string) => {
-    const design = DESIGN_THEMES.find(d => d.id === designId);
+    const design = DESIGN_THEMES.find((d) => d.id === designId);
     if (!design) return;
 
     const html = document.documentElement;
-    DESIGN_THEMES.forEach(d => {
+    DESIGN_THEMES.forEach((d) => {
       if (d.class) html.classList.remove(d.class);
     });
     if (design.class) html.classList.add(design.class);
-    
+
     localStorage.setItem("careerbridge-design", designId);
   };
 
@@ -56,37 +38,38 @@ export function DesignToggle() {
     setIsOpen(false);
   };
 
+  const currentTheme = DESIGN_THEMES.find((d) => d.id === currentDesign) || DESIGN_THEMES[0];
+
   return (
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-surface border border-border-subtle hover:bg-primary/5 hover:border-primary/20 transition-all shadow-sm group"
-        title="Change Design System"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-border-subtle hover:bg-background text-xs font-bold text-foreground transition-all shadow-xs"
+        title="Switch Design System"
       >
-        <DIcon className="text-foreground group-hover:text-primary transition-colors" />
+        <LuPalette size={14} className="text-primary shrink-0" />
+        <span>{currentTheme.name}</span>
+        <LuChevronDown size={12} className={cn("text-muted transition-transform shrink-0", isOpen && "rotate-180")} />
       </button>
 
       {isOpen && (
         <>
-          <div 
-            className="fixed inset-0 z-50" 
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="absolute right-0 mt-2 w-48 rounded-2xl bg-surface border border-border-subtle shadow-xl z-[60] py-2 animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-4 py-2 border-b border-border-subtle mb-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted">Design System</p>
+          <div className="fixed inset-0 z-50" onClick={() => setIsOpen(false)} />
+          <div className="absolute right-0 mt-2 w-52 rounded-xl bg-surface border border-border-subtle shadow-xl z-[60] py-1.5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-3 py-1.5 border-b border-border-subtle/60 mb-1">
+              <p className="text-[10px] font-black uppercase tracking-wider text-muted">Design System Theme</p>
             </div>
             {DESIGN_THEMES.map((theme) => (
               <button
                 key={theme.id}
                 onClick={() => handleSelect(theme.id)}
                 className={cn(
-                  "flex w-full items-center justify-between px-4 py-2.5 text-sm font-bold transition-colors hover:bg-primary/5",
-                  currentDesign === theme.id ? "text-primary" : "text-foreground"
+                  "flex w-full items-center justify-between px-3 py-2 text-xs font-bold transition-colors hover:bg-foreground/5",
+                  currentDesign === theme.id ? "text-primary font-black bg-primary/5" : "text-foreground"
                 )}
               >
-                {theme.name}
-                {currentDesign === theme.id && <LuCheck size={16} />}
+                <span>{theme.name}</span>
+                {currentDesign === theme.id && <LuCheck size={14} className="text-primary shrink-0" />}
               </button>
             ))}
           </div>

@@ -12,7 +12,7 @@
   --color-primary-dark: #dc143c;
   --color-secondary: #ffd400;
   --color-surface: #ffffff;
-  --color-muted: #8e8e93;
+  --color-muted: #475569;
   --color-border-subtle: #e6e6e6;
 
   --radius-card: 24px;
@@ -232,6 +232,116 @@ html.design-sece .grid > a:nth-child(4n+1) > .app-card [class*="bg-surface"],
 html.design-sece .grid > div:nth-child(4n+1) > .app-card [class*="bg-surface"] {
   background-color: #002556 !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Executive Navy & Gold Theme (Electric Royal Blue Specification) */
+.design-executive, html.design-executive {
+  --color-background: #fcfcfc;
+  --color-foreground: #0f172a;
+  --color-primary: #1157b8;
+  --color-primary-dark: #0d4899;
+  --color-secondary: #fab82b;
+  --color-surface: #ffffff;
+  --color-muted: #475569;
+  --color-border-subtle: #e6e6e6;
+  --radius-card: 20px;
+  --radius-button: 12px;
+  --shadow-soft: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  --shadow-tactile: 0 4px 0 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Sidebar styling (Clean White Sidebar - Transparent Items, Full Yellow Hover) */
+.design-executive aside > div,
+html.design-executive aside > div {
+  background: #ffffff !important;
+  border-right-color: #e6e6e6 !important;
+  color: #0f172a !important;
+}
+
+.design-executive aside a,
+html.design-executive aside a {
+  color: #475569 !important;
+  background-color: transparent !important;
+  background: transparent !important;
+  border-radius: 12px !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Active Selected Sidebar Item (Left Navy Tag + Vibrant Blue Icon/Text, Transparent BG) */
+.design-executive aside a[class*="bg-primary"],
+html.design-executive aside a[class*="bg-primary"] {
+  background-color: transparent !important;
+  background: transparent !important;
+  color: #1157b8 !important;
+  font-weight: 800 !important;
+}
+
+.design-executive aside a[class*="bg-primary"] svg,
+html.design-executive aside a[class*="bg-primary"] svg,
+.design-executive aside a[class*="bg-primary"] span,
+html.design-executive aside a[class*="bg-primary"] span {
+  color: #1157b8 !important;
+  font-weight: 800 !important;
+}
+
+.design-executive aside a [class*="bg-primary"],
+html.design-executive aside a [class*="bg-primary"] {
+  background-color: #1157b8 !important;
+}
+
+/* ON HOVER ONLY: Full Solid Golden Yellow Pill */
+.design-executive aside a:hover,
+html.design-executive aside a:hover {
+  background: linear-gradient(135deg, #ffc82c 0%, #f7a900 100%) !important;
+  color: #030f26 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 14px rgba(247, 169, 0, 0.35) !important;
+}
+
+.design-executive aside a:hover svg,
+html.design-executive aside a:hover svg,
+.design-executive aside a:hover span,
+html.design-executive aside a:hover span {
+  color: #030f26 !important;
+}
+
+/* Top Header styling matching Lightermost Electric Blue Gradient */
+.design-executive header,
+html.design-executive header {
+  background: linear-gradient(90deg, #0a387a 0%, #0e489c 45%, #1157b8 80%, #1562cb 100%) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.design-executive header h1,
+.design-executive header p,
+html.design-executive header h1,
+html.design-executive header p {
+  color: #ffffff !important;
+}
+
+.design-executive header button,
+html.design-executive header button {
+  color: #d1dcf0 !important;
+}
+
+.design-executive header button:hover,
+html.design-executive header button:hover {
+  color: #ffffff !important;
+}
+
+/* Dropdown & Popover active/hover styling matching Primary Golden Yellow Specification */
+.design-executive [class*="bg-surface"] button:hover,
+html.design-executive [class*="bg-surface"] button:hover {
+  background: linear-gradient(135deg, #ffc82c 0%, #f7a900 100%) !important;
+  color: #030f26 !important;
+}
+
+.design-executive .bg-primary\/10,
+html.design-executive .bg-primary\/10 {
+  background: linear-gradient(135deg, #ffc82c 0%, #f7a900 100%) !important;
+  color: #030f26 !important;
+  font-weight: 800 !important;
 }
 
 .design-sece .grid > .app-card:nth-child(4n+2),

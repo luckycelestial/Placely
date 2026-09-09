@@ -40,6 +40,25 @@ export interface ResolvedState {
   opacityClass: string;
 }
 
+export interface StudentAcademicRecord {
+  cgpa?: string | number;
+  active_arrears?: number;
+  history_of_arrears?: boolean;
+}
+
+export interface StudentPreference {
+  work_mode_preference?: string;
+}
+
+export interface StudentProfileRecord {
+  id?: string;
+  department?: string;
+  register_number?: string;
+  roll_number?: string;
+  student_academics?: StudentAcademicRecord | StudentAcademicRecord[];
+  student_preferences?: StudentPreference | StudentPreference[];
+}
+
 export interface StudentInfo {
   branch: string;
   cgpa: number;

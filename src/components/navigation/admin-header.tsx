@@ -41,22 +41,20 @@ export function AdminHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* COMMENTED OUT: Design & Typography Toggles
+          {/* Design System Switcher Dropdown */}
           <DesignToggle />
-          <TypographyToggle />
-          */}
 
           <button className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-primary/5 transition-all group">
             <LuBell size={22} className="text-foreground group-hover:text-primary transition-colors" />
             <span className="absolute right-2 top-2 h-2.5 w-2.5 bg-red-500 border-2 border-background rounded-full"></span>
           </button>
           
-          <div className="flex items-center gap-3 ml-2 pl-4 border-l border-border-subtle">
+          <div className="flex items-center gap-3 ml-2 pl-4 border-l border-white/15">
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-black uppercase tracking-tight leading-none">Admin User</p>
-              <p className="text-[10px] font-bold text-primary uppercase mt-1 capitalize">Admin</p>
+              <p className="text-xs font-black uppercase tracking-tight leading-none text-white">Admin User</p>
+              <p className="text-[10px] font-bold text-[#fab82b] uppercase mt-1">Admin</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-display text-sm font-bold text-primary overflow-hidden">
+            <div className="h-9 w-9 rounded-full bg-[#fab82b] border border-[#f5b72b] text-[#091838] flex items-center justify-center font-display text-xs font-black tracking-wider shadow-md hover:bg-[#e6a619] transition-all select-none cursor-pointer">
               AU
             </div>
           </div>

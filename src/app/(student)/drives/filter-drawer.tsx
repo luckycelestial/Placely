@@ -26,7 +26,7 @@ export function FilterDrawer({
     <div className="fixed inset-0 z-[60] flex justify-end">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-sm animate-in fade-in duration-300"
+        className="absolute inset-0 bg-black/50 backdrop-blur-md animate-in fade-in duration-300"
         onClick={onClose}
       />
 

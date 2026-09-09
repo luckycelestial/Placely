@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Sk } from "@/components/ui/skeleton";
 import { DEV_STUDENT_ID } from "@/lib/dev-config";
 
-import { type Drive, type DriveFilters, type StudentInfo, resolveDriveState } from "./types";
+import { type Drive, type DriveFilters, type StudentInfo, type StudentProfileRecord, type StudentAcademicRecord, resolveDriveState } from "./types";
 import { DriveCard } from "./drive-card";
 import { DriveDetailModal } from "./drive-detail-modal";
 import { FilterDrawer } from "./filter-drawer";
@@ -47,7 +47,7 @@ function parseLPA(pkg: string): number {
 export default function JobDrivesPage() {
   const [drives, setDrives] = useState<Drive[]>([]);
   const [appliedDriveIds, setAppliedDriveIds] = useState<Set<string>>(new Set());
-  const [studentProfile, setStudentProfile] = useState<any>(null);
+  const [studentProfile, setStudentProfile] = useState<StudentProfileRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("All");
@@ -65,11 +65,13 @@ export default function JobDrivesPage() {
 
   // ---------- Derived student info ----------
   const getStudentInfo = useCallback((): StudentInfo => {
-    const acad =
-      (studentProfile?.student_academics as any)?.[0] || studentProfile?.student_academics || {};
+    const acadRecord = Array.isArray(studentProfile?.student_academics)
+      ? studentProfile?.student_academics[0]
+      : studentProfile?.student_academics;
+    const acad: StudentAcademicRecord = acadRecord || {};
     return {
       branch: studentProfile?.department || DUMMY_STUDENT.branch,
-      cgpa: parseFloat(acad.cgpa || String(DUMMY_STUDENT.cgpa)),
+      cgpa: parseFloat(String(acad.cgpa || DUMMY_STUDENT.cgpa)),
       backlogs: acad.active_arrears !== undefined ? acad.active_arrears : DUMMY_STUDENT.backlogs,
       history_of_arrears:
         acad.history_of_arrears !== undefined
@@ -145,9 +147,10 @@ export default function JobDrivesPage() {
 
   // ---------- Apply to drive ----------
   const handleApply = async (driveId: string) => {
+    const activeStudentId = (typeof window !== 'undefined' && localStorage.getItem('active_student_id')) || STUDENT_ID;
     const drive = drives.find(d => d.id === driveId);
     const bypassList = drive?.eligibility_rules?.bypass_placement_lock_students || [];
-    const isBypassed = bypassList.includes(studentProfile?.register_number || '') || bypassList.includes(STUDENT_ID);
+    const isBypassed = bypassList.includes(studentProfile?.register_number || '') || (activeStudentId && bypassList.includes(activeStudentId));
 
     if (isPlacementLocked && !isBypassed) {
       toast.error('Your Placement Lock is Active. You cannot apply to new drives.');
@@ -155,13 +158,13 @@ export default function JobDrivesPage() {
     }
     setIsApplying(true);
     try {
-      await db.applyToDrive(STUDENT_ID, driveId);
+      await db.applyToDrive(activeStudentId, driveId);
       setAppliedDriveIds((prev) => new Set([...prev, driveId]));
       toast.success("Application submitted successfully!");
       setSelectedDrive(null);
     } catch (err: any) {
-      console.error("Failed to apply", err);
-      toast.error(err.message || "Failed to submit application");
+      console.error("Failed to apply:", err);
+      toast.error(err?.message || err?.details || "Failed to submit application");
     } finally {
       setIsApplying(false);
     }

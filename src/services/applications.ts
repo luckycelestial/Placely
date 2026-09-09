@@ -104,10 +104,25 @@ export async function getStudentApplications(studentId: string) {
 }
 
 export async function applyToDrive(studentId: string, driveId: string) {
+  let targetStudentId = studentId;
+
+  if (!targetStudentId && typeof window !== 'undefined') {
+    targetStudentId = localStorage.getItem('active_student_id') || '';
+  }
+
+  if (!targetStudentId) {
+    const { data: firstStudent } = await supabase.from('students').select('id').limit(1).maybeSingle();
+    if (firstStudent?.id) {
+      targetStudentId = firstStudent.id;
+    } else {
+      throw new Error("Student ID is required to apply. Please select a student profile.");
+    }
+  }
+
   const { data, error } = await supabase
     .from('applications')
     .insert([{
-      student_id: studentId,
+      student_id: targetStudentId,
       drive_id: driveId,
       status: 'Applied',
       current_stage: 'applied',
@@ -115,11 +130,16 @@ export async function applyToDrive(studentId: string, driveId: string) {
     }])
     .select()
     .single();
-  if (error) throw error;
+
+  if (error) {
+    console.error('[applyToDrive Error]', error);
+    throw new Error(error.message || error.details || 'Failed to submit application');
+  }
   return data;
 }
 
 export async function getStudentAppliedDriveIds(studentId: string): Promise<string[]> {
+  if (!studentId || studentId.trim() === '') return [];
   const { data, error } = await supabase
     .from('applications')
     .select('drive_id')

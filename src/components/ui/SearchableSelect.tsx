@@ -100,8 +100,10 @@ export function SearchableSelect({
                     setSearch("");
                   }}
                   className={cn(
-                    "w-full flex items-center justify-between px-2 py-2 text-left text-xs font-medium rounded-lg hover:bg-black/5 transition-colors",
-                    value === option.value && "bg-primary/10 text-primary font-bold hover:bg-primary/15"
+                    "w-full flex items-center justify-between px-3 py-2 text-left text-xs font-bold rounded-lg transition-colors cursor-pointer",
+                    value === option.value 
+                      ? "bg-[#fab82b] text-[#030f26] font-black shadow-xs hover:bg-[#f7a900]" 
+                      : "hover:bg-[#fab82b]/15 hover:text-foreground"
                   )}
                 >
                   <span className="truncate">{option.label}</span>

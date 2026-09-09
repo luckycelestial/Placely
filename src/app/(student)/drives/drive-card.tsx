@@ -124,8 +124,8 @@ export const DriveCard = memo(function DriveCard({
             </div>
           )}
           {!state.isEligible && state.ineligibleReasons && state.ineligibleReasons.length > 0 && (
-            <span className="text-[9px] font-bold text-amber-600 max-w-[120px] text-right leading-tight truncate">
-              {state.ineligibleReasons[0]}
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-600 border border-red-200/60 max-w-[170px] truncate">
+              ⚠️ {state.ineligibleReasons[0]}
             </span>
           )}
         </div>

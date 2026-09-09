@@ -39,11 +39,14 @@ export default function RootLayout({
           __html: `
             (function() {
               try {
-                localStorage.setItem('careerbridge-theme', 'default');
-                localStorage.setItem('careerbridge-design', 'default');
+                var savedDesign = localStorage.getItem('careerbridge-design') || 'default';
                 var html = document.documentElement;
-                html.classList.remove('design-geometric', 'design-hp', 'design-sece', 'theme-modern', 'theme-technical', 'theme-rubik', 'theme-cambria');
-                html.classList.add('theme-default');
+                html.classList.remove('design-geometric', 'design-hp', 'design-sece', 'design-executive', 'theme-modern', 'theme-technical', 'theme-rubik', 'theme-cambria');
+                if (savedDesign === 'executive') {
+                  html.classList.add('design-executive');
+                } else {
+                  html.classList.add('theme-default');
+                }
               } catch (e) {}
             })();
           `

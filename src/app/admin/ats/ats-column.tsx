@@ -107,21 +107,21 @@ export function AtsColumn({
             <div className="relative shrink-0">
               <button
                 onClick={() => onOpenMappingDropdown(openMappingDropdown === stage.id ? null : stage.id)}
-                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-background border border-border-subtle text-[9px] font-bold text-foreground/70 hover:text-foreground hover:border-foreground/30 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-background border border-border-subtle text-[10px] font-bold text-foreground/80 hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer min-h-[32px]"
               >
-                {currentMetaStage}
+                <span className="truncate max-w-[80px]">{currentMetaStage}</span>
                 <svg
-                  width="7"
-                  height="7"
+                  width="8"
+                  height="8"
                   viewBox="0 0 8 8"
                   fill="none"
-                  className={cn("transition-transform", openMappingDropdown === stage.id && "rotate-180")}
+                  className={cn("transition-transform shrink-0", openMappingDropdown === stage.id && "rotate-180")}
                 >
                   <path d="M1.5 3L4 5.5L6.5 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
               {openMappingDropdown === stage.id && (
-                <div className="absolute top-full right-0 mt-1 w-32 bg-surface border border-border-subtle rounded-xl shadow-lg z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="absolute top-full right-0 mt-1 w-36 bg-surface border border-border-subtle rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 p-1">
                   {GLOBAL_META_STAGES.map((m) => (
                     <button
                       key={m.id}
@@ -130,10 +130,10 @@ export function AtsColumn({
                         onOpenMappingDropdown(null);
                       }}
                       className={cn(
-                        "w-full text-left px-3 py-1.5 text-[10px] font-bold transition-colors",
+                        "w-full text-left px-3 py-2 text-[10px] rounded-lg font-bold transition-colors cursor-pointer",
                         (stage.metaStage || getMetaStageId(stage.id)) === m.id
-                          ? "bg-foreground/8 text-foreground font-black"
-                          : "text-foreground/60 hover:text-foreground hover:bg-foreground/5"
+                          ? "bg-primary/10 text-primary font-black"
+                          : "text-foreground/70 hover:text-foreground hover:bg-background"
                       )}
                     >
                       {m.name}
@@ -144,29 +144,29 @@ export function AtsColumn({
             </div>
           )}
 
-          <span className="bg-background px-2 py-0.5 rounded-md text-[10px] font-black text-muted border border-border-subtle shrink-0">
+          <span className="bg-background px-2.5 py-1 rounded-lg text-[10px] font-black text-muted border border-border-subtle shrink-0 min-h-[32px] flex items-center justify-center">
             {stageApps.length}
           </span>
 
           {!isGlobalView && (
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
               <button
                 onClick={() => onMoveColumn(stage.id, "left")}
-                className="p-0.5 hover:bg-background rounded text-muted hover:text-foreground transition-colors"
+                className="p-1.5 hover:bg-background rounded-lg text-muted hover:text-foreground transition-colors cursor-pointer"
                 disabled={stageIndex === 0}
               >
-                <LuChevronLeft size={12} />
+                <LuChevronLeft size={14} />
               </button>
               <button
                 onClick={() => onMoveColumn(stage.id, "right")}
-                className="p-0.5 hover:bg-background rounded text-muted hover:text-foreground transition-colors"
+                className="p-1.5 hover:bg-background rounded-lg text-muted hover:text-foreground transition-colors cursor-pointer"
                 disabled={stageIndex === stages.length - 1}
               >
-                <LuChevronRight size={12} />
+                <LuChevronRight size={14} />
               </button>
               <button
                 onClick={() => onRemoveStage(stage.id)}
-                className="p-0.5 hover:bg-red-500/10 rounded text-muted hover:text-red-500 transition-colors"
+                className="p-1.5 hover:bg-red-500/10 rounded-lg text-muted hover:text-red-500 transition-colors cursor-pointer"
               >
                 <LuTrash2 size={12} />
               </button>

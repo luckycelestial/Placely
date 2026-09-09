@@ -52,11 +52,21 @@ export function AtsCandidateCard({
   return (
     <div
       draggable
+      tabIndex={0}
+      role="article"
+      aria-selected={isSelected}
+      aria-label={`Candidate ${candidate.name}, Roll Number ${candidate.rollNo || candidate.regNo}`}
+      onKeyDown={(e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          onToggleSelect(candidate.id);
+        }
+      }}
       onDragStart={(e) => onDragStart(e, candidate.id)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setShowTooltip(false)}
       className={cn(
-        "group relative flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-surface border transition-all cursor-grab active:cursor-grabbing hover:shadow-md",
+        "group relative flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-surface border transition-all cursor-grab active:cursor-grabbing hover:shadow-md focus:outline-hidden focus:ring-2 focus:ring-primary/40",
         isSelected
           ? "border-primary bg-primary/5 shadow-xs"
           : "border-border-subtle hover:border-primary/40"

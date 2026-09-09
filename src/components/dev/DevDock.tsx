@@ -53,8 +53,24 @@ export function DevDock() {
   const router = useRouter();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const [activeRole, setActiveRole] = useState<"admin" | "student" | "guest">("guest");
   const [activeStudentId, setActiveStudentId] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    
+    // Support optional env flag or keyboard shortcut Ctrl+Shift+D
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        setIsVisible((prev) => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -73,8 +89,8 @@ export function DevDock() {
     }
   }, [pathname]);
 
-  // Only render in local development or dev mode
-  if (process.env.NODE_ENV !== "development" && process.env.NEXT_PUBLIC_APP_ENV !== "local") {
+  // Only render if explicitly toggled via Ctrl+Shift+D or env flag
+  if (!isVisible && process.env.NEXT_PUBLIC_SHOW_DEV_DOCK !== "true") {
     return null;
   }
 

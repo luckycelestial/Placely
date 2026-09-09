@@ -959,7 +959,9 @@ export default function AdminGroupsPage() {
               </>
             )}
           </div>
+        </div>
 
+        <div className="flex items-center gap-3">
           {/* Configure Panel Drawer Button */}
           <button
             onClick={() => setIsConfigDrawerOpen(true)}
@@ -971,17 +973,14 @@ export default function AdminGroupsPage() {
             onExportExcel={handleExportExcel}
             onExportPDF={handleExportPDF}
           />
-        </div>
-
-        {/* Mapped stats */}
-        <div className="flex items-center gap-4 bg-surface border border-border-subtle p-3 rounded-2xl shadow-sm shrink-0">
-          <div className="text-center px-4 border-r border-border-subtle/50">
-            <span className="text-[9px] font-black uppercase tracking-widest text-muted block">Cohort Size</span>
-            <span className="text-lg font-black text-foreground">{memberCount}</span>
-          </div>
-          <div className="text-center px-4">
-            <span className="text-[9px] font-black uppercase tracking-widest text-muted block">Options Count</span>
-            <span className="text-lg font-black text-foreground">{activeGroup?.options.length || 0}</span>
+          {/* Inline Mapped Stats Pills */}
+          <div className="hidden sm:flex items-center gap-2 bg-surface border border-border-subtle px-3 py-1.5 rounded-2xl shadow-xs shrink-0">
+            <span className="text-[10px] font-black uppercase text-foreground bg-primary/10 text-primary px-2.5 py-1 rounded-xl">
+              {memberCount} Members
+            </span>
+            <span className="text-[10px] font-black uppercase text-muted bg-background px-2.5 py-1 rounded-xl border border-border-subtle">
+              {activeGroup?.options.length || 0} Options
+            </span>
           </div>
         </div>
       </div>
@@ -1021,16 +1020,22 @@ export default function AdminGroupsPage() {
                       key={option}
                       onClick={() => setSelectedOptionFilter(option)}
                       className={cn(
-                        "flex items-center gap-2.5 px-4.5 py-2 rounded-xl border text-xs font-bold transition-all shadow-sm cursor-pointer",
+                        "flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs cursor-pointer",
                         isSelected
-                          ? "bg-primary/[0.04] border-primary text-primary shadow-tactile scale-[1.01]"
-                          : "bg-background text-muted border-border-subtle hover:border-primary/30"
+                          ? "bg-primary/10 border-primary text-primary font-black scale-[1.02]"
+                          : count > 0
+                          ? "bg-background text-foreground border-border-subtle hover:border-primary/40"
+                          : "bg-background/40 text-muted/60 border-border-subtle/60 hover:opacity-100 hover:text-foreground opacity-65"
                       )}
                     >
                       <span>{option}</span>
                       <span className={cn(
                         "text-[9px] font-black px-1.5 py-0.2 rounded-md",
-                        isSelected ? "bg-primary/10 text-primary" : "bg-muted/10 text-muted"
+                        isSelected
+                          ? "bg-primary text-white"
+                          : count > 0
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted/10 text-muted/70"
                       )}>
                         {count}
                       </span>
@@ -1279,9 +1284,10 @@ export default function AdminGroupsPage() {
                                     assignOptionToStudent(s.id, activeGroup, "", 'remove');
                                   }
                                 }}
-                                className="text-[10px] font-black uppercase text-red-500 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-200/60 bg-red-50/60 hover:bg-red-100 text-red-600 text-[10px] font-bold uppercase transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                               >
-                                Unassign
+                                <LuTrash2 size={11} />
+                                <span>Unassign</span>
                               </button>
                             </td>
                           </tr>

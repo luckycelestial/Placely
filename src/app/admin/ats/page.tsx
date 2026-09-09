@@ -592,7 +592,35 @@ function ATSTrackerContent() {
 
       {/* Kanban board */}
       <div className="flex-1 overflow-x-auto pb-4 no-scrollbar">
-        <div className="flex gap-4 h-full min-w-max">
+        {filteredApps.length === 0 && !loading ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="py-12 px-8 text-center max-w-md bg-surface border border-border-subtle rounded-3xl shadow-sm space-y-4 my-auto">
+              <div className="h-14 w-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                <LuSearch size={24} />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-bold text-base text-foreground">No Candidates Found</h4>
+                <p className="text-xs text-muted">
+                  No candidate applications match your current search or filter criteria.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setSearch("");
+                  setActiveBatch("All Batches");
+                  setActiveDept("All Departments");
+                  setStartDate("");
+                  setEndDate("");
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors cursor-pointer"
+              >
+                <LuRotateCcw size={14} />
+                Reset Search & Filters
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-4 h-full min-w-max">
           {stages.map((stage) => (
             <AtsColumn
               key={stage.id}
@@ -633,6 +661,7 @@ function ATSTrackerContent() {
             </div>
           )}
         </div>
+      )}
       </div>
 
       {/* Modals */}
