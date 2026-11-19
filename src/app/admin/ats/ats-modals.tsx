@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { LuX } from "react-icons/lu";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { Stage } from "./types";
@@ -13,10 +14,26 @@ interface AddStageModalProps {
 }
 
 export function AddStageModal({ newStageName, onNameChange, onAdd, onClose }: AddStageModalProps) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card w-full max-w-md rounded-3xl border border-border-subtle p-6 shadow-2xl">
-        <h3 className="text-xl font-black mb-4">Add New Stage</h3>
+    <div 
+      className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-stage-title"
+        className="bg-card w-full max-w-md rounded-3xl border border-border-subtle p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+      >
+        <h3 id="add-stage-title" className="text-xl font-black mb-4">Add New Stage</h3>
         <p className="text-sm text-muted mb-6">Create a new column in your ATS pipeline.</p>
 
         <div className="space-y-4">
@@ -33,7 +50,6 @@ export function AddStageModal({ newStageName, onNameChange, onAdd, onClose }: Ad
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter") onAdd();
-                if (e.key === "Escape") onClose();
               }}
             />
           </div>
@@ -66,10 +82,26 @@ interface RemoveStageModalProps {
 }
 
 export function RemoveStageModal({ onConfirm, onClose }: RemoveStageModalProps) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card w-full max-w-sm rounded-3xl border border-border-subtle p-6 shadow-2xl">
-        <h3 className="text-xl font-black mb-2">Remove Stage?</h3>
+    <div 
+      className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="remove-stage-title"
+        className="bg-card w-full max-w-sm rounded-3xl border border-border-subtle p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+      >
+        <h3 id="remove-stage-title" className="text-xl font-black mb-2">Remove Stage?</h3>
         <p className="text-sm text-muted mb-6">
           Are you sure you want to remove this stage column? Any students currently in this stage will
           not be deleted, but the column will be hidden.
@@ -114,12 +146,32 @@ export function MoveSelectedModal({
   onConfirm,
   onClose,
 }: MoveSelectedModalProps) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-surface w-full max-w-sm p-6 rounded-3xl border border-border-subtle shadow-xl">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="move-candidates-title"
+        className="bg-surface w-full max-w-sm p-6 rounded-3xl border border-border-subtle shadow-xl animate-in zoom-in-95 duration-200"
+      >
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-black">Move {count} Candidates</h2>
-          <button onClick={onClose} className="text-muted hover:text-foreground">
+          <h2 id="move-candidates-title" className="text-lg font-black">Move {count} Candidates</h2>
+          <button 
+            onClick={onClose} 
+            aria-label="Close dialog"
+            className="text-muted hover:text-foreground p-1 rounded-lg transition-colors"
+          >
             <LuX size={20} />
           </button>
         </div>
@@ -137,7 +189,7 @@ export function MoveSelectedModal({
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className="w-full mt-4 bg-primary text-primary-foreground font-black py-3 rounded-xl hover:bg-primary/90 transition-colors"
+            className="w-full mt-4 bg-primary text-primary-foreground font-black py-3 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {isLoading ? "Moving..." : "Confirm Move"}
           </button>

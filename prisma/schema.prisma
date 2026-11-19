@@ -61,6 +61,7 @@ model Student {
   documents    StudentDocument[]
   applications Application[]
   offers       Offer[]
+  projects     StudentProject[]
 
   @@index([department, year, placementStatus])
   @@index([cgpa])
@@ -154,7 +155,7 @@ model JobDrive {
   title            String
   roleTitle        String    @map("role_title")
   driveType        String    @map("drive_type")
-  packageCtc       Decimal   @map("package_ctc") @db.Decimal(6, 2)
+  packageCtc       String?   @map("package_ctc")
   location         String?
   jobDescription   String?   @map("job_description")
   eligibilityRules Json?     @map("eligibility_rules")
@@ -172,6 +173,7 @@ model JobDrive {
   rounds       DriveRound[]
   applications Application[]
   offers       Offer[]
+  events       Event[]
 
   @@map("job_drives")
 }
@@ -224,6 +226,9 @@ model Application {
   timeline ApplicationTimeline[]
   results  DriveRoundResult[]
 
+  @@unique([studentId, driveId])
+  @@index([studentId])
+  @@index([driveId])
   @@map("applications")
 }
 
@@ -261,65 +266,63 @@ model Offer {
   updatedAt          DateTime  @updatedAt @map("updated_at")
   deletedAt          DateTime? @map("deleted_at")
 
+  @@index([studentId])
+  @@index([driveId])
+  @@index([companyId])
   @@map("offers")
 }
 
 model Notice {
-  id        String    @id @default(uuid()) @db.Uuid
-  title     String
-  body      String
-  audience  String?
-  priority  String    @default("normal")
-  status    String    @default("draft")
-  pinned    Boolean   @default(false)
-  publishAt DateTime? @map("publish_at")
-  createdBy String?   @map("created_by")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id               String   @id @default(uuid()) @db.Uuid
+  title            String
+  content          String
+  targetDepartment String?  @map("target_department")
+  targetYear       Int?     @map("target_year")
+  isPinned         Boolean? @default(false) @map("is_pinned")
+  authorAdminId    String?  @map("author_admin_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("notices")
 }
 
 model Event {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
   title       String
   description String?
-  eventDate   DateTime @map("event_date") @db.Date
-  startTime   String?  @map("start_time")
-  endTime     String?  @map("end_time")
-  audience    String?
-  status      String   @default("scheduled")
-  createdBy   String?  @map("created_by")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  eventType   String    @map("event_type")
+  startAt     DateTime  @map("start_at")
+  endAt       DateTime? @map("end_at")
+  location    String?
+  driveId     String?   @map("drive_id") @db.Uuid
+  drive       JobDrive? @relation(fields: [driveId], references: [id])
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   @@map("events")
 }
 
 model Notification {
-  id                 String   @id @default(uuid()) @db.Uuid
-  userId             String   @map("user_id") @db.Uuid
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title              String
-  message            String
-  notificationType   String?  @map("notification_type")
-  priority           String   @default("normal")
-  isRead             Boolean  @default(false) @map("is_read")
-  relatedEntityType String?  @map("related_entity_type")
-  relatedEntityId   String?  @map("related_entity_id")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("info")
+  isRead    Boolean  @default(false) @map("is_read")
+  link      String?
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@map("notifications")
 }
 
 model AnalyticsSnapshot {
-  id           String   @id @default(uuid()) @db.Uuid
-  snapshotType String   @map("snapshot_type")
-  snapshotDate DateTime @map("snapshot_date") @db.Date
-  payloadJson  Json?    @map("payload_json")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid()) @db.Uuid
+  snapshotDate    DateTime @default(now()) @map("snapshot_date") @db.Date
+  department      String?
+  metricName      String   @map("metric_name")
+  metricValueJson Json     @map("metric_value_json")
+  createdAt       DateTime @default(now()) @map("created_at")
 
   @@map("analytics_snapshots")
 }
@@ -361,4 +364,56 @@ model DriveTemplate {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("drive_templates")
+}
+
+model StudentProject {
+  id          String   @id @default(uuid()) @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  githubUrl   String?  @map("github_url")
+  liveUrl     String?  @map("live_url")
+  skills      Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("student_projects")
+}
+
+model AdminTask {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  count     Int      @default(0)
+  isActive  Boolean  @default(true) @map("is_active")
+  link      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_tasks")
+}
+
+model NoticeRsvp {
+  id          String   @id @default(uuid()) @db.Uuid
+  noticeId    String   @map("notice_id")
+  studentId   String?  @map("student_id") @db.Uuid
+  studentName String   @map("student_name")
+  rollNumber  String   @map("roll_number")
+  branch      String
+  status      String   @default("going")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("notice_rsvps")
+}
+
+model PlacementHistory {
+  id          String   @id @default(uuid()) @db.Uuid
+  year        Int
+  deptName    String   @map("dept_name")
+  companyName String   @map("company_name")
+  hires       Int      @default(0)
+  avgCtc      Decimal? @default(0.00) @map("avg_ctc") @db.Decimal(6, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("placement_history")
 }

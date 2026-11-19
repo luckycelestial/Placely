@@ -1,4 +1,25 @@
 import * as XLSX from "xlsx";
+import { supabase } from "@/lib/supabase";
+
+async function logExportAction(format: 'excel' | 'pdf', filename: string, rowCount: number) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      action: 'EXPORT_DATA',
+      resource: 'reports',
+      resource_id: filename,
+      actor_user_id: user?.id || null,
+      details: {
+        format,
+        filename,
+        rowCount,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch {
+    // Non-blocking: export should proceed even if analytics/audit write fails
+  }
+}
 
 export function exportToExcel(data: any[], filename: string, sheetName: string = "Sheet1") {
   const worksheet = XLSX.utils.json_to_sheet(data);
@@ -58,7 +79,11 @@ export function exportToExcel(data: any[], filename: string, sheetName: string =
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-  XLSX.writeFile(workbook, filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`);
+  const finalFilename = filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`;
+  XLSX.writeFile(workbook, finalFilename);
+
+  // Trigger non-blocking audit log
+  logExportAction('excel', finalFilename, data.length);
 }
 
 // Helper to map column index (1-based) to Excel letter notation
@@ -109,8 +134,12 @@ export async function exportToPDF(title: string, headers: string[], rows: any[][
   // Footer
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  doc.text("CareerBridge Placement Portal", 14, pageHeight - 10);
+  doc.text("Placely Career Portal", 14, pageHeight - 10);
   doc.text(`Page ${doc.internal.pages.length - 1}`, pageWidth - 14, pageHeight - 10, { align: "right" });
 
-  doc.save(filename.endsWith(".pdf") ? filename : `${filename}.pdf`);
+  const finalFilename = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+  doc.save(finalFilename);
+
+  // Trigger non-blocking audit log
+  logExportAction('pdf', finalFilename, rows.length);
 }

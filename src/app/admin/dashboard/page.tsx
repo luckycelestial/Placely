@@ -90,7 +90,7 @@ export default function AdminDashboardPage() {
         db.getDistinctBatches(),
         supabase.from('admin_tasks').select('id, title, count').eq('is_active', true).order('created_at')
       ]);
-      setAdminTasks(tasksResult.data || []);
+      setAdminTasks(tasksResult?.data || []);
 
       // Update batch options dynamically (sorted descending: newest first)
       setBatchOptions(distinctBatches);

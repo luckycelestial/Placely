@@ -203,156 +203,178 @@ export async function flagStudent(studentId: string, reason: string) {
   }
 
 export async function updateStudentProfile(studentId: string, profileData: any) {
-    // 0. Update users table if name/email are in profileData
-    const { data: studentRecord } = await supabase
-      .from('students')
-      .select('user_id')
-      .eq('id', studentId)
-      .single();
+  // 0. Update users table if name/email are in profileData
+  const { data: studentRecord } = await supabase
+    .from('students')
+    .select('user_id')
+    .eq('id', studentId)
+    .single();
 
-    const userUpdates: any = {};
-    if (profileData.name) userUpdates.name = profileData.name;
-    if (profileData.email || profileData.college_email) {
-      userUpdates.email = String(profileData.email || profileData.college_email).trim().toLowerCase();
-    }
-    if (Object.keys(userUpdates).length > 0 && studentRecord?.user_id) {
-      const { error: userError } = await supabase
-        .from('users')
-        .update(userUpdates)
-        .eq('id', studentRecord.user_id);
-      if (userError) throw userError;
-    }
+  const userUpdates: any = {};
+  if (profileData.name) userUpdates.name = profileData.name;
+  if (profileData.email || profileData.college_email) {
+    userUpdates.email = String(profileData.email || profileData.college_email).trim().toLowerCase();
+  }
+  if (Object.keys(userUpdates).length > 0 && studentRecord?.user_id) {
+    const { error: userError } = await supabase
+      .from('users')
+      .update(userUpdates)
+      .eq('id', studentRecord.user_id);
+    if (userError) throw userError;
+  }
 
-    // Update students table
-    const studentUpdates: any = {};
-    if (profileData.name) {
-      studentUpdates.name = profileData.name;
-    }
-    if (profileData.department || profileData.dept) {
-      studentUpdates.department = profileData.department || profileData.dept;
-    }
-    if (profileData.year) studentUpdates.year = parseInt(profileData.year);
-    if (profileData.gender) studentUpdates.gender = profileData.gender;
-    if (profileData.date_of_birth !== undefined || profileData.dob !== undefined) {
-      studentUpdates.date_of_birth = profileData.date_of_birth !== undefined ? profileData.date_of_birth : profileData.dob;
-      if (studentUpdates.date_of_birth === '') studentUpdates.date_of_birth = null;
-    }
-    if (profileData.roll_number !== undefined || profileData.rollNo !== undefined) {
-      studentUpdates.roll_number = profileData.roll_number !== undefined ? profileData.roll_number : profileData.rollNo;
-    }
-    if (profileData.register_number || profileData.regNo) {
-      studentUpdates.register_number = profileData.register_number || profileData.regNo;
-    }
+  // 1. Update students table (identity, academics, contacts)
+  const studentUpdates: any = {};
+  if (profileData.name) studentUpdates.name = profileData.name;
+  if (profileData.department || profileData.dept) {
+    studentUpdates.department = profileData.department || profileData.dept;
+  }
+  if (profileData.year) studentUpdates.year = parseInt(profileData.year);
+  if (profileData.gender) studentUpdates.gender = profileData.gender;
+  if (profileData.date_of_birth !== undefined || profileData.dob !== undefined) {
+    studentUpdates.date_of_birth = profileData.date_of_birth !== undefined ? profileData.date_of_birth : profileData.dob;
+    if (studentUpdates.date_of_birth === '') studentUpdates.date_of_birth = null;
+  }
+  if (profileData.roll_number !== undefined || profileData.rollNo !== undefined) {
+    studentUpdates.roll_number = profileData.roll_number !== undefined ? profileData.roll_number : profileData.rollNo;
+  }
+  if (profileData.register_number || profileData.regNo) {
+    studentUpdates.register_number = profileData.register_number || profileData.regNo;
+  }
 
-    if (Object.keys(studentUpdates).length > 0) {
-      const { error: studentError } = await supabase
-        .from('students')
-        .update({ ...studentUpdates, updated_at: new Date().toISOString() })
-        .eq('id', studentId);
-      if (studentError) throw studentError;
-    }
-
-    // Update academics with auto-aggregate CGPA
-    const academicUpdates: any = {};
-    if (profileData.cgpa !== undefined) academicUpdates.cgpa = parseFloat(profileData.cgpa);
-    if (profileData.tenth_score !== undefined) academicUpdates.tenth_score = parseFloat(profileData.tenth_score) || null;
-    if (profileData.twelfth_score !== undefined) academicUpdates.twelfth_score = parseFloat(profileData.twelfth_score) || null;
-    if (profileData.diploma_score !== undefined) academicUpdates.diploma_score = profileData.diploma_score ? parseFloat(profileData.diploma_score) : null;
-    if (profileData.active_arrears !== undefined) academicUpdates.active_arrears = parseInt(profileData.active_arrears) || 0;
-    if (profileData.history_of_arrears !== undefined) academicUpdates.history_of_arrears = Boolean(profileData.history_of_arrears);
-    if (profileData.semester_cgpa !== undefined) {
-      academicUpdates.semester_cgpa = profileData.semester_cgpa;
-      // Auto-compute aggregate CGPA from semesters
+  // Academics
+  if (profileData.cgpa !== undefined) studentUpdates.cgpa = parseFloat(profileData.cgpa);
+  if (profileData.tenth_score !== undefined) studentUpdates.tenth_score = parseFloat(profileData.tenth_score) || null;
+  if (profileData.twelfth_score !== undefined) studentUpdates.twelfth_score = parseFloat(profileData.twelfth_score) || null;
+  if (profileData.diploma_score !== undefined) studentUpdates.diploma_score = profileData.diploma_score ? parseFloat(profileData.diploma_score) : null;
+  if (profileData.active_arrears !== undefined) studentUpdates.active_arrears = parseInt(profileData.active_arrears) || 0;
+  if (profileData.history_of_arrears !== undefined || profileData.history_of_backlogs !== undefined) {
+    studentUpdates.history_of_backlogs = Boolean(profileData.history_of_arrears ?? profileData.history_of_backlogs);
+  }
+  if (profileData.semester_cgpa !== undefined) {
+    studentUpdates.semester_cgpa = profileData.semester_cgpa;
+    if (profileData.cgpa === undefined) {
       const vals = Object.values(profileData.semester_cgpa as Record<string, number>)
         .map(Number).filter(v => !isNaN(v) && v > 0);
       if (vals.length > 0) {
-        academicUpdates.cgpa = parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2));
+        studentUpdates.cgpa = parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2));
       }
     }
-
-    if (Object.keys(academicUpdates).length > 0) {
-      const { data: eA } = await supabase.from('student_academics').select('id').eq('student_id', studentId).single();
-      if (eA) {
-        const { error: academicError } = await supabase.from('student_academics').update({ ...academicUpdates, updated_at: new Date().toISOString() }).eq('id', eA.id);
-        if (academicError) throw academicError;
-      } else {
-        const { error: academicError } = await supabase.from('student_academics').insert([{ student_id: studentId, ...academicUpdates, updated_at: new Date().toISOString() }]);
-        if (academicError) throw academicError;
-      }
-    }
-
-    // Update profile (leetcode, specializations, links)
-    const profileUpdates: any = {};
-    if (profileData.leetcode !== undefined) profileUpdates.leetcode_count = parseInt(profileData.leetcode) || 0;
-    if (profileData.specializations !== undefined) profileUpdates.specializations = profileData.specializations;
-    if (profileData.linkedin_url !== undefined) profileUpdates.linkedin_url = profileData.linkedin_url;
-    if (profileData.github_url !== undefined) profileUpdates.github_url = profileData.github_url;
-    if (profileData.portfolio_url !== undefined) profileUpdates.portfolio_url = profileData.portfolio_url;
-    if (profileData.notes !== undefined) profileUpdates.notes = profileData.notes;
-
-    if (Object.keys(profileUpdates).length > 0) {
-      const { data: eP } = await supabase.from('student_profiles').select('id').eq('student_id', studentId).single();
-      if (eP) {
-        const { error: profileError } = await supabase.from('student_profiles').update({ ...profileUpdates }).eq('id', eP.id);
-        if (profileError) throw profileError;
-      } else {
-        const { error: profileError } = await supabase.from('student_profiles').insert([{ student_id: studentId, ...profileUpdates }]);
-        if (profileError) throw profileError;
-      }
-    }
-
-    // Update contacts (address)
-    const contactUpdates: any = {};
-    if (profileData.address !== undefined) contactUpdates.address = profileData.address;
-    if (profileData.permanent_address !== undefined) contactUpdates.permanent_address = profileData.permanent_address;
-    if (profileData.city !== undefined) contactUpdates.city = profileData.city;
-    if (profileData.state !== undefined) contactUpdates.state = profileData.state;
-    if (profileData.pincode !== undefined) contactUpdates.pincode = profileData.pincode;
-    if (profileData.email !== undefined || profileData.college_email !== undefined) {
-      contactUpdates.college_email = profileData.email !== undefined ? profileData.email : profileData.college_email;
-    }
-    if (profileData.personal_email !== undefined || profileData.personalEmail !== undefined) {
-      contactUpdates.personal_email = profileData.personal_email !== undefined ? profileData.personal_email : profileData.personalEmail;
-    }
-
-    if (Object.keys(contactUpdates).length > 0) {
-      const { data: eC } = await supabase.from('student_contacts').select('id').eq('student_id', studentId).single();
-      if (eC) {
-        const { error: contactError } = await supabase.from('student_contacts').update({ ...contactUpdates, updated_at: new Date().toISOString() }).eq('id', eC.id);
-        if (contactError) throw contactError;
-      } else {
-        const { error: contactError } = await supabase.from('student_contacts').insert([{ student_id: studentId, ...contactUpdates, updated_at: new Date().toISOString() }]);
-        if (contactError) throw contactError;
-      }
-    }
-
-    // Update preferences (placement interest, roles, locations)
-    const preferenceUpdates: any = {};
-    if (profileData.placement_interest !== undefined) preferenceUpdates.placement_interest = profileData.placement_interest;
-    if (profileData.preferred_roles !== undefined) preferenceUpdates.preferred_roles = profileData.preferred_roles;
-    if (profileData.preferred_locations !== undefined) preferenceUpdates.preferred_locations = profileData.preferred_locations;
-    if (profileData.placement_group !== undefined) preferenceUpdates.work_mode_preference = profileData.placement_group;
-
-    if (Object.keys(preferenceUpdates).length > 0) {
-      const { data: ePref } = await supabase.from('student_preferences').select('id').eq('student_id', studentId).single();
-      if (ePref) {
-        const { error: prefError } = await supabase.from('student_preferences').update({ ...preferenceUpdates, updated_at: new Date().toISOString() }).eq('id', ePref.id);
-        if (prefError) throw prefError;
-      } else {
-        const { error: prefError } = await supabase.from('student_preferences').insert([{ student_id: studentId, ...preferenceUpdates, updated_at: new Date().toISOString() }]);
-        if (prefError) throw prefError;
-      }
-    }
-
-    return { success: true };
   }
+
+  // Contacts
+  if (profileData.address !== undefined) studentUpdates.address = profileData.address;
+  if (profileData.permanent_address !== undefined) studentUpdates.permanent_address = profileData.permanent_address;
+  if (profileData.city !== undefined) studentUpdates.city = profileData.city;
+  if (profileData.state !== undefined) studentUpdates.state = profileData.state;
+  if (profileData.pincode !== undefined) studentUpdates.pincode = profileData.pincode;
+  if (profileData.college_email !== undefined || profileData.email !== undefined) {
+    studentUpdates.college_email = profileData.college_email || profileData.email;
+  }
+  if (profileData.personal_email !== undefined || profileData.personalEmail !== undefined) {
+    studentUpdates.personal_email = profileData.personal_email || profileData.personalEmail;
+  }
+  if (profileData.phone !== undefined) studentUpdates.phone = profileData.phone;
+
+  if (Object.keys(studentUpdates).length > 0) {
+    const { error: studentError } = await supabase
+      .from('students')
+      .update({ ...studentUpdates, updated_at: new Date().toISOString() })
+      .eq('id', studentId);
+    if (studentError) throw studentError;
+  }
+
+  // 2. Update student_profiles table (leetcode, specializations, links, preferences)
+  const profileUpdates: any = {};
+  if (profileData.leetcode !== undefined || profileData.leetcode_count !== undefined) {
+    profileUpdates.leetcode_count = parseInt(profileData.leetcode ?? profileData.leetcode_count) || 0;
+  }
+  if (profileData.specializations !== undefined) {
+    let specs = profileData.specializations;
+    if (typeof specs === 'string') {
+      try { specs = JSON.parse(specs); } catch (e) { specs = specs.split(',').map((s: string) => s.trim()).filter(Boolean); }
+    }
+    profileUpdates.specializations = specs;
+  }
+  if (profileData.linkedin_url !== undefined) profileUpdates.linkedin_url = profileData.linkedin_url;
+  if (profileData.github_url !== undefined) profileUpdates.github_url = profileData.github_url;
+  if (profileData.portfolio_url !== undefined) profileUpdates.portfolio_url = profileData.portfolio_url;
+  if (profileData.resume_url !== undefined) profileUpdates.resume_url = profileData.resume_url;
+  if (profileData.notes !== undefined) profileUpdates.notes = profileData.notes;
+  if (profileData.placement_interest !== undefined) profileUpdates.placement_interest = profileData.placement_interest;
+  if (profileData.preferred_roles !== undefined) profileUpdates.preferred_roles = profileData.preferred_roles;
+  if (profileData.preferred_locations !== undefined) profileUpdates.preferred_locations = profileData.preferred_locations;
+  if (profileData.placement_group !== undefined || profileData.work_mode_preference !== undefined) {
+    profileUpdates.work_mode_preference = profileData.placement_group ?? profileData.work_mode_preference;
+  }
+
+  if (Object.keys(profileUpdates).length > 0) {
+    const { data: eP } = await supabase
+      .from('student_profiles')
+      .select('id')
+      .eq('student_id', studentId)
+      .maybeSingle();
+
+    if (eP?.id) {
+      const { error: profileError } = await supabase
+        .from('student_profiles')
+        .update({ ...profileUpdates, updated_at: new Date().toISOString() })
+        .eq('id', eP.id);
+      if (profileError) throw profileError;
+    } else {
+      const { error: profileError } = await supabase
+        .from('student_profiles')
+        .insert([{ student_id: studentId, ...profileUpdates, updated_at: new Date().toISOString() }]);
+      if (profileError) throw profileError;
+    }
+  }
+
+  return { success: true };
+}
 
 export async function updateProfilePicture(userId: string, avatarUrl: string) {
-    const { error } = await supabase
-      .from('users')
-      .update({ avatar_url: avatarUrl })
-      .eq('id', userId);
-    
-    if (error) throw error;
-    return { id: userId, avatar_url: avatarUrl };
+  const { error } = await supabase
+    .from('users')
+    .update({ avatar_url: avatarUrl })
+    .eq('id', userId);
+  
+  if (error) throw error;
+  return { id: userId, avatar_url: avatarUrl };
+}
+
+export async function uploadAvatar(userId: string, file: File | Blob): Promise<string> {
+  try {
+    const fileExt = (file as File).name ? (file as File).name.split('.').pop() : 'png';
+    const filePath = `avatars/${userId}-${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true });
+
+    if (!uploadError) {
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      if (data?.publicUrl) {
+        await updateProfilePicture(userId, data.publicUrl);
+        return data.publicUrl;
+      }
+    }
+  } catch (e) {
+    console.warn("Storage upload failed, falling back to direct URL:", e);
   }
+
+  // Fallback: read as base64 if storage is unconfigured
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const base64 = reader.result as string;
+        await updateProfilePicture(userId, base64);
+        resolve(base64);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}

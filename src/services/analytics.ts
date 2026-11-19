@@ -323,7 +323,6 @@ export async function generateStudentReport(studentId: string) {
     .select(`
       *,
       users (name, email),
-      student_academics (*),
       student_profiles (*)
     `)
     .eq('id', studentId)

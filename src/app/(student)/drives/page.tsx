@@ -65,18 +65,14 @@ export default function JobDrivesPage() {
 
   // ---------- Derived student info ----------
   const getStudentInfo = useCallback((): StudentInfo => {
-    const acadRecord = Array.isArray(studentProfile?.student_academics)
-      ? studentProfile?.student_academics[0]
-      : studentProfile?.student_academics;
-    const acad: StudentAcademicRecord = acadRecord || {};
+    const cgpaVal = studentProfile?.cgpa ?? DUMMY_STUDENT.cgpa;
+    const backlogsVal = studentProfile?.active_arrears ?? DUMMY_STUDENT.backlogs;
+    const historyVal = studentProfile?.history_of_backlogs ?? DUMMY_STUDENT.history_of_arrears;
     return {
       branch: studentProfile?.department || DUMMY_STUDENT.branch,
-      cgpa: parseFloat(String(acad.cgpa || DUMMY_STUDENT.cgpa)),
-      backlogs: acad.active_arrears !== undefined ? acad.active_arrears : DUMMY_STUDENT.backlogs,
-      history_of_arrears:
-        acad.history_of_arrears !== undefined
-          ? acad.history_of_arrears
-          : DUMMY_STUDENT.history_of_arrears,
+      cgpa: parseFloat(String(cgpaVal)),
+      backlogs: Number(backlogsVal),
+      history_of_arrears: Boolean(historyVal),
       isPlacementLocked,
     };
   }, [studentProfile, isPlacementLocked]);
@@ -92,11 +88,11 @@ export default function JobDrivesPage() {
 
       setStudentProfile(profile);
 
-      // Resolve placement lock from student_preferences.work_mode_preference
+      // Resolve placement lock from student_profiles.work_mode_preference
       let locked = false;
       try {
-        const rawPref = (profile?.student_preferences as any)?.[0]?.work_mode_preference
-          || (profile?.student_preferences as any)?.work_mode_preference
+        const rawPref = (profile?.student_profiles as any)?.[0]?.work_mode_preference
+          || (profile?.student_profiles as any)?.work_mode_preference
           || '';
         if (typeof rawPref === 'string' && rawPref.trim().startsWith('{')) {
           const map = JSON.parse(rawPref);
@@ -105,17 +101,14 @@ export default function JobDrivesPage() {
       } catch (e) { /* ignore parse errors */ }
       setIsPlacementLocked(locked);
 
-      const acad =
-        (profile?.student_academics as any)?.[0] || profile?.student_academics || {};
+      const cgpaVal = profile?.cgpa ?? DUMMY_STUDENT.cgpa;
+      const backlogsVal = profile?.active_arrears ?? DUMMY_STUDENT.backlogs;
+      const historyVal = profile?.history_of_backlogs ?? DUMMY_STUDENT.history_of_arrears;
       const studentInfo: StudentInfo = {
         branch: profile?.department || DUMMY_STUDENT.branch,
-        cgpa: parseFloat(acad.cgpa || String(DUMMY_STUDENT.cgpa)),
-        backlogs:
-          acad.active_arrears !== undefined ? acad.active_arrears : DUMMY_STUDENT.backlogs,
-        history_of_arrears:
-          acad.history_of_arrears !== undefined
-            ? acad.history_of_arrears
-            : DUMMY_STUDENT.history_of_arrears,
+        cgpa: parseFloat(String(cgpaVal)),
+        backlogs: Number(backlogsVal),
+        history_of_arrears: Boolean(historyVal),
         isPlacementLocked: locked,
         registerNumber: profile?.register_number || '',
         id: STUDENT_ID,

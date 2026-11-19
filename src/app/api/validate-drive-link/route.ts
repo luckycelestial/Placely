@@ -18,20 +18,26 @@ export async function GET(request: NextRequest) {
   }
 
   const allowedHosts = ['drive.google.com', 'docs.google.com'];
-  const isGoogleDrive = allowedHosts.includes(parsedUrl.hostname.toLowerCase()) && 
-                        (parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:');
+  const hostname = parsedUrl.hostname.toLowerCase();
+  const isGoogleDrive = allowedHosts.includes(hostname) && parsedUrl.protocol === 'https:';
 
   if (!isGoogleDrive) {
-    return Response.json({ valid: false, error: 'Must be a Google Drive or Google Docs link' });
+    return Response.json({ valid: false, error: 'Must be an HTTPS Google Drive or Google Docs link' });
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     const res = await fetch(cleanUrl, { 
       headers: { 
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' 
       },
+      redirect: 'manual',
+      signal: controller.signal,
       next: { revalidate: 0 }
     });
+    clearTimeout(timeoutId);
 
     if (res.status >= 400) {
       return Response.json({ valid: false, error: 'Link returned an error. Please verify the URL.' });

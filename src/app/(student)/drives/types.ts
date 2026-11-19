@@ -55,6 +55,10 @@ export interface StudentProfileRecord {
   department?: string;
   register_number?: string;
   roll_number?: string;
+  cgpa?: string | number | null;
+  active_arrears?: number | null;
+  history_of_backlogs?: boolean | null;
+  student_profiles?: any;
   student_academics?: StudentAcademicRecord | StudentAcademicRecord[];
   student_preferences?: StudentPreference | StudentPreference[];
 }

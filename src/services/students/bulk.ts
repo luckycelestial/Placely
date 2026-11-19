@@ -66,6 +66,16 @@ export async function bulkCreateStudents(studentsData: any[]) {
       dbYear = referenceYear + 4 - dbYear;
     }
 
+    const semObj = s.semester_cgpa || {};
+    const semVals = Object.values(semObj).map(Number).filter((v: number) => !isNaN(v) && v > 0);
+    const aggregateCgpa = semVals.length > 0
+      ? parseFloat((semVals.reduce((a: number, b: number) => a + b, 0) / semVals.length).toFixed(2))
+      : s.cgpa ? parseFloat(s.cgpa) : null;
+
+    const historyRaw = String(s.history_of_arrears || s.history_of_backlogs || s.historyOfBacklogs || '').toLowerCase();
+    const historyVal = ['true', '1', 'yes'].includes(historyRaw) ? true : false;
+    const activeArrears = s.active_arrears !== undefined ? parseInt(s.active_arrears) : (s.backlog_count ? parseInt(s.backlog_count) : 0);
+
     return {
       user_id: userId,
       name: s.name,
@@ -76,9 +86,22 @@ export async function bulkCreateStudents(studentsData: any[]) {
       department: s.department || s.dept,
       year: dbYear,
       section: s.section || null,
-      placement_status: 'not_placed',
-      profile_completion: 0,
-      verification_status: 'verified'
+      placement_status: 'unplaced',
+      college_email: s.email || s.college_email || null,
+      personal_email: s.personal_email || s.personalEmail || null,
+      phone: s.phone || null,
+      address: s.address || null,
+      permanent_address: s.permanent_address || null,
+      city: s.city || null,
+      state: s.state || null,
+      pincode: s.pincode || null,
+      cgpa: aggregateCgpa,
+      tenth_score: s.tenth_score ? parseFloat(s.tenth_score) : null,
+      twelfth_score: s.twelfth_score ? parseFloat(s.twelfth_score) : null,
+      diploma_score: s.diploma_score ? parseFloat(s.diploma_score) : null,
+      active_arrears: isNaN(activeArrears) ? 0 : activeArrears,
+      history_of_backlogs: historyVal || (activeArrears > 0),
+      semester_cgpa: semObj && Object.keys(semObj).length > 0 ? semObj : null
     };
   }).filter(s => s.user_id); // Ensure we have user_id mapped
 
@@ -95,41 +118,13 @@ export async function bulkCreateStudents(studentsData: any[]) {
   const studentMap = new Map<string, string>();
   (createdStudents || []).forEach(s => studentMap.set(s.register_number, s.id));
 
-  // Batch insert contacts
-  const contactsPayload = processedStudents.map(s => {
-    const regNo = s.register_number || s.regNo;
-    const studentId = studentMap.get(regNo);
-    if (!studentId) return null;
-
-    return {
-      student_id: studentId,
-      college_email: s.email || s.college_email || null,
-      personal_email: s.personal_email || s.personalEmail || null,
-      phone: s.phone || null,
-      address: s.address || null,
-      permanent_address: s.permanent_address || null,
-      city: s.city || null,
-      state: s.state || null,
-      pincode: s.pincode || null,
-      updated_at: new Date().toISOString()
-    };
-  }).filter(Boolean);
-
-  if (contactsPayload.length > 0) {
-    const { error: contactsError } = await supabase
-      .from('student_contacts')
-      .insert(contactsPayload);
-    
-    if (contactsError) throw contactsError;
-  }
-
   // Batch insert profiles
   const profilesPayload = processedStudents.map(s => {
     const regNo = s.register_number || s.regNo;
     const studentId = studentMap.get(regNo);
     if (!studentId) return null;
 
-    const hasProfile = s.linkedin_url || s.github_url || s.portfolio_url || s.resume_url;
+    const hasProfile = s.linkedin_url || s.github_url || s.portfolio_url || s.resume_url || s.placement_interest || s.work_mode_preference;
     if (!hasProfile) return null;
 
     return {
@@ -138,6 +133,11 @@ export async function bulkCreateStudents(studentsData: any[]) {
       github_url: s.github_url || null,
       portfolio_url: s.portfolio_url || null,
       resume_url: s.resume_url || null,
+      placement_interest: s.placement_interest || null,
+      work_mode_preference: s.work_mode_preference || null,
+      preferred_roles: s.preferred_roles || null,
+      preferred_locations: s.preferred_locations || null,
+      specializations: s.specializations || null,
       updated_at: new Date().toISOString()
     };
   }).filter(Boolean);
@@ -147,49 +147,7 @@ export async function bulkCreateStudents(studentsData: any[]) {
       .from('student_profiles')
       .insert(profilesPayload);
     
-    if (profilesError) throw profilesError;
-  }
-
-  // 3. Batch upsert academics
-  const academicsPayload = processedStudents.map(s => {
-    const regNo = s.register_number || s.regNo;
-    const studentId = studentMap.get(regNo);
-    if (!studentId) return null;
-
-    const hasAcademics = s.cgpa || s.tenth_score || s.twelfth_score ||
-      s.diploma_score || s.active_arrears !== undefined || s.backlog_count;
-
-    if (!hasAcademics) return null;
-
-    const semObj = s.semester_cgpa || {};
-    const semVals = Object.values(semObj).map(Number).filter((v: number) => !isNaN(v) && v > 0);
-    const aggregateCgpa = semVals.length > 0
-      ? parseFloat((semVals.reduce((a: number, b: number) => a + b, 0) / semVals.length).toFixed(2))
-      : s.cgpa ? parseFloat(s.cgpa) : null;
-
-    const historyRaw = String(s.history_of_arrears || '').toLowerCase();
-    const historyVal = ['true','1','yes'].includes(historyRaw) ? true : false;
-
-    return {
-      student_id: studentId,
-      cgpa: aggregateCgpa,
-      tenth_score: s.tenth_score ? parseFloat(s.tenth_score) : null,
-      twelfth_score: s.twelfth_score ? parseFloat(s.twelfth_score) : null,
-      diploma_score: s.diploma_score ? parseFloat(s.diploma_score) : null,
-      backlog_count: s.backlog_count ? parseInt(s.backlog_count) : 0,
-      active_arrears: s.active_arrears ? parseInt(s.active_arrears) : 0,
-      history_of_arrears: historyVal,
-      semester_cgpa: semObj,
-      updated_at: new Date().toISOString()
-    };
-  }).filter(Boolean);
-
-  if (academicsPayload.length > 0) {
-    const { error: academicsError } = await supabase
-      .from('student_academics')
-      .upsert(academicsPayload, { onConflict: 'student_id' });
-    
-    if (academicsError) throw academicsError;
+    if (profilesError) console.error('Error inserting student profiles in bulkCreateStudents:', profilesError);
   }
 
   return createdStudents || [];
@@ -198,7 +156,7 @@ export async function bulkCreateStudents(studentsData: any[]) {
 export async function bulkUploadResults(resultsData: any[]) {
   if (!resultsData || resultsData.length === 0) return [];
 
-  const regNos = resultsData.map(r => r.regNo).filter(Boolean);
+  const regNos = resultsData.map(r => r.regNo || r.register_number).filter(Boolean);
   const { data: students, error: studentError } = await supabase
     .from('students')
     .select('id, register_number')
@@ -212,27 +170,37 @@ export async function bulkUploadResults(resultsData: any[]) {
   const studentMap = new Map<string, string>();
   students.forEach(s => studentMap.set(s.register_number, s.id));
 
-  const academicsPayload = resultsData.map(res => {
-    const studentId = studentMap.get(res.regNo);
+  const updatePromises = resultsData.map(async (res) => {
+    const regNo = res.regNo || res.register_number;
+    const studentId = studentMap.get(regNo);
     if (!studentId) return null;
 
-    return {
-      student_id: studentId,
-      cgpa: parseFloat(res.cgpa),
-      tenth_score: parseFloat(res.tenth_score || 0),
-      twelfth_score: parseFloat(res.twelfth_score || 0),
-      backlog_count: parseInt(res.backlog_count || 0),
+    const backlogs = parseInt(res.backlog_count ?? res.active_arrears ?? 0);
+    const updateData: Record<string, any> = {
       updated_at: new Date().toISOString()
     };
-  }).filter(Boolean);
+    if (res.cgpa !== undefined && res.cgpa !== '') updateData.cgpa = parseFloat(res.cgpa);
+    if (res.tenth_score !== undefined && res.tenth_score !== '') updateData.tenth_score = parseFloat(res.tenth_score);
+    if (res.twelfth_score !== undefined && res.twelfth_score !== '') updateData.twelfth_score = parseFloat(res.twelfth_score);
+    if (res.diploma_score !== undefined && res.diploma_score !== '') updateData.diploma_score = parseFloat(res.diploma_score);
+    if (!isNaN(backlogs)) {
+      updateData.active_arrears = backlogs;
+      if (backlogs > 0) updateData.history_of_backlogs = true;
+    }
 
-  if (academicsPayload.length === 0) return [];
+    const { data, error } = await supabase
+      .from('students')
+      .update(updateData)
+      .eq('id', studentId)
+      .select();
 
-  const { data, error: academicError } = await supabase
-    .from('student_academics')
-    .upsert(academicsPayload, { onConflict: 'student_id' })
-    .select();
+    if (error) {
+      console.error(`Error updating student ${regNo}:`, error);
+      return null;
+    }
+    return data?.[0] || null;
+  });
 
-  if (academicError) throw academicError;
-  return data || [];
+  const results = await Promise.all(updatePromises);
+  return results.filter(Boolean);
 }

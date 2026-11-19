@@ -540,6 +540,12 @@ export async function acceptOffer(
     .eq('id', applicationId);
   if (appError) throw appError;
 
+  // Update student placement status to placed
+  await supabase
+    .from('students')
+    .update({ placement_status: 'placed', updated_at: new Date().toISOString() })
+    .eq('id', studentId);
+
   // Apply placement lock if policy is enabled
   await assignPlacementLockIfEnabled(studentId);
 

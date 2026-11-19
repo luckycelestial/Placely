@@ -291,15 +291,32 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
     }
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-surface w-full max-w-2xl max-h-[90vh] rounded-[32px] border border-border-subtle shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-8 duration-300">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="drive-dialog-title"
+        className="bg-surface w-full max-w-2xl max-h-[90vh] rounded-[32px] border border-border-subtle shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-8 duration-300"
+      >
         {/* Header */}
         <div className="px-8 py-6 border-b border-border-subtle flex items-center justify-between bg-background/50 shrink-0">
           <div>
-            <h2 className="text-xl font-black tracking-tight">{drive ? "Edit Placement Drive" : "Launch New Drive"}</h2>
+            <h2 id="drive-dialog-title" className="text-xl font-black tracking-tight">{drive ? "Edit Placement Drive" : "Launch New Drive"}</h2>
             <p className="text-xs font-bold text-muted uppercase tracking-widest mt-1">
               Recruitment Cycle {batchValue && !isNaN(parseInt(batchValue))
                 ? `${parseInt(batchValue) - 1}-${parseInt(batchValue) % 100}`
@@ -308,6 +325,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
           </div>
           <button 
             onClick={onClose}
+            aria-label="Close modal"
             className="h-10 w-10 rounded-xl bg-surface border border-border-subtle flex items-center justify-center hover:bg-background transition-colors shadow-sm"
           >
             <LuX size={20} />

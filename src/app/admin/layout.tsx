@@ -17,32 +17,27 @@ export default function AdminLayout({
     async function checkAdmin() {
       try {
         const isLocalDev = process.env.NEXT_PUBLIC_APP_ENV === "local" || process.env.NODE_ENV === "development";
-        const activeAdminEmail = typeof window !== "undefined" ? localStorage.getItem("active_admin_email") : null;
-
-        if (activeAdminEmail || isLocalDev) {
-          setIsAdmin(true);
-          return;
-        }
-
+        
+        let emailToVerify: string | null = null;
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
+        if (session?.user?.email) {
+          emailToVerify = session.user.email;
+        } else if (isLocalDev) {
+          emailToVerify = typeof window !== "undefined" ? (localStorage.getItem("active_admin_email") || "admin@placement.edu") : null;
+        }
+
+        if (!emailToVerify) {
           router.push("/");
           return;
         }
 
-        const email = session.user?.email;
-        if (!email) {
-          router.push("/");
-          return;
-        }
-
-        const { data: userData } = await supabase
+        const { data: userData, error } = await supabase
           .from("users")
           .select("role")
-          .eq("email", email)
+          .eq("email", emailToVerify)
           .maybeSingle();
 
-        if (!userData || (userData.role !== "admin" && userData.role !== "staff")) {
+        if (error || !userData || (userData.role !== "admin" && userData.role !== "staff")) {
           router.push("/");
           return;
         }

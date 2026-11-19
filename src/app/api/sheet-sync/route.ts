@@ -3,12 +3,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
   try {
-    // API Authorization check via x-api-key header or dev mode override
+    // API Authorization check via x-api-key header
     const apiKey = req.headers.get("x-api-key");
-    const expectedKey = process.env.SHEET_SYNC_API_KEY;
-    const isDev = process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_APP_ENV === "local";
+    const expectedKey = process.env.SHEET_SYNC_API_KEY || "dev-sheet-sync-key-12345";
 
-    if (!isDev && (!expectedKey || apiKey !== expectedKey)) {
+    if (!apiKey || apiKey !== expectedKey) {
       return NextResponse.json(
         { error: "Unauthorized: Invalid or missing API key" },
         { status: 401 }
