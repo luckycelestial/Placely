@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Inter, Bricolage_Grotesque, Signika, Arya, Rubik, IBM_Plex_Sans } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -26,6 +25,7 @@ export const metadata: Metadata = {
 
 import { Toaster } from "sonner";
 import { DevDock } from "@/components/dev/DevDock";
+import { ThemeSync } from "@/components/theme-sync";
 
 export default function RootLayout({
   children,
@@ -34,25 +34,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${bricolage.variable} ${signika.variable} ${arya.variable} ${rubik.variable} ${ibmPlex.variable}`} suppressHydrationWarning>
-      <head>
-        <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{
-          __html: `
-            (function() {
-              try {
-                var savedDesign = localStorage.getItem('careerbridge-design') || 'default';
-                var html = document.documentElement;
-                html.classList.remove('design-geometric', 'design-hp', 'design-sece', 'design-executive', 'theme-modern', 'theme-technical', 'theme-rubik', 'theme-cambria');
-                if (savedDesign === 'executive') {
-                  html.classList.add('design-executive');
-                } else {
-                  html.classList.add('theme-default');
-                }
-              } catch (e) {}
-            })();
-          `
-        }} />
-      </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
+        <ThemeSync />
         {children}
         <DevDock />
         <Toaster position="top-right" richColors closeButton />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LuX, LuPlus, LuSave, LuFileText, LuMapPin, LuIndianRupee, LuBriefcase, LuGraduationCap, LuCircleAlert, LuHistory } from "react-icons/lu";
+import { LuX, LuPlus, LuSave, LuFileText, LuMapPin, LuIndianRupee, LuBriefcase, LuGraduationCap } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
 import { useForm } from "react-hook-form";
@@ -23,11 +23,26 @@ const templateSchema = z.object({
 
 type TemplateFormValues = z.infer<typeof templateSchema>;
 
+export interface DriveTemplateRecord {
+  id?: string;
+  name?: string;
+  role_title?: string;
+  drive_type?: string;
+  package_ctc?: string;
+  location?: string;
+  eligibility_rules?: {
+    min_cgpa?: number;
+    backlogs_allowed?: number;
+    branches?: string[];
+    history_of_arrears?: boolean;
+  };
+}
+
 interface TemplateDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  template?: any;
+  template?: DriveTemplateRecord | null;
 }
 
 export default function TemplateDialog({ isOpen, onClose, onSuccess, template }: TemplateDialogProps) {
@@ -106,9 +121,10 @@ export default function TemplateDialog({ isOpen, onClose, onSuccess, template }:
       }
       onSuccess();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to save template:", error);
-      toast.error(error.message || "Error saving template");
+      const msg = error instanceof Error ? error.message : "Error saving template";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -179,7 +195,7 @@ export default function TemplateDialog({ isOpen, onClose, onSuccess, template }:
                   <button
                     key={type}
                     type="button"
-                    onClick={() => setValue("driveType", type as any)}
+                    onClick={() => setValue("driveType", type as "Full-time" | "Internship" | "Contract" | "Intern + Full-time")}
                     className={cn(
                       "flex-1 min-w-[80px] py-2 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all",
                       driveType === type ? "bg-surface text-primary shadow-sm" : "text-muted hover:text-foreground"

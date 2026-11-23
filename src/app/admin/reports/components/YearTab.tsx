@@ -83,8 +83,9 @@ export function YearTab({ data, selected, onSelect }: YearTabProps) {
               <BarChart
                 data={data}
                 margin={{ top: 4, right: 10, left: -10, bottom: 0 }}
-                onClick={(e: any) => {
-                  if (e?.activePayload?.[0]?.payload?.year) onSelect(e.activePayload[0].payload.year);
+                onClick={(e: unknown) => {
+                  const ev = e as { activePayload?: Array<{ payload?: { year?: string } }> } | null;
+                  if (ev?.activePayload?.[0]?.payload?.year) onSelect(ev.activePayload[0].payload.year);
                 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -143,7 +144,7 @@ export function YearTab({ data, selected, onSelect }: YearTabProps) {
                   tickLine={false}
                   tick={{ fontSize: 10, fontWeight: 800, fill: "#8e8e93" }}
                 />
-                <Tooltip {...TT} formatter={(v: any) => [`${v}%`, "Placement Rate"]} />
+                <Tooltip {...TT} formatter={(v: string | number | undefined) => [`${v}%`, "Placement Rate"]} />
                 <Line
                   type="monotone"
                   dataKey="placementRate"

@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "placely-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-20",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "a9f96be714de643c1b97b9caa82c0883",
+  "triggers": {
+    "crons": [
+      "*/15 * * * *"
+    ]
+  },
+  "vars": {
+    "PLACELY_APP_URL": "http://127.0.0.1:3000",
+    "QUEUE_SECRET_KEY": "placely-queue-secret-2026"
+  }
+}

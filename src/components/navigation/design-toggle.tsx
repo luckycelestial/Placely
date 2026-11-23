@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { LuCheck, LuChevronDown, LuPalette } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 
@@ -13,13 +13,7 @@ export function DesignToggle() {
   const [currentDesign, setCurrentDesign] = useState("default");
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("careerbridge-design") || "default";
-    setCurrentDesign(saved);
-    applyDesign(saved);
-  }, []);
-
-  const applyDesign = (designId: string) => {
+  const applyDesign = useCallback((designId: string) => {
     const design = DESIGN_THEMES.find((d) => d.id === designId);
     if (!design) return;
 
@@ -30,7 +24,13 @@ export function DesignToggle() {
     if (design.class) html.classList.add(design.class);
 
     localStorage.setItem("careerbridge-design", designId);
-  };
+  }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("careerbridge-design") || "default";
+    setCurrentDesign(saved);
+    applyDesign(saved);
+  }, [applyDesign]);
 
   const handleSelect = (designId: string) => {
     setCurrentDesign(designId);

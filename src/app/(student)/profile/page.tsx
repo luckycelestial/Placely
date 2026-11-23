@@ -3,7 +3,7 @@
 import { Sk } from "@/components/ui/skeleton";
 import { useState, useEffect, useRef } from "react";
 import { db } from "@/services/database";
-import { DEV_STUDENT_ID } from "@/lib/dev-config";
+import { DEV_STUDENT_ID, isValidUuid } from "@/lib/dev-config";
 import { getSystemSettings, getSettingByKey, DEFAULT_CUSTOM_GROUPS, type CustomGroup } from "@/services/settings";
 import { toast } from "sonner";
 import { ProfileHeaderCard } from "./components/ProfileHeaderCard";
@@ -62,6 +62,10 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function loadProfileAndSettings() {
+      if (!DEV_STUDENT_ID || !isValidUuid(DEV_STUDENT_ID)) {
+        setLoading(false);
+        return;
+      }
       try {
         const [profileData, settingsData, customGroupsData] = await Promise.all([
           db.getStudentProfile(DEV_STUDENT_ID),

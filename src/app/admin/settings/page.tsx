@@ -6,15 +6,10 @@ import {
   LuPalette, 
   LuLock, 
   LuSettings, 
-  LuSave, 
-  LuBriefcase, 
   LuChevronRight,
   LuChevronLeft,
-  LuCalendar,
-  LuCircleCheck,
   LuLayers,
   LuPlus,
-  LuTrash2,
   LuX
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
@@ -26,6 +21,7 @@ import {
 } from "@/services/settings";
 import { getBatchList, getRomanYear } from "@/lib/batch-utils";
 import { toast } from "sonner";
+import type { Stage } from "@/app/admin/ats/types";
 
 const SECTIONS = [
   { id: "general", title: "General", icon: LuSettings, description: "College identity and basic info." },
@@ -40,9 +36,9 @@ const SECTIONS = [
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState("general");
   const [isCompleted, setIsCompleted] = useState(false);
-  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [, setLoadingSettings] = useState(true);
   const [oneStudentOneJob, setOneStudentOneJob] = useState(false);
-  const [defaultAtsStages, setDefaultAtsStages] = useState<any[]>([]);
+  const [defaultAtsStages, setDefaultAtsStages] = useState<Stage[]>([]);
   const [newStageInput, setNewStageInput] = useState("");
 
   useEffect(() => {
@@ -51,7 +47,7 @@ export default function SettingsPage() {
         const [sysData, policyVal, stagesVal] = await Promise.all([
           getSystemSettings(),
           getSettingByKey<boolean>('one_student_one_job_policy', false),
-          getSettingByKey<any[]>('default_ats_stages', [
+          getSettingByKey<Stage[]>('default_ats_stages', [
             { id: "applied", name: "Applied", color: "bg-slate-500" },
             { id: "shortlisted", name: "Shortlisted", color: "bg-blue-500" },
             { id: "interview1", name: "Tech Round 1", color: "bg-purple-500" },
@@ -111,16 +107,6 @@ export default function SettingsPage() {
     } catch (err) {
       console.error(err);
       toast.error("Failed to save default stages");
-    }
-  };
-
-  const handleToggleCompletion = async () => {
-    const nextVal = !isCompleted;
-    setIsCompleted(nextVal);
-    try {
-      await updateSystemSettings({ isAcademicYearCompleted: nextVal });
-    } catch (err) {
-      console.error(err);
     }
   };
 

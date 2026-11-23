@@ -417,3 +417,22 @@ model PlacementHistory {
 
   @@map("placement_history")
 }
+
+model BackgroundJob {
+  id           String    @id @default(uuid()) @db.Uuid
+  jobType      String    @map("job_type")
+  payload      Json
+  status       String    @default("pending") // pending, running, completed, failed
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(3) @map("max_attempts")
+  error        String?
+  scheduledFor DateTime  @default(now()) @map("scheduled_for")
+  startedAt    DateTime? @map("started_at")
+  completedAt  DateTime? @map("completed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, scheduledFor])
+  @@index([jobType])
+  @@map("background_jobs")
+}

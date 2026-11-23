@@ -5,10 +5,9 @@ import {
   LuX, 
   LuChevronLeft, 
   LuChevronRight, 
-  LuUser, 
+  LuUser,
   LuMail, 
   LuTrash2, 
-  LuSlidersHorizontal, 
   LuCheck 
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
@@ -16,10 +15,22 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { getBatchDetails } from "@/lib/batch-utils";
 import type { CustomGroup } from "@/services/settings";
 
+export interface GroupStudent {
+  id: string;
+  name: string;
+  email?: string;
+  regNo?: string;
+  dept?: string;
+  year?: string;
+  placementGroup?: string;
+  specializations?: string[];
+  [key: string]: unknown;
+}
+
 interface GroupTableProps {
   activeGroup: CustomGroup;
-  filteredStudents: any[];
-  paginatedStudents: any[];
+  filteredStudents: GroupStudent[];
+  paginatedStudents: GroupStudent[];
   selectedStudentIds: string[];
   isCompleted: boolean;
   searchTerm: string;
@@ -48,7 +59,7 @@ interface GroupTableProps {
   onAssignOptionToStudent: (studentId: string, group: CustomGroup, option: string, action: 'add' | 'remove' | 'set') => void;
   onClearStudentOptions: (studentId: string) => void;
   onPageChange: (page: number) => void;
-  getStudentSelectionsInGroup: (student: any, group: CustomGroup) => string[];
+  getStudentSelectionsInGroup: (student: GroupStudent, group: CustomGroup) => string[];
 }
 
 export function GroupTable({
@@ -86,11 +97,12 @@ export function GroupTable({
   getStudentSelectionsInGroup,
 }: GroupTableProps) {
   const totalPages = Math.ceil(filteredStudents.length / pageSize);
+  const groupOptions = Array.isArray(activeGroup?.options) ? activeGroup.options : [];
 
   return (
     <div className="space-y-4">
       {/* Option Filter Chips */}
-      {activeGroup.options.length > 0 && (
+      {groupOptions.length > 0 && (
         <div className="bg-surface p-4 rounded-2xl border border-border-subtle shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase text-muted tracking-widest">
@@ -126,7 +138,7 @@ export function GroupTable({
               </span>
             </button>
 
-            {activeGroup.options.map((option) => {
+            {groupOptions.map((option) => {
               const isSelected = selectedOptionFilter === option;
               const count = optionCounts[option] || 0;
 
@@ -235,7 +247,7 @@ export function GroupTable({
         </div>
 
         {/* Batch Actions Toolbar */}
-        {selectedStudentIds.length > 0 && activeGroup.options.length > 0 && (
+        {selectedStudentIds.length > 0 && groupOptions.length > 0 && (
           <div className="mx-6 p-4 bg-primary/5 border border-primary/20 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center gap-2">
               <span className="h-6 w-6 rounded-full bg-primary text-primary-foreground font-black text-xs flex items-center justify-center">
@@ -251,7 +263,7 @@ export function GroupTable({
                 className="text-xs font-bold bg-surface border border-border-subtle rounded-xl px-3 py-2 focus:outline-none cursor-pointer"
               >
                 <option value="">Select option to apply...</option>
-                {activeGroup.options.map(opt => (
+                {groupOptions.map(opt => (
                   <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
@@ -377,7 +389,7 @@ export function GroupTable({
                                 ))}
                                 
                                 {/* Quick add dropdown */}
-                                {activeGroup.options.filter(o => !selections.includes(o)).length > 0 && (
+                                {groupOptions.filter(o => !selections.includes(o)).length > 0 && (
                                   <select
                                     disabled={isUpdatingMember === s.id}
                                     onChange={(e) => {
@@ -390,7 +402,7 @@ export function GroupTable({
                                     className="text-[9px] bg-surface border border-border-subtle rounded px-2 py-0.5 font-bold cursor-pointer focus:outline-none"
                                   >
                                     <option value="">+ Add Option</option>
-                                    {activeGroup.options.filter(o => !selections.includes(o)).map(o => (
+                                    {groupOptions.filter(o => !selections.includes(o)).map(o => (
                                       <option key={o} value={o}>{o}</option>
                                     ))}
                                   </select>
@@ -400,7 +412,7 @@ export function GroupTable({
                               <SearchableSelect
                                 options={[
                                   { value: "", label: "Unassigned" },
-                                  ...activeGroup.options.map(o => ({ value: o, label: o }))
+                                  ...groupOptions.map(o => ({ value: o, label: o }))
                                 ]}
                                 value={selections[0] || ""}
                                 placeholder="Unassigned"

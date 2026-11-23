@@ -9,9 +9,8 @@ import {
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { db } from "@/services/database";
-import { DEV_STUDENT_ID } from "@/lib/dev-config";
+import { DEV_STUDENT_ID, isValidUuid } from "@/lib/dev-config";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 import { ApplicationProgress, DateModalData, TimelineEvent } from "./types";
 import { PlacementStreamsTab } from "./components/PlacementStreamsTab";
 import { CodingProfileTab } from "./components/CodingProfileTab";
@@ -171,6 +170,10 @@ export default function ProgressPage() {
   }
 
   const loadAllProgress = useCallback(async () => {
+    if (!DEV_STUDENT_ID || !isValidUuid(DEV_STUDENT_ID)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const studentId = DEV_STUDENT_ID;
@@ -178,14 +181,8 @@ export default function ProgressPage() {
         db.getStudentApplications(studentId),
         db.getStudentOffers(studentId),
         db.getStudentApplicationStats(studentId),
-        supabase.from("student_profiles").select("*").eq("student_id", studentId).maybeSingle(),
-        Promise.resolve(
-          supabase
-            .from("student_projects")
-            .select("*")
-            .eq("student_id", studentId)
-            .order("created_at", { ascending: false })
-        ).catch(() => ({ data: [] })),
+        db.getStudentProfile(studentId).then((p: any) => ({ data: p?.student_profiles?.[0] || p?.student_profiles || p })).catch(() => ({ data: null })),
+        db.getStudentProjects(studentId).then((projects: any) => ({ data: projects || [] })).catch(() => ({ data: [] })),
       ]);
 
       const formatted = data.map((app: any) => {
@@ -541,24 +538,14 @@ export default function ProgressPage() {
       };
 
       if (editingProject) {
-        const { error } = await supabase
-          .from("student_projects")
-          .update({ ...payload, updated_at: new Date().toISOString() })
-          .eq("id", editingProject.id);
-        if (error) throw error;
+        await db.updateTableCell("student_projects", editingProject.id, payload);
         toast.success("Project updated successfully.");
       } else {
-        const { error } = await supabase.from("student_projects").insert([payload]);
-        if (error) throw error;
+        await db.createStudentProject(payload);
         toast.success("Project added successfully.");
       }
 
-      const { data: updatedProjects } = await supabase
-        .from("student_projects")
-        .select("*")
-        .eq("student_id", DEV_STUDENT_ID)
-        .order("created_at", { ascending: false });
-
+      const updatedProjects = await db.getStudentProjects(DEV_STUDENT_ID);
       setProjects(updatedProjects || []);
       setIsProjectModalOpen(false);
     } catch (err: any) {
@@ -570,8 +557,7 @@ export default function ProgressPage() {
 
   const confirmDeleteProject = async (id: string) => {
     try {
-      const { error } = await supabase.from("student_projects").delete().eq("id", id);
-      if (error) throw error;
+      await db.deleteStudentProject(id);
       setProjects((prev) => prev.filter((p) => p.id !== id));
       toast.success("Project deleted successfully.");
     } catch (err: any) {

@@ -17,6 +17,13 @@ if (typeof window !== 'undefined') {
 }
 
 export function setLoggedStudentId(id: string) {
+  if (!id || id.trim() === '') {
+    DEV_STUDENT_ID = "";
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('active_student_id');
+    }
+    return;
+  }
   if (isValidUuid(id)) {
     DEV_STUDENT_ID = id.trim();
     if (typeof window !== 'undefined') {

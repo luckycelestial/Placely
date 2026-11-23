@@ -54,18 +54,19 @@ export function getCandidateMetaStage(candidateStage: string, driveStages: Stage
   return getMetaStageId(candidateStage);
 }
 
-export function parseDriveStages(driveObj: any): Stage[] {
+export function parseDriveStages(driveObj: { eligibility_rules?: unknown } | null | undefined): Stage[] {
   if (!driveObj) return [];
   let rules = driveObj.eligibility_rules;
   if (typeof rules === "string") {
-    try { rules = JSON.parse(rules); } catch (e) {}
+    try { rules = JSON.parse(rules); } catch { /* ignore invalid JSON */ }
   }
-  return rules?.stages && Array.isArray(rules.stages) && rules.stages.length > 0
-    ? rules.stages
+  const rulesObj = rules as { stages?: Stage[] } | null | undefined;
+  return rulesObj?.stages && Array.isArray(rulesObj.stages) && rulesObj.stages.length > 0
+    ? rulesObj.stages
     : [];
 }
 
-export function resolveStagesForDrive(driveObj: any): Stage[] {
+export function resolveStagesForDrive(driveObj: { eligibility_rules?: unknown } | null | undefined): Stage[] {
   const parsed = parseDriveStages(driveObj);
   return parsed.length > 0 ? parsed : DEFAULT_STAGES;
 }

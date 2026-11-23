@@ -67,9 +67,10 @@ export default function AuthCallbackPage() {
           setLoggedStudentId(studentData.id);
           router.push("/dashboard");
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Auth callback error:", err);
-        setErrorMsg(err.message || "An unexpected error occurred during sign-in.");
+        const message = err instanceof Error ? err.message : "An unexpected error occurred during sign-in.";
+        setErrorMsg(message);
       }
     }
 

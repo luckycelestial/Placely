@@ -10,6 +10,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import type { CompanyDialogData } from "./company-dialog";
+import type { AdminStudent } from "@/app/admin/students/types";
+import type { Stage } from "@/app/admin/ats/types";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const BATCH_YEARS = [
@@ -37,16 +40,50 @@ const driveSchema = z.object({
 
 type DriveFormValues = z.infer<typeof driveSchema>;
 
+export interface DriveDialogRecord {
+  id?: string;
+  company_id?: string;
+  companyId?: string;
+  role_title?: string;
+  role?: string;
+  drive_type?: string;
+  type?: string;
+  package_ctc?: string;
+  package?: string;
+  location?: string;
+  application_start?: string | null;
+  application_end?: string | null;
+  deadline_iso?: string | null;
+  batch?: string;
+  eligibility_rules?: {
+    branches?: string[];
+    min_cgpa?: number;
+    backlogs_allowed?: number;
+    history_of_arrears?: boolean;
+    bypass_placement_lock_students?: string[];
+    stages?: Stage[];
+  };
+  eligibility?: {
+    branches?: string[];
+    min_cgpa?: number;
+    backlogs_allowed?: number;
+    history_of_arrears?: boolean;
+    bypass_placement_lock_students?: string[];
+    stages?: Stage[];
+  };
+  status?: string;
+}
+
 interface DriveDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  drive?: any; // If present, we are in edit mode
+  drive?: DriveDialogRecord | null; // If present, we are in edit mode
 }
 
 export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: DriveDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [companies, setCompanies] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<CompanyDialogData[]>([]);
   
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<DriveFormValues>({
     resolver: zodResolver(driveSchema),
@@ -72,17 +109,16 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
   const selectedCompanyId = watch("companyId");
   const batchValue = watch("batch");
   const selectedBranches = watch("branches");
-  const minCgpaValue = watch("minCgpa");
 
-  const [allStudents, setAllStudents] = useState<any[]>([]);
-  const [selectedStudents, setSelectedStudents] = useState<any[]>([]);
+  const [allStudents, setAllStudents] = useState<AdminStudent[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<AdminStudent[]>([]);
   const [studentSearchQuery, setStudentSearchQuery] = useState("");
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
-  const [defaultAtsStages, setDefaultAtsStages] = useState<any[]>([]);
+  const [defaultAtsStages, setDefaultAtsStages] = useState<Stage[]>([]);
 
   const selectedCompany = companies.find(c => c.id === selectedCompanyId);
   const filteredCompanies = companies.filter(c => 
-    c.name.toLowerCase().includes(companySearch.toLowerCase())
+    (c.name || "").toLowerCase().includes(companySearch.toLowerCase())
   );
 
   const driveType = watch("driveType");
@@ -107,7 +143,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
         reset({
           companyId: drive.company_id || drive.companyId || "",
           roleTitle: drive.role_title || drive.role || "",
-          driveType: (drive.drive_type || drive.type || "Full-time") as any,
+          driveType: (drive.drive_type || drive.type || "Full-time") as DriveFormValues["driveType"],
           package: drive.package_ctc || drive.package || "",
           location: drive.location || "",
           applicationStart: startRaw,
@@ -117,7 +153,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
           minCgpa: rules.min_cgpa || 7.0,
           backlogsAllowed: rules.backlogs_allowed || 0,
           historyOfArrears: rules.history_of_arrears || false,
-          status: (drive.status?.toLowerCase() || "draft") as any
+          status: (drive.status?.toLowerCase() || "draft") as DriveFormValues["status"]
         });
       } else {
         reset({
@@ -142,7 +178,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
   const loadCompanies = async () => {
     try {
       const data = await db.getTableData('companies');
-      setCompanies(data || []);
+      setCompanies((data || []) as CompanyDialogData[]);
     } catch (err) {
       console.error("Failed to load companies", err);
     }
@@ -150,14 +186,14 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
 
   const loadStudents = async () => {
     try {
-      const studs = await db.getAllStudents({ lightweight: true });
+      const studs = (await db.getAllStudents({ lightweight: true })) as unknown as AdminStudent[];
       setAllStudents(studs);
       
       // If we are in edit mode, resolve the selected students based on whitelist in drive
       const rules = drive?.eligibility_rules || drive?.eligibility || {};
       const whitelistRegNos = rules.bypass_placement_lock_students || [];
       if (Array.isArray(whitelistRegNos) && whitelistRegNos.length > 0) {
-        const initialSelected = studs.filter((s: any) => 
+        const initialSelected = studs.filter((s: AdminStudent) => 
           whitelistRegNos.includes(String(s.regNo).trim()) || whitelistRegNos.includes(String(s.id).trim())
         );
         setSelectedStudents(initialSelected);
@@ -173,14 +209,14 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
 
   const loadDefaultStages = async () => {
     try {
-      const defaultStages = await getSettingByKey<any[]>('default_ats_stages', [
+      const defaultStages = await getSettingByKey<Stage[]>('default_ats_stages', [
         { id: "applied", name: "Applied", color: "bg-slate-500" },
         { id: "shortlisted", name: "Shortlisted", color: "bg-blue-500" },
         { id: "interview1", name: "Tech Round 1", color: "bg-purple-500" },
         { id: "interview2", name: "Tech Round 2", color: "bg-indigo-500" },
         { id: "selection", name: "Selection", color: "bg-emerald-500" }
       ]);
-      setDefaultAtsStages(defaultStages);
+      setDefaultAtsStages(defaultStages || []);
     } catch (err) {
       console.error("Failed to load default stages:", err);
     }
@@ -197,7 +233,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json<any>(ws, { header: 1 });
+        const data = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 });
         
         const foundRegNos = new Set<string>();
         
@@ -254,7 +290,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
           min_cgpa: data.minCgpa,
           backlogs_allowed: data.backlogsAllowed,
           history_of_arrears: data.historyOfArrears,
-          bypass_placement_lock_students: selectedStudents.map(s => String(s.regNo || s.register_number).trim()).filter(Boolean),
+          bypass_placement_lock_students: selectedStudents.map(s => String(s.regNo || s.rollNo || s.id).trim()).filter(Boolean),
           stages: drive
             ? (drive.eligibility_rules?.stages || drive.eligibility?.stages)
             : defaultAtsStages.length > 0
@@ -280,11 +316,12 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
       }
       onSuccess();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Supabase returns PostgrestError objects (not instanceof Error)
       // They have .message, .code, .details, .hint properties
-      const msg = error?.message || error?.details || JSON.stringify(error) || "Error saving drive";
-      console.error("Failed to save drive:", error?.code, msg, error?.details, error?.hint);
+      const err = error as { message?: string; details?: string; code?: string; hint?: string } | null;
+      const msg = err?.message || err?.details || (typeof error === "string" ? error : "Error saving drive");
+      console.error("Failed to save drive:", err?.code, msg, err?.details, err?.hint);
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -443,7 +480,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
                           type="button"
                           onClick={() => {
                             setShowCompanyDropdown(false);
-                            alert("Please use the 'Add Company' button in the main sidebar to register a new partner.");
+                            toast.info("Please use the 'Add Company' button in the main sidebar to register a new partner.");
                           }}
                           className="w-full py-3 rounded-2xl bg-surface border border-border-subtle border-dashed text-[10px] font-black text-primary uppercase tracking-widest hover:bg-primary/5 hover:border-primary/50 transition-all flex items-center justify-center gap-2"
                         >
@@ -480,7 +517,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
                     <button
                       key={type}
                       type="button"
-                      onClick={() => setValue("driveType", type as any)}
+                      onClick={() => setValue("driveType", type as DriveFormValues["driveType"])}
                       className={cn(
                         "flex-1 min-w-[90px] py-3 text-[9px] font-black uppercase tracking-wider rounded-2xl transition-all duration-300",
                         driveType === type 
@@ -819,7 +856,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
                     <button
                       key={s}
                       type="button"
-                      onClick={() => setValue("status", s as any)}
+                      onClick={() => setValue("status", s as DriveFormValues["status"])}
                       className={cn(
                         "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all",
                         status === s 

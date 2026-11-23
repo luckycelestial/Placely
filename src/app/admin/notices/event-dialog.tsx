@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   LuX, LuPlus, LuSave, LuCalendar, LuClock, LuMapPin, LuUsers, LuTag
 } from "react-icons/lu";
@@ -46,38 +46,38 @@ export default function EventDialog({ isOpen, onClose, onSave, event }: EventDia
     maxAttendees: "",
   });
 
-  useEffect(() => {
-    if (isOpen) {
-      if (event) {
-        const [startTime, endTime] = event.time.includes(" - ")
-          ? event.time.split(" - ")
-          : [event.time, ""];
-        setForm({
-          title: event.title,
-          type: event.type,
-          date: event.date,
-          startTime: startTime.trim(),
-          endTime: endTime.trim(),
-          venue: event.venue,
-          status: event.status,
-          description: event.description || "",
-          maxAttendees: event.maxAttendees?.toString() || "",
-        });
-      } else {
-        setForm({
-          title: "",
-          type: "Webinar",
-          date: new Date().toISOString().split("T")[0],
-          startTime: "02:00 PM",
-          endTime: "03:30 PM",
-          venue: "",
-          status: "Upcoming",
-          description: "",
-          maxAttendees: "",
-        });
-      }
+  const [prevEvent, setPrevEvent] = useState<Event | null | undefined>(event);
+  if (prevEvent !== event) {
+    setPrevEvent(event);
+    if (event) {
+      const [startTime, endTime] = event.time.includes(" - ")
+        ? event.time.split(" - ")
+        : [event.time, ""];
+      setForm({
+        title: event.title,
+        type: event.type,
+        date: event.date,
+        startTime: startTime.trim(),
+        endTime: endTime.trim(),
+        venue: event.venue,
+        status: event.status,
+        description: event.description || "",
+        maxAttendees: event.maxAttendees?.toString() || "",
+      });
+    } else {
+      setForm({
+        title: "",
+        type: "Webinar",
+        date: new Date().toISOString().split("T")[0],
+        startTime: "02:00 PM",
+        endTime: "03:30 PM",
+        venue: "",
+        status: "Upcoming",
+        description: "",
+        maxAttendees: "",
+      });
     }
-  }, [isOpen, event]);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

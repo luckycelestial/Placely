@@ -21,7 +21,7 @@ import { ProfileCompleteness } from "@/components/student/profile-completeness";
 import { ActiveDrives } from "@/components/student/active-drives";
 import { NotificationInbox } from "@/components/student/notification-inbox";
 import { db } from "@/services/database";
-import { DEV_STUDENT_ID } from "@/lib/dev-config";
+import { DEV_STUDENT_ID, isValidUuid } from "@/lib/dev-config";
 import { isStudentInAudience } from "@/lib/utils";
 import { getBatchRangeFromYear } from "@/lib/batch-utils";
 import { getSystemSettings } from "@/services/settings";
@@ -75,6 +75,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadDashboardData() {
+      if (!DEV_STUDENT_ID || !isValidUuid(DEV_STUDENT_ID)) {
+        setLoading(false);
+        return;
+      }
       try {
         const studentId = DEV_STUDENT_ID;
         

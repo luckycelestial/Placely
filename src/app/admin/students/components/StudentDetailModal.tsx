@@ -7,10 +7,24 @@ import { Sk } from "@/components/ui/skeleton";
 import { db } from "@/services/database";
 import type { AdminStudent } from "../types";
 
+export interface StudentDetailApplication {
+  id?: string;
+  current_stage?: string;
+  status?: string;
+  job_drives?: {
+    role_title?: string;
+    package_ctc?: string | number;
+    companies?: {
+      name?: string;
+      logo_url?: string;
+    };
+  };
+}
+
 interface StudentDetailModalProps {
   isOpen: boolean;
   student: AdminStudent | null;
-  applications: any[];
+  applications: StudentDetailApplication[];
   loadingApplications: boolean;
   onClose: () => void;
 }
@@ -166,7 +180,7 @@ export function StudentDetailModal({
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {applications.map((app: any) => {
+                  {applications.map((app: StudentDetailApplication) => {
                     const drive = app.job_drives || {};
                     const company = drive.companies || {};
                     const roundTitle = app.current_stage ? (

@@ -1,7 +1,7 @@
 "use client";
 import { Sk } from "@/components/ui/skeleton";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   LuUsers, 
   LuBuilding2, 
@@ -22,7 +22,6 @@ import {
   LuTriangleAlert
 } from "react-icons/lu";
 import { db } from "@/services/database";
-import { supabase } from "@/lib/supabase";
 import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { cn } from "@/lib/utils";
 import DriveDialog from "../drives/drive-dialog";
@@ -75,22 +74,18 @@ export default function AdminDashboardPage() {
   const [sidebarTab, setSidebarTab] = useState<'activity' | 'tasks'>('activity');
   const [batchOptions, setBatchOptions] = useState<string[]>([String(currentYear + 1), String(currentYear)]);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [yearFilter]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      const [allDrives, dashboardStats, approvals, activityData, distinctBatches, tasksResult] = await Promise.all([
+      const [allDrives, dashboardStats, approvals, activityData, distinctBatches, tasks] = await Promise.all([
         db.getDrives(),   // fetch all, filter client-side so null-batch drives show
         db.getDashboardStats(),
         db.getPendingApprovals(),
         db.getRecentActivity(),
         db.getDistinctBatches(),
-        supabase.from('admin_tasks').select('id, title, count').eq('is_active', true).order('created_at')
+        db.getAdminTasks()
       ]);
-      setAdminTasks(tasksResult?.data || []);
+      setAdminTasks(tasks || []);
 
       // Update batch options dynamically (sorted descending: newest first)
       setBatchOptions(distinctBatches);
@@ -133,7 +128,11 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentYear, yearFilter]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   const handleExport = async () => {
     try {

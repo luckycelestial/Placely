@@ -1,6 +1,16 @@
 import { supabase } from '@/lib/supabase';
 
-export async function createStudent(studentData: any) {
+export interface CreateStudentInput {
+  name: string;
+  email?: string;
+  regNo: string;
+  dept: string;
+  year: string | number;
+  personalEmail?: string;
+  personal_email?: string;
+}
+
+export async function createStudent(studentData: CreateStudentInput) {
   // 1. Create User
   const { data: userData, error: userError } = await supabase
     .from('users')
@@ -23,7 +33,7 @@ export async function createStudent(studentData: any) {
       name: studentData.name,
       register_number: studentData.regNo,
       department: studentData.dept,
-      year: parseInt(studentData.year),
+      year: typeof studentData.year === 'number' ? studentData.year : parseInt(studentData.year, 10),
       placement_status: 'unplaced',
       college_email: studentData.email || null,
       personal_email: studentData.personalEmail || studentData.personal_email || null,
@@ -47,7 +57,7 @@ export async function createStudent(studentData: any) {
   return student;
 }
 
-export async function syncStudentRow(studentId: string, updatedFields: any) {
+export async function syncStudentRow(studentId: string, updatedFields: Record<string, unknown>) {
   // 1. Fetch user_id of the student to update users table if name/email changed
   const { data: student, error: fetchError } = await supabase
     .from('students')
@@ -58,7 +68,7 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
   if (fetchError) throw fetchError;
 
   // 2. Update users table
-  const userUpdates: any = {};
+  const userUpdates: Record<string, unknown> = {};
   if ('name' in updatedFields) userUpdates.name = updatedFields.name;
   if ('email' in updatedFields) userUpdates.email = updatedFields.email;
   if (Object.keys(userUpdates).length > 0 && student?.user_id) {
@@ -70,7 +80,7 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
   }
 
   // 3. Update students table
-  const studentUpdates: any = {};
+  const studentUpdates: Record<string, unknown> = {};
   if ('name' in updatedFields) studentUpdates.name = updatedFields.name;
   if ('regNo' in updatedFields || 'register_number' in updatedFields) {
     studentUpdates.register_number = updatedFields.regNo !== undefined ? updatedFields.regNo : updatedFields.register_number;
@@ -121,21 +131,16 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
     if (studentError) throw studentError;
   }
 
-  // 4. Update academics
-  const academicUpdates: any = {};
-  if ('cgpa' in updatedFields) academicUpdates.cgpa = parseFloat(updatedFields.cgpa);
-  if ('tenth_score' in updatedFields) academicUpdates.tenth_score = parseFloat(updatedFields.tenth_score);
-  if ('twelfth_score' in updatedFields) academicUpdates.twelfth_score = parseFloat(updatedFields.twelfth_score);
-  if ('diploma_score' in updatedFields) academicUpdates.diploma_score = updatedFields.diploma_score !== '' ? parseFloat(updatedFields.diploma_score) : null;
-  if ('backlog_count' in updatedFields) studentUpdates.backlog_count = parseInt(updatedFields.backlog_count);
-  if ('active_arrears' in updatedFields) studentUpdates.active_arrears = parseInt(updatedFields.active_arrears) || 0;
+  // 4. Update academics & contacts on students table
+  if ('backlog_count' in updatedFields) studentUpdates.backlog_count = parseInt(String(updatedFields.backlog_count), 10);
+  if ('active_arrears' in updatedFields) studentUpdates.active_arrears = parseInt(String(updatedFields.active_arrears), 10) || 0;
   if ('history_of_arrears' in updatedFields || 'history_of_backlogs' in updatedFields) {
     studentUpdates.history_of_backlogs = Boolean(updatedFields.history_of_arrears ?? updatedFields.history_of_backlogs);
   }
-  if ('cgpa' in updatedFields) studentUpdates.cgpa = parseFloat(updatedFields.cgpa);
-  if ('tenth_score' in updatedFields) studentUpdates.tenth_score = parseFloat(updatedFields.tenth_score);
-  if ('twelfth_score' in updatedFields) studentUpdates.twelfth_score = parseFloat(updatedFields.twelfth_score);
-  if ('diploma_score' in updatedFields) studentUpdates.diploma_score = parseFloat(updatedFields.diploma_score);
+  if ('cgpa' in updatedFields) studentUpdates.cgpa = parseFloat(String(updatedFields.cgpa));
+  if ('tenth_score' in updatedFields) studentUpdates.tenth_score = parseFloat(String(updatedFields.tenth_score));
+  if ('twelfth_score' in updatedFields) studentUpdates.twelfth_score = parseFloat(String(updatedFields.twelfth_score));
+  if ('diploma_score' in updatedFields) studentUpdates.diploma_score = updatedFields.diploma_score !== '' ? parseFloat(String(updatedFields.diploma_score)) : null;
   if ('address' in updatedFields) studentUpdates.address = updatedFields.address;
   if ('permanent_address' in updatedFields) studentUpdates.permanent_address = updatedFields.permanent_address;
   if ('city' in updatedFields) studentUpdates.city = updatedFields.city;
@@ -160,12 +165,12 @@ export async function syncStudentRow(studentId: string, updatedFields: any) {
   }
 
   // Update profiles if profile-specific fields present
-  const profileUpdates: any = {};
-  if ('leetcode' in updatedFields) profileUpdates.leetcode_count = parseInt(updatedFields.leetcode);
+  const profileUpdates: Record<string, unknown> = {};
+  if ('leetcode' in updatedFields) profileUpdates.leetcode_count = parseInt(String(updatedFields.leetcode), 10);
   if ('specializations' in updatedFields) {
     let specs = updatedFields.specializations;
     if (typeof specs === 'string') {
-      try { specs = JSON.parse(specs); } catch (e) { specs = specs.split(',').map((s: string) => s.trim()); }
+      try { specs = JSON.parse(specs); } catch { specs = specs.split(',').map((s: string) => s.trim()); }
     }
     profileUpdates.specializations = specs;
   }
@@ -192,6 +197,7 @@ export async function updateStudentVerification(studentId: string, status: 'veri
   }
 
 export async function flagStudent(studentId: string, reason: string) {
+    void reason;
     const { error } = await supabase
       .from('students')
       .update({ 
@@ -202,7 +208,7 @@ export async function flagStudent(studentId: string, reason: string) {
     return { id: studentId, verification_status: 'rejected' };
   }
 
-export async function updateStudentProfile(studentId: string, profileData: any) {
+export async function updateStudentProfile(studentId: string, profileData: Record<string, unknown>) {
   // 0. Update users table if name/email are in profileData
   const { data: studentRecord } = await supabase
     .from('students')
@@ -210,7 +216,7 @@ export async function updateStudentProfile(studentId: string, profileData: any) 
     .eq('id', studentId)
     .single();
 
-  const userUpdates: any = {};
+  const userUpdates: Record<string, unknown> = {};
   if (profileData.name) userUpdates.name = profileData.name;
   if (profileData.email || profileData.college_email) {
     userUpdates.email = String(profileData.email || profileData.college_email).trim().toLowerCase();
@@ -224,7 +230,7 @@ export async function updateStudentProfile(studentId: string, profileData: any) 
   }
 
   // 1. Update students table (identity, academics, contacts)
-  const studentUpdates: any = {};
+  const studentUpdates: Record<string, unknown> = {};
   if (profileData.name) studentUpdates.name = profileData.name;
   if (profileData.department || profileData.dept) {
     studentUpdates.department = profileData.department || profileData.dept;
@@ -285,14 +291,14 @@ export async function updateStudentProfile(studentId: string, profileData: any) 
   }
 
   // 2. Update student_profiles table (leetcode, specializations, links, preferences)
-  const profileUpdates: any = {};
+  const profileUpdates: Record<string, unknown> = {};
   if (profileData.leetcode !== undefined || profileData.leetcode_count !== undefined) {
-    profileUpdates.leetcode_count = parseInt(profileData.leetcode ?? profileData.leetcode_count) || 0;
+    profileUpdates.leetcode_count = parseInt(String(profileData.leetcode ?? profileData.leetcode_count), 10) || 0;
   }
   if (profileData.specializations !== undefined) {
     let specs = profileData.specializations;
     if (typeof specs === 'string') {
-      try { specs = JSON.parse(specs); } catch (e) { specs = specs.split(',').map((s: string) => s.trim()).filter(Boolean); }
+      try { specs = JSON.parse(specs); } catch { specs = specs.split(',').map((s: string) => s.trim()).filter(Boolean); }
     }
     profileUpdates.specializations = specs;
   }
@@ -344,22 +350,28 @@ export async function updateProfilePicture(userId: string, avatarUrl: string) {
 
 export async function uploadAvatar(userId: string, file: File | Blob): Promise<string> {
   try {
-    const fileExt = (file as File).name ? (file as File).name.split('.').pop() : 'png';
-    const filePath = `avatars/${userId}-${Date.now()}.${fileExt}`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('category', 'avatar');
+    formData.append('identifier', userId);
 
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(filePath, file, { upsert: true });
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
 
-    if (!uploadError) {
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      if (data?.publicUrl) {
-        await updateProfilePicture(userId, data.publicUrl);
-        return data.publicUrl;
+    if (res.ok) {
+      const data = await res.json();
+      if (data.url) {
+        await updateProfilePicture(userId, data.url);
+        return data.url;
       }
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      console.warn("R2 upload returned non-200, attempting fallback:", errData.error);
     }
   } catch (e) {
-    console.warn("Storage upload failed, falling back to direct URL:", e);
+    console.warn("R2 avatar upload error, attempting fallback:", e);
   }
 
   // Fallback: read as base64 if storage is unconfigured

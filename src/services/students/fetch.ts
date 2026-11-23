@@ -2,6 +2,81 @@ import { supabase } from '@/lib/supabase';
 import { getSystemSettings } from '@/services/settings';
 import { getYearFromBatch, getBatchRangeFromYear, formatYearOfStudy, getBatchDetails } from '@/lib/batch-utils';
 
+interface RawStudentProfile {
+  profile_completion?: number | null;
+  verification_status?: string | null;
+  leetcode_count?: number | null;
+  specializations?: string[] | null;
+  placement_interest?: string | null;
+  work_mode_preference?: string | null;
+}
+
+interface RawOfferCompany {
+  name?: string | null;
+}
+
+interface RawOffer {
+  package_ctc?: string | number | null;
+  company?: RawOfferCompany | RawOfferCompany[] | null;
+}
+
+interface RawUser {
+  id?: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  avatar_url?: string | null;
+}
+
+interface RawStudentRecord {
+  id: string;
+  name?: string | null;
+  register_number: string;
+  roll_number?: string | null;
+  department: string;
+  section?: string | null;
+  year: number;
+  gender?: string | null;
+  date_of_birth?: string | null;
+  placement_status?: string | null;
+  cgpa?: number | null;
+  tenth_score?: number | null;
+  twelfth_score?: number | null;
+  diploma_score?: number | null;
+  active_arrears?: number | null;
+  history_of_backlogs?: boolean | null;
+  semester_cgpa?: Record<string, unknown> | null;
+  personal_email?: string | null;
+  users?: RawUser | RawUser[] | null;
+  student_profiles?: RawStudentProfile | RawStudentProfile[] | null;
+  offers?: RawOffer[] | null;
+}
+
+function getProfile(profiles: RawStudentProfile | RawStudentProfile[] | null | undefined): RawStudentProfile | undefined {
+  if (Array.isArray(profiles)) return profiles[0];
+  return profiles ?? undefined;
+}
+
+function getUser(users: RawUser | RawUser[] | null | undefined): RawUser | undefined {
+  if (Array.isArray(users)) return users[0];
+  return users ?? undefined;
+}
+
+function getOfferCompany(offers: RawOffer[] | null | undefined): { name: string; package_ctc: string } {
+  if (!offers || offers.length === 0) return { name: 'N/A', package_ctc: '' };
+  const firstOffer = offers[0];
+  let compName = 'N/A';
+  if (Array.isArray(firstOffer?.company)) {
+    compName = firstOffer.company[0]?.name || 'N/A';
+  } else if (firstOffer?.company?.name) {
+    compName = firstOffer.company.name;
+  }
+  return {
+    name: compName,
+    package_ctc: firstOffer?.package_ctc ? String(firstOffer.package_ctc) : ''
+  };
+}
+
 export async function getStudents(options: { 
   page?: number; 
   pageSize?: number; 
@@ -138,11 +213,14 @@ export async function getStudents(options: {
   const settings = await getSystemSettings();
   const isCompleted = settings.isAcademicYearCompleted;
 
-  const formatted = (data || []).map(s => {
+  const formatted = ((data as unknown as RawStudentRecord[]) || []).map(s => {
     const batchInfo = getBatchDetails(s.year, isCompleted);
+    const prof = getProfile(s.student_profiles);
+    const u = getUser(s.users);
+    const offer = getOfferCompany(s.offers);
     return {
       id: s.id,
-      name: s.name || (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
+      name: s.name || u?.name || 'Unknown',
       regNo: s.register_number,
       dept: s.department,
       section: s.section || '',
@@ -151,17 +229,17 @@ export async function getStudents(options: {
       graduationYear: batchInfo.graduationYear,
       yearOfStudy: batchInfo.yearOfStudy,
       yearOfStudyLabel: batchInfo.yearOfStudyLabel,
-      cgpa: (s as any).cgpa || 0,
-      leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
-      specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
+      cgpa: s.cgpa || 0,
+      leetcode: prof?.leetcode_count || 0,
+      specializations: prof?.specializations || [],
       status: s.placement_status === 'placed' ? 'Placed' : 
               s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
-      completeness: (s.student_profiles as any)?.[0]?.profile_completion || (s.student_profiles as any)?.profile_completion || 0,
-      verification: ((s.student_profiles as any)?.[0]?.verification_status || (s.student_profiles as any)?.verification_status) === 'verified' ? 'Verified' : 
-                    ((s.student_profiles as any)?.[0]?.verification_status || (s.student_profiles as any)?.verification_status) === 'pending' ? 'Pending' : 'Rejected',
-      company: (s.offers as any)?.[0]?.company?.name || (s.offers as any)?.[0]?.company?.[0]?.name || 'N/A',
-      package_ctc: (s.offers as any)?.[0]?.package_ctc || '',
-      personal_email: (s as any).personal_email || '',
+      completeness: prof?.profile_completion || 0,
+      verification: prof?.verification_status === 'verified' ? 'Verified' : 
+                    prof?.verification_status === 'pending' ? 'Pending' : 'Rejected',
+      company: offer.name,
+      package_ctc: offer.package_ctc,
+      personal_email: s.personal_email || '',
       eligible: true
     };
   });
@@ -169,21 +247,11 @@ export async function getStudents(options: {
   return { data: formatted, total: count || 0 };
 }
 
-let cachedStudentsPromise: Promise<any[]> | null = null;
-let cachedLightweightPromise: Promise<any[]> | null = null;
-let lastFetchTime = 0;
-let lastLightweightFetchTime = 0;
-const CACHE_TTL_MS = 10000; // 10 seconds TTL
-
 export function clearStudentsCache() {
-  cachedStudentsPromise = null;
-  cachedLightweightPromise = null;
-  lastFetchTime = 0;
-  lastLightweightFetchTime = 0;
+  // Cache invalidation hook maintained for API compatibility
 }
 
 export async function getAllStudents(options?: { lightweight?: boolean; limit?: number; offset?: number; search?: string; year?: string }) {
-  const now = Date.now();
   const isLightweight = !!options?.lightweight;
   const hasLimit = options?.limit !== undefined;
 
@@ -254,10 +322,14 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
       const settings = await getSystemSettings();
       const isCompleted = settings.isAcademicYearCompleted;
 
-      return (data || []).map((s: any) => {
+      return ((data as unknown as RawStudentRecord[]) || []).map((s) => {
+        const yearNum = getYearFromBatch(s.year, isCompleted);
+        const range = getBatchRangeFromYear(s.year);
+        const prof = getProfile(s.student_profiles);
+        const u = getUser(s.users);
+        const offer = getOfferCompany(s.offers);
+
         if (isLightweight) {
-          const yearNum = getYearFromBatch(s.year, isCompleted);
-          const range = getBatchRangeFromYear(s.year);
           return {
             id: s.id,
             name: s.name || 'Unknown',
@@ -265,8 +337,8 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
             rollNo: s.roll_number,
             dept: s.department,
             year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
-            specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
-            placementGroup: (s.student_profiles as any)?.[0]?.work_mode_preference || (s.student_profiles as any)?.work_mode_preference || '',
+            specializations: prof?.specializations || [],
+            placementGroup: prof?.work_mode_preference || '',
             cgpa: 0,
             leetcode: 0,
             status: 'Unplaced',
@@ -276,12 +348,10 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
             package_ctc: ''
           };
         } else {
-          const yearNum = getYearFromBatch(s.year, isCompleted);
-          const range = getBatchRangeFromYear(s.year);
           return {
             id: s.id,
-            name: s.name || (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
-            email: (s.users as any)?.email || (s.users as any)?.[0]?.email || 'N/A',
+            name: s.name || u?.name || 'Unknown',
+            email: u?.email || 'N/A',
             personal_email: s.personal_email || '',
             regNo: s.register_number,
             rollNo: s.roll_number,
@@ -297,16 +367,16 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
             active_arrears: s.active_arrears || 0,
             history_of_backlogs: s.history_of_backlogs || false,
             semester_cgpa: s.semester_cgpa || {},
-            leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
-            specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
-            placementGroup: (s.student_profiles as any)?.[0]?.work_mode_preference || (s.student_profiles as any)?.work_mode_preference || '',
+            leetcode: prof?.leetcode_count || 0,
+            specializations: prof?.specializations || [],
+            placementGroup: prof?.work_mode_preference || '',
             status: s.placement_status === 'placed' ? 'Placed' : 
                     s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
-            completeness: (s.student_profiles as any)?.[0]?.profile_completion || (s.student_profiles as any)?.profile_completion || 0,
-            verification: ((s.student_profiles as any)?.[0]?.verification_status || (s.student_profiles as any)?.verification_status) === 'verified' ? 'Verified' : 
-                          ((s.student_profiles as any)?.[0]?.verification_status || (s.student_profiles as any)?.verification_status) === 'pending' ? 'Pending' : 'Rejected',
-            company: (s.offers as any)?.[0]?.company?.name || (s.offers as any)?.[0]?.company?.[0]?.name || 'N/A',
-            package_ctc: (s.offers as any)?.[0]?.package_ctc || ''
+            completeness: prof?.profile_completion || 0,
+            verification: prof?.verification_status === 'verified' ? 'Verified' : 
+                          prof?.verification_status === 'pending' ? 'Pending' : 'Rejected',
+            company: offer.name,
+            package_ctc: offer.package_ctc
           };
         }
       });
@@ -380,9 +450,12 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
   const settings = await getSystemSettings();
   const isCompleted = settings.isAcademicYearCompleted;
 
-  return (data || []).map((s: any) => {
+  return ((data as unknown as RawStudentRecord[]) || []).map((s) => {
     const yearNum = getYearFromBatch(s.year, isCompleted);
     const range = getBatchRangeFromYear(s.year);
+    const prof = getProfile(s.student_profiles);
+    const u = getUser(s.users);
+    const offer = getOfferCompany(s.offers);
 
     if (isLightweight) {
       return {
@@ -392,8 +465,8 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
         rollNo: s.roll_number,
         dept: s.department,
         year: `${range.startYear}-${range.endYear} (${formatYearOfStudy(yearNum)})`,
-        specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
-        placementGroup: (s.student_profiles as any)?.[0]?.work_mode_preference || (s.student_profiles as any)?.work_mode_preference || '',
+        specializations: prof?.specializations || [],
+        placementGroup: prof?.work_mode_preference || '',
         cgpa: 0,
         leetcode: 0,
         status: 'Unplaced',
@@ -406,8 +479,8 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
 
     return {
       id: s.id,
-      name: s.name || (s.users as any)?.name || (s.users as any)?.[0]?.name || 'Unknown',
-      email: (s.users as any)?.email || (s.users as any)?.[0]?.email || 'N/A',
+      name: s.name || u?.name || 'Unknown',
+      email: u?.email || 'N/A',
       personal_email: s.personal_email || '',
       regNo: s.register_number,
       rollNo: s.roll_number,
@@ -423,21 +496,22 @@ export async function getAllStudents(options?: { lightweight?: boolean; limit?: 
       active_arrears: s.active_arrears || 0,
       history_of_backlogs: s.history_of_backlogs || false,
       semester_cgpa: s.semester_cgpa || {},
-      leetcode: (s.student_profiles as any)?.[0]?.leetcode_count || (s.student_profiles as any)?.leetcode_count || 0,
-      specializations: (s.student_profiles as any)?.[0]?.specializations || (s.student_profiles as any)?.specializations || [],
-      placementGroup: (s.student_profiles as any)?.[0]?.work_mode_preference || (s.student_profiles as any)?.work_mode_preference || '',
+      leetcode: prof?.leetcode_count || 0,
+      specializations: prof?.specializations || [],
+      placementGroup: prof?.work_mode_preference || '',
       status: s.placement_status === 'placed' ? 'Placed' : 
               s.placement_status === 'applied' ? 'Applied' : 'Unplaced',
-      completeness: (s.student_profiles as any)?.[0]?.profile_completion || (s.student_profiles as any)?.profile_completion || 0,
-      verification: ((s.student_profiles as any)?.[0]?.verification_status || (s.student_profiles as any)?.verification_status) === 'verified' ? 'Verified' : 
-                    ((s.student_profiles as any)?.[0]?.verification_status || (s.student_profiles as any)?.verification_status) === 'pending' ? 'Pending' : 'Rejected',
-      company: (s.offers as any)?.[0]?.company?.name || (s.offers as any)?.[0]?.company?.[0]?.name || 'N/A',
-      package_ctc: (s.offers as any)?.[0]?.package_ctc || ''
+      completeness: prof?.profile_completion || 0,
+      verification: prof?.verification_status === 'verified' ? 'Verified' : 
+                    prof?.verification_status === 'pending' ? 'Pending' : 'Rejected',
+      company: offer.name,
+      package_ctc: offer.package_ctc
     };
   });
 }
 
 export async function getStudentProfile(studentId: string) {
+  if (!studentId || !studentId.trim()) return null;
   const { data, error } = await supabase
     .from('students')
     .select(`
@@ -446,7 +520,7 @@ export async function getStudentProfile(studentId: string) {
       student_profiles (*)
     `)
     .eq('id', studentId)
-    .single();
+    .maybeSingle();
   if (error) throw error;
   return data;
 }

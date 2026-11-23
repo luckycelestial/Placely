@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   LuX,
   LuBuilding2,
@@ -15,6 +16,8 @@ import {
   LuHeart,
 } from "react-icons/lu";
 import { useRouter } from "next/navigation";
+import { TurnstileWidget } from "@/components/turnstile-widget";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Drive, ResolvedState, StudentInfo } from "./types";
 
@@ -25,7 +28,7 @@ interface DriveDetailModalProps {
   isSaved: boolean;
   isApplying: boolean;
   onClose: () => void;
-  onApply: (driveId: string) => void;
+  onApply: (driveId: string, turnstileToken?: string) => void;
   onToggleSave: (id: string, e: React.MouseEvent) => void;
 }
 
@@ -40,6 +43,7 @@ export function DriveDetailModal({
   onToggleSave,
 }: DriveDetailModalProps) {
   const router = useRouter();
+  const [turnstileToken, setTurnstileToken] = useState("");
   const isClosed = state.phase === "ongoing" || state.phase === "completed";
 
   const handleCtaClick = () => {
@@ -47,7 +51,11 @@ export function DriveDetailModal({
       onClose();
       router.push("/progress");
     } else if (state.phase === "open" && !state.hasApplied && state.isEligible) {
-      onApply(drive.id);
+      if (!turnstileToken) {
+        toast.error("Please complete the security check before applying.");
+        return;
+      }
+      onApply(drive.id, turnstileToken);
     }
   };
 
@@ -261,6 +269,18 @@ export function DriveDetailModal({
                 </div>
               </div>
             </div>
+
+            {state.phase === "open" && !state.hasApplied && state.isEligible && (
+              <div className="p-4 rounded-2xl bg-surface border border-border-subtle shadow-sm flex flex-col items-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-2">Bot Protection Verification</p>
+                <TurnstileWidget
+                  action="job_apply"
+                  onSuccess={(tok) => setTurnstileToken(tok)}
+                  onError={() => setTurnstileToken("")}
+                  onExpire={() => setTurnstileToken("")}
+                />
+              </div>
+            )}
           </div>
         </div>
 

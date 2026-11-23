@@ -71,7 +71,7 @@ export async function getDistinctBatches(): Promise<string[]> {
   years.add(String(currentYear));
   years.add(String(currentYear + 1));
 
-  (data || []).forEach((row: any) => {
+  (data || []).forEach((row: { batch?: string | null }) => {
     const b = row.batch || String(currentYear);
     years.add(b);
   });
@@ -83,11 +83,20 @@ export async function getDistinctDepartments(): Promise<string[]> {
   const { data, error } = await supabase.from('students').select('department');
   if (error) return ['AI&DS', 'CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT'];
   const depts = new Set<string>();
-  (data || []).forEach((s: any) => { if (s.department) depts.add(s.department); });
+  (data || []).forEach((s: { department?: string | null }) => { if (s.department) depts.add(s.department); });
   return Array.from(depts).sort();
 }
 
-async function triggerNoticeOnPublication(drive: any) {
+interface DriveNoticePayload {
+  company_id: string;
+  role_title: string;
+  application_start?: string | null;
+  application_end?: string | null;
+  package_ctc: string | number;
+  location?: string | null;
+}
+
+async function triggerNoticeOnPublication(drive: DriveNoticePayload) {
   try {
     const { data: company } = await supabase
       .from('companies')
@@ -126,7 +135,21 @@ async function triggerNoticeOnPublication(drive: any) {
   }
 }
 
-export async function createDrive(driveData: any) {
+export interface DriveInput {
+  company_id: string;
+  role_title: string;
+  drive_type: string;
+  package_ctc: string | number;
+  location?: string | null;
+  application_start?: string | null;
+  application_end?: string | null;
+  batch?: string | null;
+  eligibility_rules?: Record<string, unknown> | null;
+  status?: string;
+  title: string;
+}
+
+export async function createDrive(driveData: DriveInput) {
   const { data, error } = await supabase
     .from('job_drives')
     .insert([{
@@ -154,7 +177,7 @@ export async function createDrive(driveData: any) {
   return data;
 }
 
-export async function updateDrive(id: string, driveData: any) {
+export async function updateDrive(id: string, driveData: DriveInput) {
   const { data, error } = await supabase
     .from('job_drives')
     .update({
@@ -216,7 +239,7 @@ export async function deleteDrive(id: string) {
   return true;
 }
 
-export async function createCompany(companyData: any) {
+export async function createCompany(companyData: Record<string, unknown>) {
   const { data, error } = await supabase
     .from('companies')
     .insert([companyData])
@@ -227,7 +250,7 @@ export async function createCompany(companyData: any) {
   return data;
 }
 
-export async function updateCompany(id: string, companyData: any) {
+export async function updateCompany(id: string, companyData: Record<string, unknown>) {
   const { data, error } = await supabase
     .from('companies')
     .update(companyData)
@@ -273,7 +296,7 @@ export async function getTemplates() {
   return data || [];
 }
 
-export async function createTemplate(templateData: any) {
+export async function createTemplate(templateData: Record<string, unknown>) {
   const { data, error } = await supabase
     .from('drive_templates')
     .insert([templateData])
@@ -283,7 +306,7 @@ export async function createTemplate(templateData: any) {
   return data;
 }
 
-export async function updateTemplate(id: string, templateData: any) {
+export async function updateTemplate(id: string, templateData: Record<string, unknown>) {
   const { data, error } = await supabase
     .from('drive_templates')
     .update(templateData)
@@ -303,9 +326,9 @@ export async function deleteTemplate(id: string) {
   return true;
 }
 
-export async function updateDriveStages(driveId: string, stages: any[]) {
+export async function updateDriveStages(driveId: string, stages: unknown[]) {
   const { data: drive } = await supabase.from('job_drives').select('eligibility_rules').eq('id', driveId).single();
-  const currentRules = (drive?.eligibility_rules as any) || {};
+  const currentRules = (drive?.eligibility_rules as Record<string, unknown>) || {};
   const updatedRules = { ...currentRules, stages };
   
   const { error } = await supabase
@@ -316,11 +339,11 @@ export async function updateDriveStages(driveId: string, stages: any[]) {
   return { success: true };
 }
 
-export async function updateAllDriveStages(stages: any[]) {
+export async function updateAllDriveStages(stages: unknown[]) {
   const { data: drives } = await supabase.from('job_drives').select('id, eligibility_rules');
   if (drives) {
     for (const drive of drives) {
-      const currentRules = (drive.eligibility_rules as any) || {};
+      const currentRules = (drive.eligibility_rules as Record<string, unknown>) || {};
       const updatedRules = { ...currentRules, stages };
       await supabase.from('job_drives').update({ eligibility_rules: updatedRules }).eq('id', drive.id);
     }

@@ -2,18 +2,16 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { 
-  LuAward, 
   LuCode, 
   LuFolder, 
   LuSearch, 
   LuBriefcase, 
   LuSlidersHorizontal,
   LuTrophy,
-  LuMedal,
-  LuFileText
+  LuMedal
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/services/database";
 import { Sk } from "@/components/ui/skeleton";
 import { ExportDropdown } from "@/components/ui/ExportDropdown";
 import { exportToExcel, exportToPDF } from "@/lib/export-utils";
@@ -42,19 +40,12 @@ export function LeaderboardView() {
     async function fetchLeaderboardData() {
       setLoading(true);
       try {
-        const [studentsRes, profilesRes, projectsRes, offersRes, appsRes] = await Promise.all([
-          supabase.from("students").select("id, name, department, year"),
-          supabase.from("student_profiles").select("student_id, leetcode_count"),
-          supabase.from("student_projects").select("student_id"),
-          supabase.from("offers").select("student_id, acceptance_status"),
-          supabase.from("applications").select("student_id")
-        ]);
-
-        const students = studentsRes.data || [];
-        const profiles = profilesRes.data || [];
-        const projects = projectsRes.data || [];
-        const offers = offersRes.data || [];
-        const apps = appsRes.data || [];
+        const data = await db.getLeaderboardData();
+        const students = data.students || [];
+        const profiles = data.profiles || [];
+        const projects = data.projects || [];
+        const offers = data.offers || [];
+        const apps = data.applications || [];
 
         // Build data structure
         const formatted: StudentLeaderboardRow[] = students.map(s => {
@@ -128,7 +119,7 @@ export function LeaderboardView() {
     const toastId = toast.loading("Exporting Excel...");
     await new Promise(resolve => setTimeout(resolve, 50));
     try {
-      let exportRows: any[] = [];
+      const exportRows: Record<string, unknown>[] = [];
       const filename = `Leaderboard_${tab}_Report`;
       
       sortedAndFilteredRows.forEach((row, idx) => {
@@ -166,8 +157,8 @@ export function LeaderboardView() {
     const toastId = toast.loading("Exporting PDF...");
     await new Promise(resolve => setTimeout(resolve, 50));
     try {
-      let headers: string[] = ["Rank", "Student Name", "Department", "Batch"];
-      let rows: any[][] = [];
+      const headers: string[] = ["Rank", "Student Name", "Department", "Batch"];
+      let rows: (string | number)[][] = [];
       const filename = `Leaderboard_${tab}_Report`;
 
       if (tab === "coding") {
@@ -248,7 +239,7 @@ export function LeaderboardView() {
         ].map((t) => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id as any)}
+            onClick={() => setTab(t.id as "coding" | "drives" | "projects")}
             className={cn(
               "pb-4 text-xs font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all cursor-pointer",
               tab === t.id

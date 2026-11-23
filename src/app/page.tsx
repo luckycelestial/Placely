@@ -1,20 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { 
   LuUser, 
   LuShieldCheck, 
   LuCircleHelp, 
-  LuSparkles,
-  LuMoveRight,
-  LuArrowRight
+  LuSparkles, 
+  LuMoveRight, 
+  LuArrowRight 
 } from "react-icons/lu";
+import { TurnstileWidget, type TurnstileWidgetRef } from "@/components/turnstile-widget";
 import { cn } from "@/lib/utils";
 import { db, clearStudentsCache } from "@/services/database";
 import { setLoggedStudentId } from "@/lib/dev-config";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+
+interface QuickLoginStudent {
+  id: string;
+  name: string;
+  regNo?: string;
+  registerNumber?: string;
+  dept?: string;
+  department?: string;
+}
 
 export default function TenantEntryPage() {
   const showDemo = 
@@ -26,18 +36,30 @@ export default function TenantEntryPage() {
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [activeTab, setActiveTab] = useState<"student" | "admin">("student");
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<QuickLoginStudent[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileWidgetRef>(null);
   const router = useRouter();
 
   useEffect(() => {
     if (showDemo) {
       async function loadProfiles() {
         try {
+          // Fetch via server API route to avoid direct browser DB queries
+          const res = await fetch('/api/students?limit=30');
+          if (res.ok) {
+            const json = await res.json();
+            if (Array.isArray(json.data) && json.data.length > 0) {
+              setStudents(json.data as QuickLoginStudent[]);
+              return;
+            }
+          }
+          // Fallback
           clearStudentsCache();
           const { data } = await db.getStudents({ pageSize: 30 });
-          setStudents(data || []);
-        } catch (err: any) {
+          setStudents((data || []) as unknown as QuickLoginStudent[]);
+        } catch (err: unknown) {
           console.error("Failed to load student profiles:", err);
         } finally {
           setLoadingStudents(false);
@@ -57,14 +79,46 @@ export default function TenantEntryPage() {
         }
       });
       if (error) throw error;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to initialize Google Sign-in.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to initialize Google Sign-in.";
+      toast.error(msg);
       setIsLoggingIn(false);
     }
   };
 
-  const handleStudentProfileSignIn = (studentId: string) => {
+  const verifyBotProtection = async (action: string) => {
+    if (!turnstileToken) {
+      toast.error("Please complete the Cloudflare security verification.");
+      return false;
+    }
+    try {
+      const res = await fetch("/api/turnstile/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: turnstileToken, action })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Security verification failed");
+      }
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Security verification failed";
+      toast.error(msg);
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
+      return false;
+    }
+  };
+
+  const handleStudentProfileSignIn = async (studentId: string) => {
     setIsLoggingIn(true);
+    const verified = await verifyBotProtection("student_login");
+    if (!verified) {
+      setIsLoggingIn(false);
+      return;
+    }
+
     if (typeof window !== "undefined") {
       localStorage.removeItem("active_admin_email");
     }
@@ -75,8 +129,14 @@ export default function TenantEntryPage() {
     }, 500);
   };
 
-  const handleAdminSignIn = () => {
+  const handleAdminSignIn = async () => {
     setIsLoggingIn(true);
+    const verified = await verifyBotProtection("admin_login");
+    if (!verified) {
+      setIsLoggingIn(false);
+      return;
+    }
+
     setLoggedStudentId("");
     if (typeof window !== "undefined") {
       localStorage.setItem("active_admin_email", "admin@placement.edu");
@@ -193,6 +253,18 @@ export default function TenantEntryPage() {
               </svg>
               <span>Continue with Google</span>
             </button>
+
+            {/* Cloudflare Turnstile Bot Protection */}
+            <div className="py-1">
+              <TurnstileWidget
+                ref={turnstileRef}
+                action={activeTab === "student" ? "student_login" : "admin_login"}
+                onSuccess={(tok) => setTurnstileToken(tok)}
+                onError={() => setTurnstileToken("")}
+                onExpire={() => setTurnstileToken("")}
+                theme="dark"
+              />
+            </div>
 
             {/* Dev Mode Instant Login Buttons (Controlled via ENV) */}
             {showDemo && (

@@ -58,7 +58,7 @@ export interface StudentProfileRecord {
   cgpa?: string | number | null;
   active_arrears?: number | null;
   history_of_backlogs?: boolean | null;
-  student_profiles?: any;
+  student_profiles?: Record<string, unknown> | null;
   student_academics?: StudentAcademicRecord | StudentAcademicRecord[];
   student_preferences?: StudentPreference | StudentPreference[];
 }
@@ -96,7 +96,7 @@ export function resolveDriveState(
   const ineligibleReasons: string[] = [];
 
   // Placement lock check — overrides all eligibility unless whitelisted
-  const bypassList = (rules as any).bypass_placement_lock_students || [];
+  const bypassList = rules.bypass_placement_lock_students || [];
   const isBypassed = bypassList.includes(studentInfo.registerNumber || '') || bypassList.includes(studentInfo.id || '');
 
   if (studentInfo.isPlacementLocked && !isBypassed) {

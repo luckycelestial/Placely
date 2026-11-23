@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { LuLayers, LuLoader } from "react-icons/lu";
 import { db } from "@/services/database";
-import { supabase } from "@/lib/supabase";
 import { 
   getSettingByKey, 
   updateSettingByKey, 
@@ -15,14 +14,14 @@ import { toast } from "sonner";
 import { exportToExcel, exportToPDF } from "@/lib/export-utils";
 
 import { GroupHeader } from "./components/GroupHeader";
-import { GroupTable } from "./components/GroupTable";
+import { GroupTable, type GroupStudent } from "./components/GroupTable";
 import { GroupConfigDrawer } from "./components/GroupConfigDrawer";
 import { CreateGroupModal } from "./components/CreateGroupModal";
 
 export default function AdminGroupsPage() {
   const [customGroups, setCustomGroups] = useState<CustomGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<GroupStudent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCompleted, setIsCompleted] = useState(false);
 
@@ -72,7 +71,17 @@ export default function AdminGroupsPage() {
           db.getAllStudents({ lightweight: true })
         ]);
 
-        let finalGroups = [...groupsData];
+        const rawGroups = Array.isArray(groupsData) && groupsData.length > 0 ? groupsData : DEFAULT_CUSTOM_GROUPS;
+        // Sanitize groups to ensure they have valid options array
+        const finalGroups = rawGroups.map(g => {
+          const defaultMatch = DEFAULT_CUSTOM_GROUPS.find(d => d.id === g.id);
+          return {
+            ...g,
+            type: g.type || defaultMatch?.type || 'admin_assigned',
+            options: Array.isArray(g.options) ? g.options : (defaultMatch?.options || [])
+          };
+        });
+
         let neededUpdate = false;
         const systemGroupIds = ["departments", "batches", "placement_lock"];
         DEFAULT_CUSTOM_GROUPS.forEach(defaultGrp => {
@@ -102,7 +111,12 @@ export default function AdminGroupsPage() {
   }, []);
 
   const activeGroup = useMemo(() => {
-    return customGroups.find(g => g.id === selectedGroupId) || customGroups[0] || null;
+    const grp = customGroups.find(g => g.id === selectedGroupId) || customGroups[0] || null;
+    if (!grp) return null;
+    return {
+      ...grp,
+      options: Array.isArray(grp.options) ? grp.options : []
+    };
   }, [customGroups, selectedGroupId]);
 
   const departmentsList = useMemo(() => {
@@ -117,7 +131,7 @@ export default function AdminGroupsPage() {
     return Array.from(set).sort();
   }, [students]);
 
-  const getStudentSelectionsInGroup = useCallback((student: any, group: CustomGroup): string[] => {
+  const getStudentSelectionsInGroup = useCallback((student: GroupStudent, group: CustomGroup): string[] => {
     if (!student || !group) return [];
 
     if (group.id === "departments") {
@@ -129,7 +143,8 @@ export default function AdminGroupsPage() {
 
     if (group.type === "student_selectable") {
       const specs = student.specializations || [];
-      return specs.filter((s: string) => group.options.includes(s));
+      const opts = Array.isArray(group.options) ? group.options : [];
+      return specs.filter((s: string) => opts.includes(s));
     }
 
     const currentPref = student.placementGroup || "";
@@ -138,7 +153,7 @@ export default function AdminGroupsPage() {
         const map = JSON.parse(currentPref);
         const val = map[group.id];
         return val ? [val] : [];
-      } catch (e) {
+      } catch {
         return [];
       }
     } else if (group.id === "placement_groups" || group.id === "placement_group") {
@@ -150,7 +165,8 @@ export default function AdminGroupsPage() {
   const optionCounts = useMemo(() => {
     if (!activeGroup) return {};
     const counts: Record<string, number> = {};
-    activeGroup.options.forEach(opt => { counts[opt] = 0; });
+    const options = Array.isArray(activeGroup.options) ? activeGroup.options : [];
+    options.forEach(opt => { counts[opt] = 0; });
 
     students.forEach(s => {
       const selections = getStudentSelectionsInGroup(s, activeGroup);
@@ -208,7 +224,7 @@ export default function AdminGroupsPage() {
 
       if (group.id === "departments") {
         const newDept = action === 'remove' ? "" : option;
-        await supabase.from("students").update({ department: newDept }).eq("id", studentId);
+        await db.updateTableCell("students", studentId, { department: newDept });
         setStudents(prev => prev.map(s => s.id === studentId ? { ...s, dept: newDept } : s));
       } else if (group.id === "batches") {
         let newYear = 0;
@@ -216,10 +232,10 @@ export default function AdminGroupsPage() {
           const parts = option.split('-');
           newYear = parseInt(parts[parts.length - 1]) || 0;
         }
-        await supabase.from("students").update({ year: newYear }).eq("id", studentId);
+        await db.updateTableCell("students", studentId, { year: newYear });
         setStudents(prev => prev.map(s => s.id === studentId ? { ...s, year: action === 'remove' ? "" : option } : s));
       } else if (group.type === "student_selectable") {
-        let currentSpecs: string[] = targetStudent.specializations || [];
+        const currentSpecs: string[] = targetStudent.specializations || [];
         let updatedSpecs: string[];
 
         if (action === 'add') {
@@ -238,7 +254,9 @@ export default function AdminGroupsPage() {
         if (currentPref.trim().startsWith('{')) {
           try {
             map = JSON.parse(currentPref);
-          } catch (e) {}
+          } catch {
+            /* ignore JSON parse error */
+          }
         } else if (currentPref) {
           map["placement_group"] = currentPref;
         }
@@ -269,7 +287,8 @@ export default function AdminGroupsPage() {
     try {
       if (activeGroup.type === "student_selectable") {
         const targetStudent = students.find(s => s.id === studentId);
-        const newSpecs = (targetStudent?.specializations || []).filter((opt: string) => !activeGroup.options.includes(opt));
+        const groupOpts = activeGroup.options || [];
+        const newSpecs = (targetStudent?.specializations || []).filter((opt: string) => !groupOpts.includes(opt));
         await db.updateStudentProfile(studentId, { specializations: newSpecs });
         setStudents(prev => prev.map(stud => stud.id === studentId ? { ...stud, specializations: newSpecs } : stud));
       } else {
@@ -297,13 +316,13 @@ export default function AdminGroupsPage() {
         if (!targetStudent) return;
 
         if (activeGroup.id === "departments") {
-          await supabase.from("students").update({ department: clear ? "" : option }).eq("id", studentId);
+          await db.updateTableCell("students", studentId, { department: clear ? "" : option });
         } else if (activeGroup.id === "batches") {
           const parts = option.split('-');
           const endYear = parseInt(parts[parts.length - 1]) || 0;
-          await supabase.from("students").update({ year: clear ? 0 : endYear }).eq("id", studentId);
+          await db.updateTableCell("students", studentId, { year: clear ? 0 : endYear });
         } else if (activeGroup.type === "student_selectable") {
-          let currentSpecs: string[] = targetStudent.specializations || [];
+          const currentSpecs: string[] = targetStudent.specializations || [];
           let updatedSpecs: string[];
           if (clear) {
             updatedSpecs = currentSpecs.filter(s => !activeGroup.options.includes(s));
@@ -315,7 +334,7 @@ export default function AdminGroupsPage() {
           const currentPref = targetStudent.placementGroup || "";
           let map: Record<string, string> = {};
           if (currentPref.trim().startsWith('{')) {
-            try { map = JSON.parse(currentPref); } catch (e) {}
+            try { map = JSON.parse(currentPref); } catch { /* ignore */ }
           } else if (currentPref) {
             map["placement_group"] = currentPref;
           }
@@ -342,7 +361,7 @@ export default function AdminGroupsPage() {
           return { ...s, specializations: newSpecs };
         } else {
           let map: Record<string, string> = {};
-          try { map = JSON.parse(s.placementGroup || "{}"); } catch (e) {}
+          try { map = JSON.parse(s.placementGroup || "{}"); } catch { /* ignore */ }
           if (clear) delete map[activeGroup.id];
           else map[activeGroup.id] = option;
           return { ...s, placementGroup: JSON.stringify(map) };
@@ -423,14 +442,15 @@ export default function AdminGroupsPage() {
     const optionName = newOptionName.trim();
     if (!optionName) return;
 
-    if (activeGroup.options.includes(optionName)) {
+    const groupOpts = activeGroup.options || [];
+    if (groupOpts.includes(optionName)) {
       toast.error("Option already exists inside this group!");
       return;
     }
 
     const updatedGroups = customGroups.map(g => {
       if (g.id === activeGroup.id) {
-        return { ...g, options: [...g.options, optionName] };
+        return { ...g, options: [...(g.options || []), optionName] };
       }
       return g;
     });
@@ -450,7 +470,7 @@ export default function AdminGroupsPage() {
   // Delete Option
   const handleDeleteOption = async (optionToDelete: string) => {
     if (!activeGroup) return;
-    const updatedOptions = activeGroup.options.filter(o => o !== optionToDelete);
+    const updatedOptions = (activeGroup.options || []).filter(o => o !== optionToDelete);
     const updatedGroups = customGroups.map(g => {
       if (g.id === activeGroup.id) {
         return { ...g, options: updatedOptions };
@@ -517,8 +537,8 @@ export default function AdminGroupsPage() {
       const rows = filteredStudents.map(s => {
         const selections = getStudentSelectionsInGroup(s, activeGroup);
         return [
-          s.name,
-          s.regNo,
+          s.name || "N/A",
+          s.regNo || "N/A",
           s.dept || "N/A",
           selections.join(', ') || 'Unassigned'
         ];

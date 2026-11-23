@@ -145,7 +145,7 @@ export async function getStudentAppliedDriveIds(studentId: string): Promise<stri
     .select('drive_id')
     .eq('student_id', studentId);
   if (error) throw error;
-  return (data || []).map((a: any) => a.drive_id);
+  return (data || []).map((a: { drive_id: string }) => a.drive_id);
 }
 export function resolveStatusFromStage(stageId: string): string {
   const id = stageId.toLowerCase();
@@ -263,7 +263,7 @@ export async function bulkUpdateApplicationStage(ids: string[], stageId: string)
       .select('student_id, drive_id')
       .in('id', ids);
     if (apps && apps.length > 0) {
-      await Promise.all(apps.map(async (app: any) => {
+      await Promise.all(apps.map(async (app: { student_id: string | null; drive_id: string | null }) => {
         if (app.student_id && app.drive_id) {
           await autoCreateOfferAndPlaceStudent(app.student_id, app.drive_id);
         }
@@ -365,13 +365,25 @@ async function assignPlacementLockIfEnabled(studentId: string) {
   }
 }
 
-export async function bulkCreateOffers(offersData: any[]) {
+export interface BulkOfferInput {
+  regNo?: string;
+  company?: string;
+  driveTitle?: string;
+  role?: string;
+  ctc?: string | number;
+  status?: string;
+  verification?: string;
+  joiningDate?: string;
+  mismatchFlag?: boolean;
+}
+
+export async function bulkCreateOffers(offersData: BulkOfferInput[]) {
   if (!offersData || offersData.length === 0) return [];
 
   // 1. Gather all unique register numbers, company names, and drive titles
-  const regNos = Array.from(new Set(offersData.map(o => o.regNo).filter(Boolean)));
-  const companyNames = Array.from(new Set(offersData.map(o => o.company).filter(Boolean)));
-  const driveTitles = Array.from(new Set(offersData.map(o => o.driveTitle).filter(Boolean)));
+  const regNos = Array.from(new Set(offersData.map(o => o.regNo).filter((r): r is string => Boolean(r))));
+  const companyNames = Array.from(new Set(offersData.map(o => o.company).filter((c): c is string => Boolean(c))));
+  const driveTitles = Array.from(new Set(offersData.map(o => o.driveTitle).filter((d): d is string => Boolean(d))));
 
   // 2. Batch fetch students
   const { data: students } = await supabase
@@ -451,7 +463,7 @@ export async function bulkCreateOffers(offersData: any[]) {
 
   // Apply placement lock for each student who received an offer
   const placedStudentIds = Array.from(new Set(
-    (offersPayload as any[]).map((o: any) => o.student_id).filter(Boolean)
+    offersPayload.map(o => o.student_id).filter((id): id is string => Boolean(id))
   ));
   await Promise.all(placedStudentIds.map(id => assignPlacementLockIfEnabled(id)));
 
@@ -479,7 +491,7 @@ export async function getStudentOffers(studentId: string) {
       return [];
     }
     return data || [];
-  } catch (err) {
+  } catch {
     return [];
   }
 }
@@ -608,7 +620,7 @@ export async function getStudentApplicationStats(studentId: string) {
     const placedCount = offers.filter(o => o.acceptance_status === 'accepted').length;
     const offeredCount = offers.length;
     return { active_count: activeCount, placed_count: placedCount, offered_count: offeredCount };
-  } catch (err) {
+  } catch {
     return defaultStats;
   }
 }

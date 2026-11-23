@@ -13,11 +13,13 @@ import {
   LuInfo,
   LuShieldCheck,
   LuPlus,
-  LuX
+  LuX,
+  LuUpload,
+  LuCloudUpload
 } from "react-icons/lu";
 import { cn, isStudentInAudience } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { DEV_STUDENT_ID } from "@/lib/dev-config";
+import { DEV_STUDENT_ID, isValidUuid } from "@/lib/dev-config";
 import { toast } from "sonner";
 import { getSystemSettings, getSettingByKey } from "@/services/settings";
 import { getYearFromBatch, getBatchRangeFromYear, getRomanYear } from "@/lib/batch-utils";
@@ -49,6 +51,7 @@ interface Document {
   type: string;
   format: "link" | "file";
   reference: string;
+  storagePath?: string;
   timestamp: string;
   status: "Completed" | "Pending" | "Rejected" | "Not Provided";
   isRequired: boolean;
@@ -58,8 +61,9 @@ const INITIAL_DOCUMENTS = [
   {
     title: "Primary Placement Resume",
     type: "Resume",
-    format: "link" as const,
-    reference: "drive.google.com/resume-final",
+    format: "file" as const,
+    reference: "Not Provided",
+    storage_path: "",
     status: "Completed" as const,
     isRequired: true
   }
@@ -80,7 +84,10 @@ export default function DocumentsCenterPage() {
   // Form states
   const [title, setTitle] = useState("");
   const [type, setType] = useState("Resume");
-  const [format, setFormat] = useState<"link" | "file">("link");
+  const [format, setFormat] = useState<"link" | "file">("file");
+  const [uploadMode, setUploadMode] = useState<"file" | "link">("file");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [reference, setReference] = useState("");
   const [isRequired, setIsRequired] = useState(false);
   
@@ -90,7 +97,10 @@ export default function DocumentsCenterPage() {
   const clearForm = () => {
     setTitle("");
     setType("Resume");
-    setFormat("link");
+    setFormat("file");
+    setUploadMode("file");
+    setSelectedFile(null);
+    setUploading(false);
     setReference("");
     setIsRequired(false);
     setSelectedDoc(null);
@@ -98,6 +108,10 @@ export default function DocumentsCenterPage() {
   };
 
   const fetchDocs = async () => {
+    if (!DEV_STUDENT_ID || !isValidUuid(DEV_STUDENT_ID)) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
 
@@ -205,6 +219,7 @@ export default function DocumentsCenterPage() {
           type: doc.document_type,
           format: doc.storage_path ? ('file' as const) : ('link' as const),
           reference: doc.url || 'Not Provided',
+          storagePath: doc.storage_path || '',
           timestamp: 'Just now',
           status: (doc.verification_status === "Verified" || doc.verification_status === "Completed") ? ("Completed" as const) : (doc.verification_status as any),
           isRequired: doc.is_required
@@ -218,6 +233,7 @@ export default function DocumentsCenterPage() {
             type: doc.document_type,
             format: doc.storage_path ? ('file' as const) : ('link' as const),
             reference: doc.url || 'Not Provided',
+            storagePath: doc.storage_path || '',
             timestamp: doc.updated_at ? new Date(doc.updated_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : 'N/A',
             status: (doc.verification_status === "Verified" || doc.verification_status === "Completed") ? ("Completed" as const) : (doc.verification_status as any),
             isRequired: doc.is_required
@@ -304,6 +320,8 @@ export default function DocumentsCenterPage() {
     setFormat(doc.format);
     setReference(doc.reference === 'Not Provided' ? '' : doc.reference);
     setIsRequired(doc.isRequired);
+    setUploadMode(doc.storagePath ? 'file' : 'link');
+    setSelectedFile(null);
     setIsEditModalOpen(true);
   };
 
@@ -312,76 +330,192 @@ export default function DocumentsCenterPage() {
     setIsDeleteModalOpen(true);
   };
 
-
-
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !reference.trim() || validatingLink) return;
+    if (!title.trim() || validatingLink || uploading) return;
 
-    const cleanUrl = reference.trim();
-    if (!cleanUrl.includes('drive.google.com') && !cleanUrl.includes('docs.google.com')) {
-      toast.error('Must be a Google Drive or Google Docs link.');
-      return;
-    }
+    let finalUrl = reference.trim();
+    let finalStoragePath = "";
+    let finalFormat: "file" | "link" = "link";
 
-    setValidatingLink(true);
-    try {
-      const res = await fetch(`/api/validate-drive-link?url=${encodeURIComponent(cleanUrl)}`);
-      const valData = await res.json();
-      if (!valData.valid) {
-        toast.error(valData.error || 'Failed to validate Google Drive link.');
-        setValidatingLink(false);
+    if (uploadMode === "file") {
+      if (!selectedFile) {
+        toast.error("Please select a file to upload.");
+        return;
+      }
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        toast.error("File exceeds 5MB limit. Please select a smaller file.");
         return;
       }
 
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("category", type === "Resume" ? "resume" : "document");
+        formData.append("identifier", DEV_STUDENT_ID);
+        formData.append("docTitle", title.trim());
+
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to upload file to Cloudflare R2");
+        }
+
+        const uploadData = await res.json();
+        finalUrl = uploadData.url;
+        finalStoragePath = uploadData.key;
+        finalFormat = "file";
+      } catch (err: any) {
+        console.error("Upload error:", err);
+        toast.error(err.message || "Failed to upload file to Cloudflare R2.");
+        setUploading(false);
+        return;
+      }
+    } else {
+      if (!finalUrl.includes('drive.google.com') && !finalUrl.includes('docs.google.com')) {
+        toast.error('Must be a Google Drive or Google Docs link.');
+        return;
+      }
+
+      setValidatingLink(true);
+      try {
+        const res = await fetch(`/api/validate-drive-link?url=${encodeURIComponent(finalUrl)}`);
+        const valData = await res.json();
+        if (!valData.valid) {
+          toast.error(valData.error || 'Failed to validate Google Drive link.');
+          setValidatingLink(false);
+          return;
+        }
+      } catch (err) {
+        toast.error("Failed to validate Google Drive link.");
+        setValidatingLink(false);
+        return;
+      }
+    }
+
+    try {
       const { error } = await supabase
         .from('student_documents')
         .insert([{
           student_id: DEV_STUDENT_ID,
           title: title.trim(),
           document_type: type,
-          url: cleanUrl,
-          storage_path: "",
+          url: finalUrl,
+          storage_path: finalStoragePath,
           is_required: isRequired,
-          verification_status: "Pending"
+          verification_status: "Completed"
         }]);
 
       if (error) throw error;
-      toast.success("Document added successfully.");
+
+      // Sync primary resume to student profile
+      if (type === "Resume") {
+        await supabase
+          .from("student_profiles")
+          .update({ resume_url: finalUrl })
+          .eq("student_id", DEV_STUDENT_ID);
+      }
+
+      toast.success(uploadMode === "file" ? "File uploaded to Cloudflare R2 successfully!" : "Document link added successfully.");
       await fetchDocs(); // Reload from DB
       setIsAddModalOpen(false);
       clearForm();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to add document:", err);
-      toast.error("Failed to add document.");
+      toast.error(err.message || "Failed to add document.");
     } finally {
+      setUploading(false);
       setValidatingLink(false);
     }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDoc || !title.trim() || !reference.trim() || validatingLink) return;
+    if (!selectedDoc || !title.trim() || validatingLink || uploading) return;
 
-    const cleanUrl = reference.trim();
-    if (!cleanUrl.includes('drive.google.com') && !cleanUrl.includes('docs.google.com')) {
-      toast.error('Must be a Google Drive or Google Docs link.');
-      return;
-    }
+    let finalUrl = selectedDoc.reference;
+    let finalStoragePath = selectedDoc.storagePath || "";
+    let finalFormat = selectedDoc.format;
 
-    setValidatingLink(true);
-    try {
-      const res = await fetch(`/api/validate-drive-link?url=${encodeURIComponent(cleanUrl)}`);
-      const valData = await res.json();
-      if (!valData.valid) {
-        toast.error(valData.error || 'Failed to validate Google Drive link.');
-        setValidatingLink(false);
+    if (uploadMode === "file") {
+      if (selectedFile) {
+        if (selectedFile.size > 5 * 1024 * 1024) {
+          toast.error("File exceeds 5MB limit. Please select a smaller file.");
+          return;
+        }
+
+        setUploading(true);
+        try {
+          const formData = new FormData();
+          formData.append("file", selectedFile);
+          formData.append("category", type === "Resume" ? "resume" : "document");
+          formData.append("identifier", DEV_STUDENT_ID);
+          formData.append("docTitle", title.trim());
+
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to upload file to Cloudflare R2");
+          }
+
+          const uploadData = await res.json();
+          // Clean up old file if different
+          if (selectedDoc.storagePath && selectedDoc.storagePath !== uploadData.key) {
+            fetch(`/api/upload?key=${encodeURIComponent(selectedDoc.storagePath)}`, { method: "DELETE" }).catch(() => {});
+          }
+
+          finalUrl = uploadData.url;
+          finalStoragePath = uploadData.key;
+          finalFormat = "file";
+        } catch (err: any) {
+          console.error("Upload error:", err);
+          toast.error(err.message || "Failed to upload file to Cloudflare R2.");
+          setUploading(false);
+          return;
+        }
+      }
+    } else {
+      const cleanUrl = reference.trim();
+      if (!cleanUrl) {
+        toast.error("Please provide a link.");
+        return;
+      }
+      if (!cleanUrl.includes('drive.google.com') && !cleanUrl.includes('docs.google.com')) {
+        toast.error('Must be a Google Drive or Google Docs link.');
         return;
       }
 
-      const isVirtual = selectedDoc.id.toString().startsWith('req-');
+      setValidatingLink(true);
+      try {
+        const res = await fetch(`/api/validate-drive-link?url=${encodeURIComponent(cleanUrl)}`);
+        const valData = await res.json();
+        if (!valData.valid) {
+          toast.error(valData.error || 'Failed to validate Google Drive link.');
+          setValidatingLink(false);
+          return;
+        }
+        finalUrl = cleanUrl;
+        finalStoragePath = "";
+        finalFormat = "link";
+      } catch (err) {
+        toast.error("Failed to validate Google Drive link.");
+        setValidatingLink(false);
+        return;
+      }
+    }
 
-      let error;
+    const isVirtual = selectedDoc.id.toString().startsWith('req-');
+
+    try {
       if (isVirtual) {
         const { error: err } = await supabase
           .from('student_documents')
@@ -389,37 +523,45 @@ export default function DocumentsCenterPage() {
             student_id: DEV_STUDENT_ID,
             title: title.trim(),
             document_type: type,
-            url: cleanUrl,
-            storage_path: "",
+            url: finalUrl,
+            storage_path: finalStoragePath,
             is_required: isRequired,
-            verification_status: "Pending"
+            verification_status: "Completed"
           }]);
-        error = err;
+        if (err) throw err;
       } else {
         const { error: err } = await supabase
           .from('student_documents')
           .update({
             title: title.trim(),
             document_type: type,
-            url: cleanUrl,
-            storage_path: "",
+            url: finalUrl,
+            storage_path: finalStoragePath,
             is_required: isRequired,
-            verification_status: "Pending",
+            verification_status: "Completed",
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedDoc.id);
-        error = err;
+        if (err) throw err;
       }
 
-      if (error) throw error;
+      // Sync primary resume to student profile
+      if (type === "Resume") {
+        await supabase
+          .from("student_profiles")
+          .update({ resume_url: finalUrl })
+          .eq("student_id", DEV_STUDENT_ID);
+      }
+
       toast.success("Document updated successfully.");
       await fetchDocs(); // Reload from DB
       setIsEditModalOpen(false);
       clearForm();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update document:", err);
-      toast.error("Failed to update document.");
+      toast.error(err.message || "Failed to update document.");
     } finally {
+      setUploading(false);
       setValidatingLink(false);
     }
   };
@@ -428,17 +570,25 @@ export default function DocumentsCenterPage() {
     if (!selectedDoc) return;
 
     try {
+      if (selectedDoc.storagePath) {
+        fetch(`/api/upload?key=${encodeURIComponent(selectedDoc.storagePath)}`, {
+          method: 'DELETE',
+        }).catch((e) => console.warn("Failed to delete from R2:", e));
+      }
+
       const { error } = await supabase
         .from('student_documents')
         .delete()
         .eq('id', selectedDoc.id);
 
       if (error) throw error;
+      toast.success("Document deleted.");
       await fetchDocs(); // Reload from DB
       setIsDeleteModalOpen(false);
       setSelectedDoc(null);
     } catch (err) {
       console.error("Failed to delete document:", err);
+      toast.error("Failed to delete document.");
     }
   };
 
@@ -556,7 +706,7 @@ export default function DocumentsCenterPage() {
                 <div className={cn(
                   "h-20 w-20 rounded-3xl flex items-center justify-center shrink-0 border border-border-subtle transition-all group-hover:scale-105 bg-primary/5 text-primary"
                 )}>
-                  <LuLink size={32} />
+                  {doc.format === "file" || doc.storagePath ? <LuFileText size={32} /> : <LuLink size={32} />}
                 </div>
                 
                 <div className="flex-1 min-w-0">
@@ -658,13 +808,37 @@ export default function DocumentsCenterPage() {
             <h3 className="font-display text-2xl font-black tracking-tight mb-6">Add New Document</h3>
             
             <form onSubmit={handleAddSubmit} className="space-y-6">
+              {/* Method Toggle: R2 File vs External Link */}
+              <div className="flex bg-surface p-1 rounded-2xl border border-border-subtle">
+                <button
+                  type="button"
+                  onClick={() => setUploadMode("file")}
+                  className={cn(
+                    "flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer",
+                    uploadMode === "file" ? "bg-primary text-white shadow-sm" : "text-muted hover:text-foreground"
+                  )}
+                >
+                  <LuCloudUpload size={15} /> Upload File (R2)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUploadMode("link")}
+                  className={cn(
+                    "flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer",
+                    uploadMode === "link" ? "bg-primary text-white shadow-sm" : "text-muted hover:text-foreground"
+                  )}
+                >
+                  <LuLink size={15} /> Drive / URL
+                </button>
+              </div>
+
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted">Document Title</label>
                 <input 
                   type="text" 
                   value={title} 
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. 12th Marksheet, Certification Link"
+                  placeholder="e.g. Primary Placement Resume, 12th Marksheet"
                   required
                   className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 text-sm font-semibold focus:border-primary focus:ring-1 focus:ring-primary transition-all text-foreground outline-none"
                 />
@@ -685,26 +859,67 @@ export default function DocumentsCenterPage() {
                 </select>
               </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Google Drive Link</label>
-              
-              {validatingLink ? (
-                <div className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 flex items-center justify-center gap-3">
-                  <span className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  <span className="text-xs font-semibold text-muted">Validating share status...</span>
+              {uploadMode === "file" ? (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted">Select File</label>
+                    <span className="text-[9px] font-bold text-muted bg-surface px-2 py-0.5 rounded-full border border-border-subtle">
+                      Max 5MB • PDF, DOCX, Images
+                    </span>
+                  </div>
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-border-subtle hover:border-primary/50 rounded-2xl p-6 bg-surface cursor-pointer transition-all group">
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 5 * 1024 * 1024) {
+                            toast.error("File exceeds 5MB limit. Please select a smaller file.");
+                            return;
+                          }
+                          setSelectedFile(file);
+                        }
+                      }}
+                    />
+                    <div className="h-10 w-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <LuUpload size={20} />
+                    </div>
+                    {selectedFile ? (
+                      <div className="text-center">
+                        <p className="text-xs font-bold text-foreground truncate max-w-[280px]">{selectedFile.name}</p>
+                        <p className="text-[10px] text-muted">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <p className="text-xs font-bold text-foreground">Click to select file</p>
+                        <p className="text-[10px] text-muted mt-0.5">Stored in Cloudflare R2</p>
+                      </div>
+                    )}
+                  </label>
                 </div>
               ) : (
-                <input 
-                  type="text" 
-                  value={reference} 
-                  onChange={(e) => setReference(e.target.value)}
-                  placeholder="e.g. https://drive.google.com/file/d/.../view"
-                  required
-                  className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 text-sm font-semibold focus:border-primary focus:ring-1 focus:ring-primary transition-all text-foreground outline-none"
-                />
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted">Google Drive Link</label>
+                  {validatingLink ? (
+                    <div className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 flex items-center justify-center gap-3">
+                      <span className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs font-semibold text-muted">Validating share status...</span>
+                    </div>
+                  ) : (
+                    <input 
+                      type="text" 
+                      value={reference} 
+                      onChange={(e) => setReference(e.target.value)}
+                      placeholder="e.g. https://drive.google.com/file/d/.../view"
+                      required
+                      className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 text-sm font-semibold focus:border-primary focus:ring-1 focus:ring-primary transition-all text-foreground outline-none"
+                    />
+                  )}
+                  <p className="text-[10px] text-muted-foreground/60 font-medium">Link must be shared as &quot;Anyone with the link can view&quot;.</p>
+                </div>
               )}
-              <p className="text-[10px] text-muted-foreground/60 font-medium">Link must be shared as "Anyone with the link can view".</p>
-            </div>
 
               <div className="flex items-center gap-3">
                 <input 
@@ -729,10 +944,10 @@ export default function DocumentsCenterPage() {
                 </button>
                 <button 
                   type="submit" 
-                  disabled={validatingLink}
+                  disabled={validatingLink || uploading}
                   className="flex-1 h-14 btn-primary text-xs uppercase tracking-widest rounded-2xl cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  Add Document
+                  {uploading ? "Uploading to R2..." : "Add Document"}
                 </button>
               </div>
             </form>
@@ -753,6 +968,30 @@ export default function DocumentsCenterPage() {
             <h3 className="font-display text-2xl font-black tracking-tight mb-6">Edit Document Details</h3>
             
             <form onSubmit={handleEditSubmit} className="space-y-6">
+              {/* Method Toggle */}
+              <div className="flex bg-surface p-1 rounded-2xl border border-border-subtle">
+                <button
+                  type="button"
+                  onClick={() => setUploadMode("file")}
+                  className={cn(
+                    "flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer",
+                    uploadMode === "file" ? "bg-primary text-white shadow-sm" : "text-muted hover:text-foreground"
+                  )}
+                >
+                  <LuCloudUpload size={15} /> Upload File (R2)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUploadMode("link")}
+                  className={cn(
+                    "flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer",
+                    uploadMode === "link" ? "bg-primary text-white shadow-sm" : "text-muted hover:text-foreground"
+                  )}
+                >
+                  <LuLink size={15} /> Drive / URL
+                </button>
+              </div>
+
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted">Document Title</label>
                 <input 
@@ -780,26 +1019,72 @@ export default function DocumentsCenterPage() {
                 </select>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted">Google Drive Link</label>
-                
-                {validatingLink ? (
-                  <div className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 flex items-center justify-center gap-3">
-                    <span className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs font-semibold text-muted">Validating share status...</span>
+              {uploadMode === "file" ? (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted">Replace File</label>
+                    <span className="text-[9px] font-bold text-muted bg-surface px-2 py-0.5 rounded-full border border-border-subtle">
+                      Max 5MB • PDF, DOCX, Images
+                    </span>
                   </div>
-                ) : (
-                  <input 
-                    type="text" 
-                    value={reference} 
-                    onChange={(e) => setReference(e.target.value)}
-                    placeholder="e.g. https://drive.google.com/file/d/.../view"
-                    required
-                    className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 text-sm font-semibold focus:border-primary focus:ring-1 focus:ring-primary transition-all text-foreground outline-none"
-                  />
-                )}
-                <p className="text-[10px] text-muted-foreground/60 font-medium">Link must be shared as "Anyone with the link can view".</p>
-              </div>
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-border-subtle hover:border-primary/50 rounded-2xl p-6 bg-surface cursor-pointer transition-all group">
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 5 * 1024 * 1024) {
+                            toast.error("File exceeds 5MB limit. Please select a smaller file.");
+                            return;
+                          }
+                          setSelectedFile(file);
+                        }
+                      }}
+                    />
+                    <div className="h-10 w-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <LuUpload size={20} />
+                    </div>
+                    {selectedFile ? (
+                      <div className="text-center">
+                        <p className="text-xs font-bold text-foreground truncate max-w-[280px]">{selectedFile.name}</p>
+                        <p className="text-[10px] text-muted">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB (Ready to upload)</p>
+                      </div>
+                    ) : selectedDoc.storagePath ? (
+                      <div className="text-center">
+                        <p className="text-xs font-bold text-foreground truncate max-w-[280px]">File saved in Cloudflare R2</p>
+                        <p className="text-[10px] text-muted mt-0.5">Click to choose a replacement file</p>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <p className="text-xs font-bold text-foreground">Click to upload file</p>
+                        <p className="text-[10px] text-muted mt-0.5">PDF, DOCX, PNG, or JPG (max 5MB)</p>
+                      </div>
+                    )}
+                  </label>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted">Google Drive Link</label>
+                  {validatingLink ? (
+                    <div className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 flex items-center justify-center gap-3">
+                      <span className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs font-semibold text-muted">Validating share status...</span>
+                    </div>
+                  ) : (
+                    <input 
+                      type="text" 
+                      value={reference} 
+                      onChange={(e) => setReference(e.target.value)}
+                      placeholder="e.g. https://drive.google.com/file/d/.../view"
+                      required
+                      className="w-full h-14 bg-surface border border-border-subtle rounded-2xl px-5 text-sm font-semibold focus:border-primary focus:ring-1 focus:ring-primary transition-all text-foreground outline-none"
+                    />
+                  )}
+                  <p className="text-[10px] text-muted-foreground/60 font-medium">Link must be shared as &quot;Anyone with the link can view&quot;.</p>
+                </div>
+              )}
 
               <div className="flex items-center gap-3">
                 <input 
@@ -824,10 +1109,10 @@ export default function DocumentsCenterPage() {
                 </button>
                 <button 
                   type="submit" 
-                  disabled={validatingLink}
+                  disabled={validatingLink || uploading}
                   className="flex-1 h-14 btn-primary text-xs uppercase tracking-widest rounded-2xl cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  Save Changes
+                  {uploading ? "Saving to R2..." : "Save Changes"}
                 </button>
               </div>
             </form>
@@ -851,7 +1136,7 @@ export default function DocumentsCenterPage() {
             
             <h3 className="font-display text-2xl font-black tracking-tight mb-2">Delete Document?</h3>
             <p className="text-sm font-semibold text-muted leading-relaxed mb-8 px-2">
-              Are you sure you want to delete <span className="text-foreground font-black">"{selectedDoc.title}"</span>? This action is permanent and cannot be undone.
+              Are you sure you want to delete <span className="text-foreground font-black">&quot;{selectedDoc.title}&quot;</span>? This action is permanent and cannot be undone.
             </p>
 
             <div className="flex gap-4">
@@ -908,7 +1193,7 @@ export default function DocumentsCenterPage() {
 
               <div className="space-y-2">
                 <h4 className="text-foreground font-black text-base">4. Crucial Placement Documents</h4>
-                <p>Documents marked as "Required" (e.g., standard resumes and cumulative grade transcripts) are critical for drive applications. Failure to complete these documents will restrict your eligibility for active recruitment drives.</p>
+                <p>Documents marked as &quot;Required&quot; (e.g., standard resumes and cumulative grade transcripts) are critical for drive applications. Failure to complete these documents will restrict your eligibility for active recruitment drives.</p>
               </div>
             </div>
 
@@ -938,11 +1223,27 @@ export default function DocumentsCenterPage() {
             <p className="text-xs text-muted font-bold uppercase tracking-widest mb-6">{previewDoc.type}</p>
             
             <div className="bg-surface rounded-2xl border border-border-subtle overflow-hidden relative">
-              {getGoogleDrivePreviewUrl(previewDoc.reference) ? (
+              {previewDoc.reference.toLowerCase().includes('.pdf') ? (
+                <iframe 
+                  src={previewDoc.reference} 
+                  className="w-full h-[550px] border-0" 
+                  title={previewDoc.title}
+                />
+              ) : previewDoc.reference.match(/\.(png|jpg|jpeg|webp)($|\?)/i) ? (
+                <div className="flex items-center justify-center p-4 h-[550px] bg-black/5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src={previewDoc.reference} 
+                    alt={previewDoc.title} 
+                    className="max-h-[520px] max-w-full object-contain rounded-xl shadow-md" 
+                  />
+                </div>
+              ) : getGoogleDrivePreviewUrl(previewDoc.reference) ? (
                 <iframe 
                   src={getGoogleDrivePreviewUrl(previewDoc.reference)!} 
                   className="w-full h-[550px] border-0" 
                   allow="autoplay"
+                  title={previewDoc.title}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center p-20 text-center space-y-6">
@@ -959,7 +1260,7 @@ export default function DocumentsCenterPage() {
                     rel="noopener noreferrer" 
                     className="btn-primary flex items-center gap-2 px-6"
                   >
-                    Open Link in Google Drive <LuExternalLink size={14} />
+                    Open Document Link <LuExternalLink size={14} />
                   </a>
                 </div>
               )}

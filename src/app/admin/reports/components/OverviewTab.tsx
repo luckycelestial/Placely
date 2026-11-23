@@ -16,12 +16,12 @@ import {
 } from "recharts";
 import { CompanyLogo } from "@/components/ui/CompanyLogo";
 import { StatChip } from "./ReportsUiPrimitives";
-import { ReportStats, TrendPoint, CompanyData, INDUSTRY_COLOR, DEPT_PALETTE, C, TT } from "../types";
+import { ReportStats, TrendPoint, CompanyData, INDUSTRY_COLOR, DEPT_PALETTE, C, TT, CrossAnalyticsStudent } from "../types";
 
 interface OverviewTabProps {
   stats: ReportStats | null;
   trendData: TrendPoint[];
-  students: any[];
+  students: CrossAnalyticsStudent[];
   companyData: CompanyData[];
 }
 

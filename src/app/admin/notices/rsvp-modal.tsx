@@ -5,7 +5,7 @@ import { LuX, LuUsers, LuCalendar, LuClock, LuMapPin, LuCircleCheck, LuCircleX, 
 import { cn } from "@/lib/utils";
 import type { Event } from "./event-dialog";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/services/database";
 import { ExportDropdown } from "@/components/ui/ExportDropdown";
 import { exportToExcel, exportToPDF } from "@/lib/export-utils";
 
@@ -30,29 +30,24 @@ export default function RSVPModal({ isOpen, onClose, event }: RSVPModalProps) {
   const [filterStatus, setFilterStatus] = useState<RSVPStatus | "All">("All");
   const [allRSVPs, setAllRSVPs] = useState<RSVPRow[]>([]);
 
+  const [prevEventId, setPrevEventId] = useState<string | null>(null);
+  const currentEventId = isOpen && event ? event.id : null;
+  if (prevEventId !== currentEventId) {
+    setPrevEventId(currentEventId);
+    setSearch("");
+    setFilterStatus("All");
+  }
+
   useEffect(() => {
     if (!isOpen || !event) return;
     (async () => {
-      // Fetch RSVPs for this specific notice; fall back to __demo__ seed data if none
-      const { data, error } = await supabase
-        .from('notice_rsvps')
-        .select('id, student_name, roll_number, branch, status')
-        .eq('notice_id', event.id);
-
-      if (error) { console.error('notice_rsvps fetch error:', error); }
-
-      const rows: RSVPRow[] = (data && data.length > 0) ? data as RSVPRow[] : await (async () => {
-        const { data: demo } = await supabase
-          .from('notice_rsvps')
-          .select('id, student_name, roll_number, branch, status')
-          .eq('notice_id', '__demo__');
-        return (demo || []) as RSVPRow[];
-      })();
-
-      setAllRSVPs(rows);
+      try {
+        const rows = await db.getNoticeRsvps(event.id);
+        setAllRSVPs(rows as RSVPRow[]);
+      } catch (error) {
+        console.error('notice_rsvps fetch error:', error);
+      }
     })();
-    setSearch("");
-    setFilterStatus("All");
   }, [isOpen, event]);
 
   if (!isOpen || !event) return null;

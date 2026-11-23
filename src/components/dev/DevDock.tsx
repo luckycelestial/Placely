@@ -52,15 +52,32 @@ const PRESET_PROFILES: DevProfile[] = [
 export function DevDock() {
   const router = useRouter();
   const pathname = usePathname();
+  const isDev = process.env.NEXT_PUBLIC_APP_ENV === "local" || process.env.NODE_ENV !== "production";
+
   const [isOpen, setIsOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  const [activeRole, setActiveRole] = useState<"admin" | "student" | "guest">("guest");
-  const [activeStudentId, setActiveStudentId] = useState<string>("");
+  const [activeRole, setActiveRole] = useState<"admin" | "student" | "guest">(() => {
+    if (typeof window !== "undefined") {
+      const studentId = localStorage.getItem("active_student_id");
+      const adminEmail = localStorage.getItem("active_admin_email");
+      if (studentId) return "student";
+      if (adminEmail) return "admin";
+    }
+    return "guest";
+  });
+  const [activeStudentId, setActiveStudentId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("active_student_id") || "";
+    }
+    return "";
+  });
+
+  const currentRole = pathname.startsWith("/admin") ? "admin" : activeRole;
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !isDev) return;
     
-    // Support optional env flag or keyboard shortcut Ctrl+Shift+D
+    // Support optional env flag or keyboard shortcut Ctrl+Shift+D in development
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
@@ -70,27 +87,10 @@ export function DevDock() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [isDev]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const adminEmail = localStorage.getItem("active_admin_email");
-    const studentId = localStorage.getItem("active_student_id");
-
-    if (pathname.startsWith("/admin")) {
-      setActiveRole("admin");
-    } else if (studentId) {
-      setActiveRole("student");
-      setActiveStudentId(studentId);
-    } else if (adminEmail) {
-      setActiveRole("admin");
-    } else {
-      setActiveRole("guest");
-    }
-  }, [pathname]);
-
-  // Only render if explicitly toggled via Ctrl+Shift+D or env flag
-  if (!isVisible && process.env.NEXT_PUBLIC_SHOW_DEV_DOCK !== "true") {
+  // Never render in production
+  if (!isDev || (!isVisible && process.env.NEXT_PUBLIC_SHOW_DEV_DOCK !== "true")) {
     return null;
   }
 
@@ -130,7 +130,7 @@ export function DevDock() {
           <LuZap className="h-4 w-4 text-amber-400 group-hover:scale-110 transition-transform" />
           <span>Dev Dock</span>
           <span className="bg-amber-500/30 text-amber-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-mono tracking-wider">
-            {activeRole}
+            {currentRole}
           </span>
           <LuChevronUp className="h-3.5 w-3.5 text-amber-400 opacity-70" />
         </button>

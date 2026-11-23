@@ -12,9 +12,7 @@ import {
   LuExternalLink,
   LuSparkles,
   LuX,
-  LuChevronRight,
-  LuListFilter,
-  LuRefreshCw
+  LuChevronRight
 } from 'react-icons/lu';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -26,8 +24,7 @@ import {
   addStudentSolvedProblemNumbers,
   removeStudentSolvedProblemNumber,
   fetchStudentsFromDB,
-  getProblemDetails,
-  FAMOUS_PROBLEMS
+  getProblemDetails
 } from '@/services/problemNumbers';
 
 interface CompletedProblemsViewProps {
@@ -37,7 +34,6 @@ interface CompletedProblemsViewProps {
 export function CompletedProblemsView({ currentStudentId }: CompletedProblemsViewProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'my' | 'matrix'>('all');
   const [students, setStudents] = useState<StudentInfo[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Search & Filter state for "All Students"
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,29 +45,30 @@ export function CompletedProblemsView({ currentStudentId }: CompletedProblemsVie
   const [newProblemInput, setNewProblemInput] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
-  // Load students & solved data
-  const refreshData = async () => {
-    setLoading(true);
-    try {
-      const fetchedStudents = await fetchStudentsFromDB();
-      setStudents(fetchedStudents);
-      const mySolved = getStudentSolvedProblemNumbers(currentStudentId);
-      setMySolvedNumbers(mySolved);
-    } catch (e) {
-      console.error('Failed to load problem completions data', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    refreshData();
+    let ignore = false;
+    async function loadData() {
+      try {
+        const fetchedStudents = await fetchStudentsFromDB();
+        if (!ignore) {
+          setStudents(fetchedStudents);
+          const mySolved = getStudentSolvedProblemNumbers(currentStudentId);
+          setMySolvedNumbers(mySolved);
+        }
+      } catch (e) {
+        console.error('Failed to load problem completions data', e);
+      }
+    }
+    loadData();
+    return () => {
+      ignore = true;
+    };
   }, [currentStudentId]);
 
   // Aggregate all completed problems across all students
   const aggregatedProblems = useMemo(() => {
     return getAllStudentsCompletedProblems(students);
-  }, [students, mySolvedNumbers]);
+  }, [students]);
 
   // Filtered problems list
   const filteredProblems = useMemo(() => {

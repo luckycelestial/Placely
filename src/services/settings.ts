@@ -1,94 +1,8 @@
-import { supabase } from '@/lib/supabase';
+import { apiCall } from "@/lib/api-client";
 
 export interface SystemSettings {
   isAcademicYearCompleted: boolean;
   updated_at?: string;
-}
-
-export async function getSystemSettings(): Promise<SystemSettings> {
-  try {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('setting_value_json')
-      .eq('setting_key', 'academic_year_completion')
-      .maybeSingle();
-
-    if (error) {
-      console.warn('Supabase settings query error, checking localStorage:', error);
-    }
-
-    if (data?.setting_value_json) {
-      return data.setting_value_json as SystemSettings;
-    }
-
-    // Check localStorage fallback for client side
-    if (typeof window !== 'undefined') {
-      const local = localStorage.getItem('academic_year_completion');
-      if (local) {
-        return JSON.parse(local);
-      }
-    }
-    return { isAcademicYearCompleted: false };
-  } catch (e) {
-    console.error('Error fetching settings:', e);
-    // fallback to localStorage
-    if (typeof window !== 'undefined') {
-      const local = localStorage.getItem('academic_year_completion');
-      if (local) {
-        return JSON.parse(local);
-      }
-    }
-    return { isAcademicYearCompleted: false };
-  }
-}
-
-export async function updateSystemSettings(settings: SystemSettings): Promise<void> {
-  const payload = {
-    isAcademicYearCompleted: settings.isAcademicYearCompleted,
-    updated_at: new Date().toISOString()
-  };
-
-  // Sync to localStorage immediately for instant UI response
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('academic_year_completion', JSON.stringify(payload));
-  }
-
-  try {
-    const { data: existing, error: fetchError } = await supabase
-      .from('settings')
-      .select('id')
-      .eq('setting_key', 'academic_year_completion')
-      .maybeSingle();
-
-    if (fetchError) {
-      console.warn('Error fetching existing settings, attempting upsert:', fetchError);
-    }
-
-    if (existing?.id) {
-      const { error: updateError } = await supabase
-        .from('settings')
-        .update({
-          setting_value_json: payload,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existing.id);
-      
-      if (updateError) throw updateError;
-    } else {
-      const { error: insertError } = await supabase
-        .from('settings')
-        .insert([{
-          setting_key: 'academic_year_completion',
-          setting_value_json: payload,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }]);
-        
-      if (insertError) throw insertError;
-    }
-  } catch (e) {
-    console.error('Failed to sync settings to Supabase, local-only update applied:', e);
-  }
 }
 
 export const DEFAULT_DOMAINS = ["Cloud", "Frontend", "Backend", "Fullstack", "DevOps", "AI/ML", "Data Science", "Cybersecurity", "Python", "Java"];
@@ -99,6 +13,14 @@ export interface CustomGroup {
   name: string;
   type: 'student_selectable' | 'admin_assigned';
   options: string[];
+  color?: string;
+  rules?: {
+    minCgpa?: number;
+    maxCgpa?: number;
+    minLeetcode?: number;
+    specialization?: string;
+    dept?: string;
+  };
 }
 
 export const DEFAULT_CUSTOM_GROUPS: CustomGroup[] = [
@@ -126,7 +48,7 @@ export const DEFAULT_CUSTOM_GROUPS: CustomGroup[] = [
     type: "admin_assigned",
     options: (() => {
       const currentYear = new Date().getFullYear();
-      const options = [];
+      const options: string[] = [];
       for (let i = 4; i >= 1; i--) {
         const startYear = currentYear - (i - 1);
         const endYear = startYear + 4;
@@ -143,84 +65,56 @@ export const DEFAULT_CUSTOM_GROUPS: CustomGroup[] = [
   }
 ];
 
+export async function getSystemSettings(): Promise<SystemSettings> {
+  try {
+    const data = await apiCall<SystemSettings>("getSystemSettings");
+    if (data) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("academic_year_completion", JSON.stringify(data));
+      }
+      return data;
+    }
+  } catch {
+    if (typeof window !== "undefined") {
+      const local = localStorage.getItem("academic_year_completion");
+      if (local) {
+        try { return JSON.parse(local); } catch {}
+      }
+    }
+  }
+  return { isAcademicYearCompleted: false };
+}
+
+export async function updateSystemSettings(settings: SystemSettings): Promise<void> {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("academic_year_completion", JSON.stringify(settings));
+  }
+  await apiCall("updateSystemSettings", settings);
+}
+
 export async function getSettingByKey<T>(key: string, defaultValue: T): Promise<T> {
   try {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('setting_value_json')
-      .eq('setting_key', key)
-      .maybeSingle();
-
-    if (error) {
-      console.warn(`Error fetching setting key ${key}:`, error);
+    const data = await apiCall<T>("getSettingByKey", key, defaultValue);
+    if (data !== undefined && data !== null) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`setting_${key}`, JSON.stringify(data));
+      }
+      return data;
     }
-
-    if (data?.setting_value_json) {
-      return data.setting_value_json as T;
-    }
-
-    // Check localStorage fallback for client side
-    if (typeof window !== 'undefined') {
+  } catch {
+    if (typeof window !== "undefined") {
       const local = localStorage.getItem(`setting_${key}`);
       if (local) {
-        return JSON.parse(local) as T;
+        try { return JSON.parse(local) as T; } catch {}
       }
     }
-    return defaultValue;
-  } catch (e) {
-    console.error(`Error fetching setting key ${key}:`, e);
-    // fallback to localStorage
-    if (typeof window !== 'undefined') {
-      const local = localStorage.getItem(`setting_${key}`);
-      if (local) {
-        return JSON.parse(local) as T;
-      }
-    }
-    return defaultValue;
   }
+  return defaultValue;
 }
 
 export async function updateSettingByKey<T>(key: string, value: T): Promise<void> {
-  // Sync to localStorage immediately for instant UI response
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     localStorage.setItem(`setting_${key}`, JSON.stringify(value));
   }
-
-  try {
-    const { data: existing, error: fetchError } = await supabase
-      .from('settings')
-      .select('id')
-      .eq('setting_key', key)
-      .maybeSingle();
-
-    if (fetchError) {
-      console.warn(`Error fetching existing setting ${key}, attempting upsert:`, fetchError);
-    }
-
-    if (existing?.id) {
-      const { error: updateError } = await supabase
-        .from('settings')
-        .update({
-          setting_value_json: value,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existing.id);
-      
-      if (updateError) throw updateError;
-    } else {
-      const { error: insertError } = await supabase
-        .from('settings')
-        .insert([{
-          setting_key: key,
-          setting_value_json: value,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }]);
-        
-      if (insertError) throw insertError;
-    }
-  } catch (e) {
-    console.error(`Failed to sync setting ${key} to Supabase:`, e);
-  }
+  await apiCall("updateSettingByKey", key, value);
 }
-

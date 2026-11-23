@@ -3,10 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { 
   LuSearch, 
-  LuX, 
-  LuExternalLink, 
-  LuCircleCheck, 
-  LuClock, 
   LuCircleAlert,
   LuFolderOpen,
   LuTrash2,
@@ -221,15 +217,7 @@ export default function AdminDocumentsPage() {
     }
   };
 
-  // Sync selectedDetailsDoc details when groupedDocuments updates
-  useEffect(() => {
-    if (selectedDetailsDoc) {
-      const updated = groupedDocuments.find(g => g.title === selectedDetailsDoc.title);
-      if (updated) {
-        setSelectedDetailsDoc(updated);
-      }
-    }
-  }, [groupedDocuments, selectedDetailsDoc?.title]);
+  const activeDetailsDoc = selectedDetailsDoc ? (groupedDocuments.find(g => g.title === selectedDetailsDoc.title) || selectedDetailsDoc) : null;
 
   const handleEditRequestInit = (group: GroupedDoc) => {
     if (!group.noticeId || !group.noticeDetails) return;
@@ -375,9 +363,12 @@ export default function AdminDocumentsPage() {
             : (isResumeType && resumeUrlFromProfile && resumeUrlFromProfile.startsWith('http') ? resumeUrlFromProfile : null);
 
           if (finalUrl) {
-            const mappedStatus = (upload?.verification_status === "Verified" || upload?.verification_status === "Completed" || (!upload && isResumeType))
-              ? ("Completed" as const)
-              : (upload?.verification_status as any || "Pending");
+            const mappedStatus: "Completed" | "Pending" | "Rejected" =
+              upload?.verification_status === "Verified" || upload?.verification_status === "Completed" || (!upload && isResumeType)
+                ? "Completed"
+                : upload?.verification_status === "Rejected"
+                ? "Rejected"
+                : "Pending";
             return {
               studentId: std.id,
               name: std.name || "Unknown Student",
@@ -482,7 +473,7 @@ export default function AdminDocumentsPage() {
     const toastId = toast.loading("Exporting Excel...");
     await new Promise(resolve => setTimeout(resolve, 50));
     try {
-      const exportRows: any[] = [];
+      const exportRows: Record<string, unknown>[] = [];
       filteredGrouped.forEach(group => {
         group.filteredStudents.forEach(std => {
           exportRows.push({
@@ -511,7 +502,7 @@ export default function AdminDocumentsPage() {
     await new Promise(resolve => setTimeout(resolve, 50));
     try {
       const headers = ["Document Title", "Category", "Student Name", "Reg No", "Dept", "Status"];
-      const rows: any[][] = [];
+      const rows: (string | number)[][] = [];
       filteredGrouped.forEach(group => {
         group.filteredStudents.forEach(std => {
           rows.push([
@@ -706,17 +697,17 @@ export default function AdminDocumentsPage() {
       )}
 
       {/* DETAILS POPUP MODAL */}
-      {selectedDetailsDoc && (
+      {activeDetailsDoc && (
         <DetailsModal
-          selectedDetailsDoc={selectedDetailsDoc}
+          selectedDetailsDoc={activeDetailsDoc}
           onClose={() => {
             setSelectedDetailsDoc(null);
           }}
           onUpdateStatus={handleUpdateStatus}
           onPreviewStudentDoc={(std) => {
             setPreviewDoc({
-              title: selectedDetailsDoc.title,
-              type: selectedDetailsDoc.type,
+              title: activeDetailsDoc.title,
+              type: activeDetailsDoc.type,
               url: std.url!,
               studentName: std.name,
               studentRegisterNumber: std.registerNumber,

@@ -6,7 +6,7 @@ import { db } from "@/services/database";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Sk } from "@/components/ui/skeleton";
-import { DEV_STUDENT_ID } from "@/lib/dev-config";
+import { DEV_STUDENT_ID, isValidUuid } from "@/lib/dev-config";
 
 import { type Drive, type DriveFilters, type StudentInfo, type StudentProfileRecord, type StudentAcademicRecord, resolveDriveState } from "./types";
 import { DriveCard } from "./drive-card";
@@ -59,31 +59,14 @@ export default function JobDrivesPage() {
   const [appliedFilters, setAppliedFilters] = useState<DriveFilters>(DEFAULT_FILTERS);
   const [isPlacementLocked, setIsPlacementLocked] = useState(false);
 
-  useEffect(() => {
-    loadDrives();
-  }, []);
-
-  // ---------- Derived student info ----------
-  const getStudentInfo = useCallback((): StudentInfo => {
-    const cgpaVal = studentProfile?.cgpa ?? DUMMY_STUDENT.cgpa;
-    const backlogsVal = studentProfile?.active_arrears ?? DUMMY_STUDENT.backlogs;
-    const historyVal = studentProfile?.history_of_backlogs ?? DUMMY_STUDENT.history_of_arrears;
-    return {
-      branch: studentProfile?.department || DUMMY_STUDENT.branch,
-      cgpa: parseFloat(String(cgpaVal)),
-      backlogs: Number(backlogsVal),
-      history_of_arrears: Boolean(historyVal),
-      isPlacementLocked,
-    };
-  }, [studentProfile, isPlacementLocked]);
-
   // ---------- Data loading ----------
-  const loadDrives = async () => {
+  const loadDrives = useCallback(async () => {
     try {
+      const studentId = DEV_STUDENT_ID;
       const [data, appliedIds, profile] = await Promise.all([
         db.getDrives(),
-        db.getStudentAppliedDriveIds(STUDENT_ID),
-        db.getStudentProfile(STUDENT_ID).catch(() => null),
+        studentId && isValidUuid(studentId) ? db.getStudentAppliedDriveIds(studentId) : Promise.resolve([]),
+        studentId && isValidUuid(studentId) ? db.getStudentProfile(studentId).catch(() => null) : Promise.resolve(null),
       ]);
 
       setStudentProfile(profile);
@@ -91,14 +74,13 @@ export default function JobDrivesPage() {
       // Resolve placement lock from student_profiles.work_mode_preference
       let locked = false;
       try {
-        const rawPref = (profile?.student_profiles as any)?.[0]?.work_mode_preference
-          || (profile?.student_profiles as any)?.work_mode_preference
-          || '';
+        const profObj = Array.isArray(profile?.student_profiles) ? profile?.student_profiles[0] : profile?.student_profiles;
+        const rawPref = (profObj as { work_mode_preference?: string } | undefined)?.work_mode_preference || '';
         if (typeof rawPref === 'string' && rawPref.trim().startsWith('{')) {
           const map = JSON.parse(rawPref);
           locked = map['placement_lock'] === 'Active';
         }
-      } catch (e) { /* ignore parse errors */ }
+      } catch { /* ignore parse errors */ }
       setIsPlacementLocked(locked);
 
       const cgpaVal = profile?.cgpa ?? DUMMY_STUDENT.cgpa;
@@ -114,18 +96,21 @@ export default function JobDrivesPage() {
         id: STUDENT_ID,
       };
 
-      const processedDrives = (data || []).map((drive: any) => {
-        const rules = drive.eligibility_rules || {};
+      const processedDrives = (data || []).map((drive: Record<string, unknown>) => {
+        const rules = (drive.eligibility_rules as Record<string, unknown>) || {};
         const ineligibleReasons: string[] = [];
-        if (rules.branches && rules.branches.length > 0 && !rules.branches.includes(studentInfo.branch))
+        const branches = rules.branches as string[] | undefined;
+        if (branches && branches.length > 0 && !branches.includes(studentInfo.branch))
           ineligibleReasons.push(`Not open to ${studentInfo.branch} branch`);
-        if (rules.min_cgpa && studentInfo.cgpa < rules.min_cgpa)
-          ineligibleReasons.push(`CGPA too low (Requires ${rules.min_cgpa}+)`);
-        if (rules.backlogs_allowed !== undefined && studentInfo.backlogs > rules.backlogs_allowed)
-          ineligibleReasons.push(`Too many backlogs (Max ${rules.backlogs_allowed})`);
+        const minCgpa = rules.min_cgpa as number | undefined;
+        if (minCgpa && studentInfo.cgpa < minCgpa)
+          ineligibleReasons.push(`CGPA too low (Requires ${minCgpa}+)`);
+        const backlogsAllowed = rules.backlogs_allowed as number | undefined;
+        if (backlogsAllowed !== undefined && studentInfo.backlogs > backlogsAllowed)
+          ineligibleReasons.push(`Too many backlogs (Max ${backlogsAllowed})`);
         if (rules.history_of_arrears === false && studentInfo.history_of_arrears === true)
           ineligibleReasons.push("Drive requires no history of arrears");
-        return { ...drive, isEligible: ineligibleReasons.length === 0, ineligibleReasons };
+        return { ...drive, isEligible: ineligibleReasons.length === 0, ineligibleReasons } as unknown as Drive;
       });
 
       setDrives(processedDrives);
@@ -136,10 +121,28 @@ export default function JobDrivesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadDrives();
+  }, [loadDrives]);
+
+  // ---------- Derived student info ----------
+  const getStudentInfo = useCallback((): StudentInfo => {
+    const cgpaVal = studentProfile?.cgpa ?? DUMMY_STUDENT.cgpa;
+    const backlogsVal = studentProfile?.active_arrears ?? DUMMY_STUDENT.backlogs;
+    const historyVal = studentProfile?.history_of_backlogs ?? DUMMY_STUDENT.history_of_arrears;
+    return {
+      branch: studentProfile?.department || DUMMY_STUDENT.branch,
+      cgpa: parseFloat(String(cgpaVal)),
+      backlogs: Number(backlogsVal),
+      history_of_arrears: Boolean(historyVal),
+      isPlacementLocked,
+    };
+  }, [studentProfile, isPlacementLocked]);
 
   // ---------- Apply to drive ----------
-  const handleApply = async (driveId: string) => {
+  const handleApply = async (driveId: string, turnstileToken?: string) => {
     const activeStudentId = (typeof window !== 'undefined' && localStorage.getItem('active_student_id')) || STUDENT_ID;
     const drive = drives.find(d => d.id === driveId);
     const bypassList = drive?.eligibility_rules?.bypass_placement_lock_students || [];
@@ -151,6 +154,21 @@ export default function JobDrivesPage() {
     }
     setIsApplying(true);
     try {
+      if (!turnstileToken) {
+        throw new Error("Bot security check required before applying.");
+      }
+
+      // Verify token with server
+      const verifyRes = await fetch("/api/turnstile/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: turnstileToken, action: "job_apply" })
+      });
+      const verifyJson = await verifyRes.json();
+      if (!verifyRes.ok || !verifyJson.ok) {
+        throw new Error(verifyJson.error || "Security verification failed");
+      }
+
       await db.applyToDrive(activeStudentId, driveId);
       setAppliedDriveIds((prev) => new Set([...prev, driveId]));
       toast.success("Application submitted successfully!");

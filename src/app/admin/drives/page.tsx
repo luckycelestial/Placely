@@ -4,9 +4,7 @@ import { Sk } from "@/components/ui/skeleton";
 import { useState, useEffect, useCallback } from "react";
 import { 
   LuSearch, 
-  LuFilter, 
   LuPlus, 
-  LuBuilding2, 
   LuCalendar, 
   LuMapPin, 
   LuIndianRupee,
@@ -17,9 +15,7 @@ import {
   LuGlobe,
   LuMail,
   LuPhone,
-  LuLayoutDashboard,
   LuX,
-  LuUserPen,
   LuPencil
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
@@ -31,10 +27,95 @@ import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import { ExportDropdown } from "@/components/ui/ExportDropdown";
 import { exportToExcel, exportToPDF } from "@/lib/export-utils";
+import type { CompanyDialogData } from "./company-dialog";
+import type { DriveTemplateRecord } from "./template-dialog";
+import type { DriveDialogRecord } from "./drive-dialog";
 
 const DriveDialog = dynamic(() => import("./drive-dialog"), { ssr: false });
 const CompanyDialog = dynamic(() => import("./company-dialog"), { ssr: false });
 const TemplateDialog = dynamic(() => import("./template-dialog"), { ssr: false });
+
+export interface DriveEligibility {
+  branches?: string[];
+  min_cgpa?: number;
+  backlogs_allowed?: number;
+  history_of_arrears?: boolean;
+  bypass_placement_lock_students?: string[];
+}
+
+export interface AdminDriveItem {
+  id: string;
+  company: string;
+  companyId?: string;
+  companyLogo?: string;
+  companyTheme?: string;
+  role: string;
+  package: string;
+  location: string;
+  deadline: string;
+  deadline_iso?: string;
+  batch: string | null;
+  status: string;
+  applications: number;
+  eligibility?: DriveEligibility;
+  type: string;
+}
+
+interface RawDriveRecord {
+  id: string;
+  company_id?: string;
+  role_title?: string;
+  package_ctc?: string;
+  location?: string;
+  application_start?: string;
+  application_end?: string;
+  batch?: string | null;
+  status?: string;
+  drive_type?: string;
+  eligibility_rules?: DriveEligibility;
+  companies?: {
+    name?: string;
+    logo_url?: string;
+    theme_color?: string;
+  } | null;
+  applications?: { count?: number }[];
+}
+
+interface ConfirmDeleteModalProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmDeleteModal({ isOpen, title, message, onConfirm, onCancel }: ConfirmDeleteModalProps) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-md bg-surface border border-border-subtle rounded-[28px] shadow-2xl p-6 space-y-4">
+        <h3 className="text-base font-black tracking-tight">{title}</h3>
+        <p className="text-xs text-muted font-medium">{message}</p>
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 py-3 rounded-2xl bg-surface border border-border-subtle text-xs font-black uppercase tracking-wider hover:bg-background transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 py-3 rounded-2xl bg-red-500 text-white text-xs font-black uppercase tracking-wider hover:bg-red-600 transition-all shadow-sm"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const TABS = ["Drives", "Companies", "Templates"];
 
@@ -48,9 +129,9 @@ export default function DrivesPage() {
   const [search, setSearch] = useState("");
   
   // Data States
-  const [drives, setDrives] = useState<any[]>([]);
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [drives, setDrives] = useState<AdminDriveItem[]>([]);
+  const [companies, setCompanies] = useState<CompanyDialogData[]>([]);
+  const [templates, setTemplates] = useState<DriveTemplateRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filter States
@@ -61,13 +142,25 @@ export default function DrivesPage() {
 
   // Modal States
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
-  const [selectedDrive, setSelectedDrive] = useState<any>(null);
+  const [selectedDrive, setSelectedDrive] = useState<DriveDialogRecord | AdminDriveItem | null>(null);
 
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState<any>(null);
+  const [selectedCompany, setSelectedCompany] = useState<CompanyDialogData | null>(null);
 
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<DriveTemplateRecord | null>(null);
+
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    action: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    action: async () => {}
+  });
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -85,30 +178,31 @@ export default function DrivesPage() {
         // Prepend "All" to the sorted distinct batch years
         setBatchYears(["All", ...distinctBatches]);
         
-        const mappedDrives = drivesData.map((d: any) => ({
+        const rawDrives = (drivesData || []) as unknown as RawDriveRecord[];
+        const mappedDrives: AdminDriveItem[] = rawDrives.map((d) => ({
           id: d.id,
           company: d.companies?.name || "Unknown",
           companyId: d.company_id,
           companyLogo: d.companies?.logo_url,
           companyTheme: d.companies?.theme_color,
-          role: d.role_title,
-          package: d.package_ctc,
-          location: d.location,
-          deadline: new Date(d.application_end).toLocaleDateString(),
+          role: d.role_title || "Unknown Role",
+          package: d.package_ctc || "N/A",
+          location: d.location || "N/A",
+          deadline: d.application_end ? new Date(d.application_end).toLocaleDateString() : "N/A",
           deadline_iso: d.application_end?.split('T')[0],
           batch: d.batch || null,
-          status: d.status,
+          status: d.status || "draft",
           // Supabase returns [{ count: N }] for count aggregates
-          applications: (d.applications as any)?.[0]?.count ?? d.applications?.length ?? 0,
+          applications: Array.isArray(d.applications) ? (d.applications[0]?.count ?? 0) : 0,
           eligibility: d.eligibility_rules,
-          type: d.drive_type
+          type: d.drive_type || "Full-time"
         }));
 
-        const filteredDrives = mappedDrives.filter((d: any) => {
+        const filteredDrives = mappedDrives.filter((d) => {
           const queryStr = search.trim().toLowerCase();
           if (!queryStr) return true;
-          const companyMatch = d.company?.toLowerCase().includes(queryStr);
-          const roleMatch = d.role?.toLowerCase().includes(queryStr);
+          const companyMatch = d.company.toLowerCase().includes(queryStr);
+          const roleMatch = d.role.toLowerCase().includes(queryStr);
           return companyMatch || roleMatch;
         });
 
@@ -122,10 +216,10 @@ export default function DrivesPage() {
 
         setDrives(filteredDrives);
       } else if (activeTab === "Companies") {
-        const companiesData = await db.getCompanies({ search });
+        const companiesData = (await db.getCompanies({ search })) as unknown as CompanyDialogData[];
         setCompanies(companiesData);
       } else if (activeTab === "Templates") {
-        const templatesData = await db.getTemplates();
+        const templatesData = (await db.getTemplates()) as unknown as DriveTemplateRecord[];
         setTemplates(templatesData);
       }
     } catch (error) {
@@ -155,60 +249,70 @@ export default function DrivesPage() {
     }
   };
 
-  const handleEditDrive = (drive: any) => {
+  const handleEditDrive = (drive: AdminDriveItem) => {
     setSelectedDrive(drive);
     setIsDriveModalOpen(true);
   };
 
-  const handleEditCompany = (company: any) => {
+  const handleEditCompany = (company: CompanyDialogData) => {
     setSelectedCompany(company);
     setIsCompanyModalOpen(true);
   };
 
-  const handleEditTemplate = (template: any) => {
+  const handleEditTemplate = (template: DriveTemplateRecord) => {
     setSelectedTemplate(template);
     setIsTemplateModalOpen(true);
   };
 
-  const handleDeleteDrive = async (id: string) => {
-    if (confirm("Are you sure you want to delete this drive?")) {
-      const promise = db.deleteDrive(id);
-      toast.promise(promise, {
-        loading: 'Deleting drive...',
-        success: 'Drive deleted successfully',
-        error: 'Failed to delete drive'
-      });
-      try {
-        await promise;
-        loadData();
-      } catch (err) {
-        console.error("Failed to delete drive", err);
+  const handleDeleteDrive = (id: string) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      title: "Delete Drive",
+      message: "Are you sure you want to delete this drive? This action cannot be undone.",
+      action: async () => {
+        const promise = db.deleteDrive(id);
+        toast.promise(promise, {
+          loading: 'Deleting drive...',
+          success: 'Drive deleted successfully',
+          error: 'Failed to delete drive'
+        });
+        try {
+          await promise;
+          loadData();
+        } catch (err) {
+          console.error("Failed to delete drive", err);
+        }
       }
-    }
+    });
   };
 
-  const handleDeleteCompany = async (id: string) => {
-    if (confirm("Are you sure you want to delete this company? All associated drives will also be affected.")) {
-      const promise = db.deleteCompany(id);
-      toast.promise(promise, {
-        loading: 'Deleting company...',
-        success: 'Company deleted successfully',
-        error: 'Failed to delete company'
-      });
-      try {
-        await promise;
-        loadData();
-      } catch (err) {
-        console.error("Failed to delete company", err);
+  const handleDeleteCompany = (id: string) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      title: "Delete Company",
+      message: "Are you sure you want to delete this company? All associated drives will also be affected.",
+      action: async () => {
+        const promise = db.deleteCompany(id);
+        toast.promise(promise, {
+          loading: 'Deleting company...',
+          success: 'Company deleted successfully',
+          error: 'Failed to delete company'
+        });
+        try {
+          await promise;
+          loadData();
+        } catch (err) {
+          console.error("Failed to delete company", err);
+        }
       }
-    }
+    });
   };
 
   const handleManageApplications = (driveId: string) => {
     router.push(`/admin/ats?driveId=${driveId}`);
   };
 
-  const handleUseTemplate = (template: any) => {
+  const handleUseTemplate = (template: DriveTemplateRecord) => {
     setSelectedDrive({
       role: template.role_title,
       type: template.drive_type,
@@ -220,28 +324,33 @@ export default function DrivesPage() {
     setIsDriveModalOpen(true);
   };
 
-  const handleDeleteTemplate = async (id: string) => {
-    if (confirm("Delete this template?")) {
-      const promise = db.deleteTemplate(id);
-      toast.promise(promise, {
-        loading: 'Deleting template...',
-        success: 'Template deleted successfully',
-        error: 'Failed to delete template'
-      });
-      try {
-        await promise;
-        loadData();
-      } catch (err) {
-        console.error("Failed to delete template", err);
+  const handleDeleteTemplate = (id: string) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      title: "Delete Template",
+      message: "Are you sure you want to delete this template?",
+      action: async () => {
+        const promise = db.deleteTemplate(id);
+        toast.promise(promise, {
+          loading: 'Deleting template...',
+          success: 'Template deleted successfully',
+          error: 'Failed to delete template'
+        });
+        try {
+          await promise;
+          loadData();
+        } catch (err) {
+          console.error("Failed to delete template", err);
+        }
       }
-    }
+    });
   };
   const handleExportExcel = async () => {
     const toastId = toast.loading("Exporting Excel...");
     await new Promise(resolve => setTimeout(resolve, 50));
     try {
-      let exportRows: any[] = [];
-      let filename = `${activeTab}_Report`;
+      let exportRows: Record<string, unknown>[] = [];
+      const filename = `${activeTab}_Report`;
       
       if (activeTab === "Drives") {
         exportRows = drives.map(d => ({
@@ -287,8 +396,8 @@ export default function DrivesPage() {
     await new Promise(resolve => setTimeout(resolve, 50));
     try {
       let headers: string[] = [];
-      let rows: any[][] = [];
-      let filename = `${activeTab}_Report`;
+      let rows: (string | number)[][] = [];
+      const filename = `${activeTab}_Report`;
 
       if (activeTab === "Drives") {
         headers = ["Company", "Role", "Package", "Location", "Deadline", "Batch", "Status", "Applied"];
@@ -587,17 +696,17 @@ export default function DrivesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {companies.length === 0 ? (
               <div className="col-span-full py-20 text-center bg-surface rounded-[32px] border border-dashed border-border-subtle">
-                <p className="text-muted font-bold">No companies found matching "{search}".</p>
+                <p className="text-muted font-bold">No companies found matching &quot;{search}&quot;.</p>
                 <div className="flex flex-col items-center gap-3 mt-4">
                   <button 
                     onClick={() => {
-                      setSelectedCompany({ name: search });
+                      setSelectedCompany({ id: "", name: search });
                       setIsCompanyModalOpen(true);
                     }} 
                     className="px-6 py-3 rounded-2xl bg-primary text-white text-sm font-black uppercase tracking-widest shadow-tactile hover:bg-primary-dark transition-all flex items-center gap-2"
                   >
                     <LuPlus size={18} />
-                    Quick register "{search}"
+                    Quick register &quot;{search}&quot;
                   </button>
                   <button onClick={() => setSearch("")} className="text-xs font-bold text-muted hover:text-primary uppercase tracking-widest transition-colors">
                     Clear search
@@ -700,6 +809,17 @@ export default function DrivesPage() {
       </div>
 
       {/* Modals */}
+      <ConfirmDeleteModal
+        isOpen={deleteConfirmation.isOpen}
+        title={deleteConfirmation.title}
+        message={deleteConfirmation.message}
+        onConfirm={async () => {
+          const act = deleteConfirmation.action;
+          setDeleteConfirmation(prev => ({ ...prev, isOpen: false }));
+          await act();
+        }}
+        onCancel={() => setDeleteConfirmation(prev => ({ ...prev, isOpen: false }))}
+      />
       <DriveDialog 
         isOpen={isDriveModalOpen}
         onClose={() => setIsDriveModalOpen(false)}

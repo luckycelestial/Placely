@@ -74,6 +74,17 @@ export function TabBtn({
   );
 }
 
+export interface PlacedStudentRow {
+  id?: string;
+  name?: string;
+  email?: string;
+  regNo?: string;
+  dept?: string;
+  year?: string;
+  company?: string;
+  package_ctc?: number | string;
+}
+
 export function PlacedStudentsDirectoryTable({
   title,
   placedStudents,
@@ -82,7 +93,7 @@ export function PlacedStudentsDirectoryTable({
   showDept = false,
 }: {
   title: string;
-  placedStudents: any[];
+  placedStudents: PlacedStudentRow[];
   avgCTC?: number;
   maxCTC?: number;
   showDept?: boolean;
@@ -163,7 +174,7 @@ export function PlacedStudentsDirectoryTable({
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-black text-xs shrink-0">
-                        {student.name
+                        {(student.name || "S")
                           .split(" ")
                           .map((n: string) => n[0])
                           .join("")}

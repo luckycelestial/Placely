@@ -56,7 +56,7 @@ export async function getStudentDashboardStats(studentId: string) {
       interviewsCount: interviewsCount,
       tasksCount: 0
     };
-  } catch (e) {
+  } catch {
     return { applicationsCount: 0, offersCount: 0, interviewsCount: 0, tasksCount: 0 };
   }
 }
@@ -76,7 +76,7 @@ export async function getApplicationStats(driveId?: string) {
       offers: 0
     };
 
-    (data || []).forEach((row: any) => {
+    (data || []).forEach((row: { status: string }) => {
       if (row.status === 'applied') stats.pending++;
       else if (row.status === 'shortlisted') stats.shortlisted++;
       else if (row.status === 'interviewing' || row.status === 'in_progress') stats.interviews++;
@@ -84,7 +84,7 @@ export async function getApplicationStats(driveId?: string) {
     });
 
     return stats;
-  } catch (e) {
+  } catch {
     return { pending: 0, shortlisted: 0, interviews: 0, offers: 0 };
   }
 }
@@ -144,7 +144,7 @@ export async function getTrendData() {
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const monthlyMap: Record<string, { month: string; offers: number; avgCTC: number; ctcSum: number }> = {};
 
-    (offers || []).forEach((o: any) => {
+    (offers || []).forEach((o: { created_at?: string | null; package_ctc?: string | number | null }) => {
       const d = new Date(o.created_at || Date.now());
       const mKey = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
       if (!monthlyMap[mKey]) monthlyMap[mKey] = { month: mKey, offers: 0, avgCTC: 0, ctcSum: 0 };
@@ -206,7 +206,7 @@ export async function getCompanyAnalytics() {
     if (error) throw error;
 
     const map: Record<string, { hires: number; ctcSum: number; maxCtc: number; industry: string }> = {};
-    (offers || []).forEach((o: any) => {
+    (offers || []).forEach((o: { created_at?: string | null; package_ctc?: string | number | null }) => {
       const companyName = o.companies?.name || o.companies?.[0]?.name || 'Unknown';
       const ind = o.companies?.industry || o.companies?.[0]?.industry || 'Technology';
       if (!map[companyName]) map[companyName] = { hires: 0, ctcSum: 0, maxCtc: 0, industry: ind };
@@ -274,20 +274,33 @@ export async function getCrossAnalytics(filters: { dept?: string; company?: stri
 
     if (error || !offers || offers.length === 0) return { companies: [], depts: [], years: [] };
 
-    const allOffers = offers.map((o: any) => ({
-      dept:    o.students?.department    || o.students?.[0]?.department    || '',
-      company: o.companies?.name         || o.companies?.[0]?.name         || '',
-      industry:o.companies?.industry     || o.companies?.[0]?.industry     || 'Technology',
-      year:    o.job_drives?.batch       || o.job_drives?.[0]?.batch       || String(new Date(o.created_at).getFullYear()),
-      ctc:     typeof o.package_ctc === 'number' ? o.package_ctc : (parseFloat(String(o.package_ctc || '0').replace(/[^0-9.]/g, '')) || 0),
-    }));
+    interface CrossOfferRow {
+      package_ctc?: string | number | null;
+      created_at: string;
+      students?: { department?: string | null } | { department?: string | null }[] | null;
+      companies?: { name?: string | null; industry?: string | null } | { name?: string | null; industry?: string | null }[] | null;
+      job_drives?: { batch?: string | null } | { batch?: string | null }[] | null;
+    }
+
+    const allOffers = (offers as unknown as CrossOfferRow[]).map((o) => {
+      const studentObj = Array.isArray(o.students) ? o.students[0] : o.students;
+      const compObj = Array.isArray(o.companies) ? o.companies[0] : o.companies;
+      const driveObj = Array.isArray(o.job_drives) ? o.job_drives[0] : o.job_drives;
+      return {
+        dept:    studentObj?.department    || '',
+        company: compObj?.name         || '',
+        industry:compObj?.industry     || 'Technology',
+        year:    driveObj?.batch       || String(new Date(o.created_at).getFullYear()),
+        ctc:     typeof o.package_ctc === 'number' ? o.package_ctc : (parseFloat(String(o.package_ctc || '0').replace(/[^0-9.]/g, '')) || 0),
+      };
+    });
 
     let filtered = allOffers;
     if (filters.dept)    filtered = filtered.filter(o => o.dept    === filters.dept);
     if (filters.company) filtered = filtered.filter(o => o.company === filters.company);
     if (filters.year)    filtered = filtered.filter(o => o.year    === filters.year);
 
-    function aggregate(key: 'company'|'dept'|'year', nameKey: string) {
+    function aggregate(key: 'company'|'dept'|'year') {
       const map: Record<string,{hires:number;ctcSum:number}> = {};
       filtered.forEach(o => {
         const k = o[key as keyof typeof o] as string;
@@ -301,8 +314,8 @@ export async function getCrossAnalytics(filters: { dept?: string; company?: stri
         .sort((a,b) => b.hires - a.hires);
     }
 
-    const companies = aggregate('company','name');
-    const depts     = aggregate('dept','name');
+    const companies = aggregate('company');
+    const depts     = aggregate('dept');
     const years     = Object.entries(
       filtered.reduce((acc,o) => { if(o.year){ acc[o.year]=(acc[o.year]||0)+1; } return acc; }, {} as Record<string,number>)
     ).map(([year,hires])=>({ year, hires: hires as number, avgCTC: 0 })).sort((a,b)=>parseInt(a.year)-parseInt(b.year));
@@ -392,7 +405,7 @@ export async function generateStudentReport(studentId: string) {
   });
 
   // --- Academic Performance ---
-  const currentY = (doc as any).lastAutoTable.finalY + 15;
+  const currentY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
   doc.setFontSize(14);
   doc.setTextColor(50, 50, 50);
   doc.setFont("helvetica", "bold");
@@ -418,7 +431,7 @@ export async function generateStudentReport(studentId: string) {
   });
 
   // --- Status Summary ---
-  const statusY = (doc as any).lastAutoTable.finalY + 15;
+  const statusY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
   doc.setFontSize(14);
   doc.setTextColor(50, 50, 50);
   doc.setFont("helvetica", "bold");
@@ -541,14 +554,14 @@ export async function generateSystemReport() {
     ]
   });
 
-  const currentY = (doc as any).lastAutoTable.finalY + 15;
+  const currentY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
   
   doc.setFontSize(14);
   doc.setTextColor(50, 50, 50);
   doc.setFont("helvetica", "bold");
   doc.text('Placement Analytics by Department', 14, currentY);
 
-  const placementByDeptBody = placementByDept.map((dept: any) => {
+  const placementByDeptBody = placementByDept.map((dept: { department: string; total: number; placed: number; unplaced: number }) => {
     const placementRate = dept.total > 0 ? Math.round((dept.placed / dept.total) * 100) : 0;
     return [
       dept.department, 

@@ -1,7 +1,7 @@
 "use client";
 import { Sk } from "@/components/ui/skeleton";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { 
   LuSearch, 
   LuPlus, 
@@ -183,26 +183,32 @@ export default function NoticesPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   // ─── Fetch on mount ────────────────────────────────────────────────────────
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [noticesData, eventsData] = await Promise.all([
-        getNoticesAll(),
-        getEventsAll(),
-      ]);
-      setNotices(noticesData as Notice[]);
-      setEvents(eventsData as Event[]);
-    } catch (err) {
-      console.error("Failed to load notices/events:", err);
-      toast.error("Failed to load data. Please refresh.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    let ignore = false;
+    async function load() {
+      try {
+        const [noticesData, eventsData] = await Promise.all([
+          getNoticesAll(),
+          getEventsAll(),
+        ]);
+        if (!ignore) {
+          setNotices(noticesData as Notice[]);
+          setEvents(eventsData as Event[]);
+        }
+      } catch (err) {
+        console.error("Failed to load notices/events:", err);
+        toast.error("Failed to load data. Please refresh.");
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // ─── Filtered data ──────────────────────────────────────────────────────────
   const filteredNotices = notices

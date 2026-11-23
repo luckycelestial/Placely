@@ -3,6 +3,7 @@
 import { StudentShell } from "@/components/layout/student-shell";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { DEV_STUDENT_ID } from "@/lib/dev-config";
 import { LuConstruction } from "react-icons/lu";
 
@@ -14,7 +15,14 @@ export default function StudentLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [hasId, setHasId] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (!DEV_STUDENT_ID) {
+      router.push("/");
+    }
+  }, [router]);
 
   // Feature flag: block student portal entirely
   if (STUDENT_PORTAL_DISABLED) {
@@ -33,26 +41,26 @@ export default function StudentLayout({
               For queries, contact the placement cell.
             </p>
           </div>
-          <a
+          <Link
             href="/"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all"
           >
             Back to Login
-          </a>
+          </Link>
         </div>
       </div>
     );
   }
 
-  useEffect(() => {
-    if (!DEV_STUDENT_ID) {
-      router.push("/");
-    } else {
-      setHasId(true);
-    }
-  }, [router]);
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background text-muted text-sm font-bold">
+        Loading...
+      </div>
+    );
+  }
 
-  if (!hasId) {
+  if (!DEV_STUDENT_ID) {
     return (
       <div className="flex items-center justify-center h-screen bg-background text-muted text-sm font-bold">
         Redirecting to sign in...

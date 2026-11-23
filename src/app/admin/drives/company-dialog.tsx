@@ -22,11 +22,24 @@ const companySchema = z.object({
 
 type CompanyFormValues = z.infer<typeof companySchema>;
 
+export interface CompanyDialogData {
+  id: string;
+  name?: string;
+  industry?: string;
+  website?: string;
+  logo_url?: string;
+  hr_name?: string;
+  hr_email?: string;
+  hr_phone?: string;
+  status?: "active" | "inactive";
+  theme_color?: string;
+}
+
 interface CompanyDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  company?: any; // If present, we are in edit mode
+  company?: CompanyDialogData | null; // If present, we are in edit mode
 }
 
 export default function CompanyDialog({ isOpen, onClose, onSuccess, company }: CompanyDialogProps) {
@@ -88,9 +101,10 @@ export default function CompanyDialog({ isOpen, onClose, onSuccess, company }: C
       }
       onSuccess();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to save company:", error);
-      toast.error(error.message || "Error saving company");
+      const msg = error instanceof Error ? error.message : "Error saving company";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -261,7 +275,7 @@ export default function CompanyDialog({ isOpen, onClose, onSuccess, company }: C
                     <button
                       key={s}
                       type="button"
-                      onClick={() => setValue("status", s as any)}
+                      onClick={() => setValue("status", s as "active" | "inactive")}
                       className={cn(
                         "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all",
                         status === s 

@@ -22,10 +22,18 @@ export function StudentImportModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState("");
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
-  const [rawSheetData, setRawSheetData] = useState<any[][]>([]);
+  const [rawSheetData, setRawSheetData] = useState<unknown[][]>([]);
   const [hasHeaders, setHasHeaders] = useState<boolean>(true);
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
-  const [stagingData, setStagingData] = useState<any[]>([]);
+  const [stagingData, setStagingData] = useState<Record<string, unknown>[]>([]);
+
+  const handleClose = useCallback(() => {
+    setRawSheetData([]);
+    setImportHeaders([]);
+    setMappings([]);
+    setStagingData([]);
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -34,7 +42,7 @@ export function StudentImportModal({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   const getColLetter = (index: number): string => {
     let col = "";
@@ -46,14 +54,14 @@ export function StudentImportModal({
     return col;
   };
 
-  const processSheetData = useCallback((jsonData: any[][], useFirstRowAsHeaders: boolean) => {
+  const processSheetData = useCallback((jsonData: unknown[][], useFirstRowAsHeaders: boolean) => {
     if (jsonData.length === 0) return;
 
     let headers: string[] = [];
-    let data: any[] = [];
+    let data: Record<string, unknown>[] = [];
 
     if (useFirstRowAsHeaders) {
-      const maxCols = Math.max(...jsonData.map(row => row.length), 0);
+      const maxCols = Math.max(...jsonData.map(row => (row as unknown[]).length), 0);
       const firstRow = jsonData[0] || [];
       
       headers = Array.from({ length: maxCols }, (_, i) => {
@@ -62,18 +70,18 @@ export function StudentImportModal({
       });
 
       data = jsonData.slice(1).map(row => {
-        const obj: any = {};
+        const obj: Record<string, unknown> = {};
         headers.forEach((h, i) => {
           obj[h] = row[i] !== undefined && row[i] !== null ? String(row[i]).trim() : "";
         });
         return obj;
       });
     } else {
-      const maxCols = Math.max(...jsonData.map(row => row.length), 0);
+      const maxCols = Math.max(...jsonData.map(row => (row as unknown[]).length), 0);
       headers = Array.from({ length: maxCols }, (_, i) => `Column ${getColLetter(i)}`);
 
       data = jsonData.map(row => {
-        const obj: any = {};
+        const obj: Record<string, unknown> = {};
         headers.forEach((h, i) => {
           obj[h] = row[i] !== undefined && row[i] !== null ? String(row[i]).trim() : "";
         });
@@ -97,12 +105,6 @@ export function StudentImportModal({
     setMappings(autoMappings);
   }, []);
 
-  useEffect(() => {
-    if (rawSheetData.length > 0) {
-      processSheetData(rawSheetData, hasHeaders);
-    }
-  }, [hasHeaders, rawSheetData, processSheetData]);
-
   const handleBulkUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -111,13 +113,13 @@ export function StudentImportModal({
     const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
 
     reader.onload = (event) => {
-      let rawGridData: any[][] = [];
+      let rawGridData: unknown[][] = [];
 
       if (isExcel) {
         const buffer = event.target?.result as ArrayBuffer;
         const workbook = XLSX.read(buffer, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" }) as any[][];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" }) as unknown[][];
         
         rawGridData = jsonData.filter(row => row.some(cell => cell !== "" && cell !== null && cell !== undefined));
       } else {
@@ -128,11 +130,12 @@ export function StudentImportModal({
 
       if (rawGridData.length === 0) return;
 
-      setRawSheetData(rawGridData);
-      
       const firstCell = String(rawGridData[0]?.[0] || '');
       const looksLikeData = /^[A-Z0-9]{6,12}$/i.test(firstCell) || /^[0-9]+$/.test(firstCell) || firstCell === '';
-      setHasHeaders(!looksLikeData);
+      const initialHasHeaders = !looksLikeData;
+      setRawSheetData(rawGridData);
+      setHasHeaders(initialHasHeaders);
+      processSheetData(rawGridData, initialHasHeaders);
     };
 
     if (isExcel) reader.readAsArrayBuffer(file);
@@ -143,8 +146,8 @@ export function StudentImportModal({
     setIsProcessing(true);
     setProcessingStatus("Preparing data...");
     
-    const mappedData = stagingData.map((row: any) => {
-      const newRow: any = {};
+    const mappedData = stagingData.map((row: Record<string, unknown>) => {
+      const newRow: Record<string, unknown> = {};
       mappings.forEach((m: ColumnMapping) => {
         newRow[m.target] = row[m.source];
       });
@@ -152,9 +155,18 @@ export function StudentImportModal({
     });
 
     try {
-      setProcessingStatus("Uploading to database...");
-      await db.bulkCreateStudents(mappedData);
-      toast.success(`Successfully imported ${mappedData.length} student records.`);
+      if (mappedData.length > 25) {
+        setProcessingStatus("Queuing for background worker...");
+        await db.enqueueJob("IMPORT_STUDENT_BATCH", {
+          batchId: crypto.randomUUID(),
+          records: mappedData,
+        });
+        toast.success(`Queued ${mappedData.length} records for background processing. Workers are importing them in the background.`);
+      } else {
+        setProcessingStatus("Uploading to database...");
+        await db.bulkCreateStudents(mappedData);
+        toast.success(`Successfully imported ${mappedData.length} student records.`);
+      }
       handleClose();
       onSuccess();
     } catch (error) {
@@ -164,14 +176,6 @@ export function StudentImportModal({
       setIsProcessing(false);
       setProcessingStatus("");
     }
-  };
-
-  const handleClose = () => {
-    setRawSheetData([]);
-    setImportHeaders([]);
-    setMappings([]);
-    setStagingData([]);
-    onClose();
   };
 
   if (!isOpen) return null;
@@ -230,7 +234,13 @@ export function StudentImportModal({
                 <input 
                   type="checkbox" 
                   checked={hasHeaders}
-                  onChange={(e) => setHasHeaders(e.target.checked)}
+                  onChange={(e) => {
+                    const nextVal = e.target.checked;
+                    setHasHeaders(nextVal);
+                    if (rawSheetData.length > 0) {
+                      processSheetData(rawSheetData, nextVal);
+                    }
+                  }}
                   className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20 accent-primary"
                 />
                 <span className="text-xs font-bold text-foreground">First Row Contains Headers</span>

@@ -42,12 +42,7 @@ export function SearchableSelect({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close when disabled changes to true
-  useEffect(() => {
-    if (disabled) {
-      setIsOpen(false);
-    }
-  }, [disabled]);
+  const isDropdownOpen = isOpen && !disabled;
 
   const filteredOptions = options.filter(option => 
     option.label.toLowerCase().includes(search.toLowerCase())
@@ -58,7 +53,7 @@ export function SearchableSelect({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(prev => !prev)}
         className={cn(
           "w-full flex items-center justify-between rounded-lg border border-border-subtle bg-surface px-3 py-2 text-xs font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-primary/50 transition-colors truncate",
           disabled ? "opacity-50 cursor-not-allowed" : "hover:border-primary/50"
@@ -67,10 +62,10 @@ export function SearchableSelect({
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <LuChevronDown size={14} className={cn("text-muted transition-transform", isOpen && "rotate-180")} />
+        <LuChevronDown size={14} className={cn("text-muted transition-transform", isDropdownOpen && "rotate-180")} />
       </button>
 
-      {isOpen && (
+      {isDropdownOpen && (
         <div className="absolute top-full left-0 mt-1 w-full z-[100] bg-surface rounded-xl border border-border-subtle shadow-2xl overflow-hidden flex flex-col max-h-[300px]">
           <div className="p-2 border-b border-border-subtle flex items-center gap-2 bg-surface/50">
             <LuSearch size={14} className="text-muted ml-1" />

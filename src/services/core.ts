@@ -12,7 +12,7 @@ export function formatRelativeTime(dateString: string) {
   return `${Math.floor(diffInSeconds / 86400)} days ago`;
 }
 
-export async function upsertTableData(tableName: string, data: any[]) {
+export async function upsertTableData(tableName: string, data: Record<string, unknown>[]) {
   const { data: result, error } = await supabase
     .from(tableName)
     .upsert(data);
@@ -76,13 +76,31 @@ export async function getTableCount(tableName: string, options?: { search?: stri
   return count || 0;
 }
 
-export async function updateTableCell(tableName: string, id: string, updatedFields: any) {
+export async function updateTableCell(tableName: string, id: string, updatedFields: Record<string, unknown>) {
   const { error } = await supabase
     .from(tableName)
     .update(updatedFields)
     .eq('id', id);
   if (error) throw error;
   return { id, success: true };
+}
+
+interface PendingApprovalRow {
+  id: string;
+  offer_status: string;
+  acceptance_status: string;
+  role_title: string;
+  created_at: string;
+  companies?: { name?: string | null } | { name?: string | null }[] | null;
+  students?: {
+    name?: string | null;
+    department?: string | null;
+    users?: { name?: string | null } | { name?: string | null }[] | null;
+  } | {
+    name?: string | null;
+    department?: string | null;
+    users?: { name?: string | null } | { name?: string | null }[] | null;
+  }[] | null;
 }
 
 export async function getPendingApprovals() {
@@ -107,15 +125,26 @@ export async function getPendingApprovals() {
 
     if (error || !data) return [];
 
-    return data.map(o => ({
-      id: o.id,
-      type: 'Offer Letter',
-      target: `${(o.students as any)?.name || (o.students as any)?.users?.name || (o.students as any)?.[0]?.name || (o.students as any)?.[0]?.users?.[0]?.name || 'Unknown'} (${(o.students as any)?.department || (o.students as any)?.[0]?.department || 'N/A'})`,
-      company: (o.companies as any)?.name || (o.companies as any)?.[0]?.name || 'N/A',
-      time: formatRelativeTime(o.created_at),
-      status: 'pending'
-    }));
-  } catch (e) {
+    const rows = data as unknown as PendingApprovalRow[];
+
+    return rows.map(o => {
+      const studentObj = Array.isArray(o.students) ? o.students[0] : o.students;
+      const userObj = Array.isArray(studentObj?.users) ? studentObj?.users[0] : studentObj?.users;
+      const studentName = studentObj?.name || userObj?.name || 'Unknown';
+      const dept = studentObj?.department || 'N/A';
+      const companyObj = Array.isArray(o.companies) ? o.companies[0] : o.companies;
+      const companyName = companyObj?.name || 'N/A';
+
+      return {
+        id: o.id,
+        type: 'Offer Letter',
+        target: `${studentName} (${dept})`,
+        company: companyName,
+        time: formatRelativeTime(o.created_at),
+        status: 'pending'
+      };
+    });
+  } catch {
     return [];
   }
 }

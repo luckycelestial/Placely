@@ -25,13 +25,36 @@ function parseTime12To24(time12: string | null | undefined): string | null {
   return `${hours.toString().padStart(2, '0')}:${minutes}:00`;
 }
 
-function dbRowToNotice(row: any) {
+export interface NoticeInput {
+  title: string;
+  summary: string;
+  audience?: string;
+  priority?: 'Urgent' | 'Informational' | 'Reminder';
+  status?: 'Published' | 'Scheduled' | 'Draft';
+  date?: string;
+  time?: string;
+  pinned?: boolean;
+}
+
+export interface EventInput {
+  title: string;
+  description?: string | null;
+  date: string;
+  time?: string;
+  venue?: string | null;
+  status?: 'Upcoming' | 'Scheduled' | 'Completed' | 'Cancelled';
+  type?: 'Webinar' | 'Offline' | 'Hybrid' | 'Online';
+  maxAttendees?: number | null;
+  audience?: string;
+}
+
+function dbRowToNotice(row: Record<string, unknown>) {
   const priorityMap: Record<string, string> = { high: 'Urgent', normal: 'Informational', low: 'Reminder' };
   const statusMap: Record<string, string> = { published: 'Published', scheduled: 'Scheduled', draft: 'Draft' };
 
   let date = '';
   let time = '10:00 AM';
-  const src = row.publish_at || row.created_at;
+  const src = (row.publish_at || row.created_at) as string | undefined;
   if (src) {
     const d = new Date(src);
     if (!isNaN(d.getTime())) {
@@ -45,15 +68,15 @@ function dbRowToNotice(row: any) {
     title: row.title as string,
     summary: (row.body ?? '') as string,
     audience: (row.audience ?? 'All Students') as string,
-    priority: (priorityMap[row.priority] ?? row.priority ?? 'Informational') as 'Urgent' | 'Informational' | 'Reminder',
-    status: (statusMap[row.status] ?? row.status ?? 'Draft') as 'Published' | 'Scheduled' | 'Draft',
+    priority: (priorityMap[row.priority as string] ?? row.priority ?? 'Informational') as 'Urgent' | 'Informational' | 'Reminder',
+    status: (statusMap[row.status as string] ?? row.status ?? 'Draft') as 'Published' | 'Scheduled' | 'Draft',
     date,
     time,
     pinned: (row.pinned ?? false) as boolean,
   };
 }
 
-function noticeToDbRow(notice: any, isNew: boolean) {
+function noticeToDbRow(notice: NoticeInput, isNew: boolean) {
   const priorityMap: Record<string, string> = { Urgent: 'high', Informational: 'normal', Reminder: 'low' };
   const statusMap: Record<string, string> = { Published: 'published', Scheduled: 'scheduled', Draft: 'draft' };
 
@@ -62,12 +85,12 @@ function noticeToDbRow(notice: any, isNew: boolean) {
     ? new Date(`${notice.date}T${time24}`).toISOString()
     : null;
 
-  const row: any = {
+  const row: Record<string, unknown> = {
     title: notice.title,
     body: notice.summary,
     audience: notice.audience,
-    priority: priorityMap[notice.priority] ?? 'normal',
-    status: statusMap[notice.status] ?? 'draft',
+    priority: notice.priority ? (priorityMap[notice.priority] ?? 'normal') : 'normal',
+    status: notice.status ? (statusMap[notice.status] ?? 'draft') : 'draft',
     publish_at: publishAt,
     pinned: notice.pinned ?? false,
     updated_at: new Date().toISOString(),
@@ -78,9 +101,9 @@ function noticeToDbRow(notice: any, isNew: boolean) {
   return row;
 }
 
-function dbRowToEvent(row: any) {
-  const startFormatted = formatTime12Hour(row.start_time);
-  const endFormatted = row.end_time ? formatTime12Hour(row.end_time) : '';
+function dbRowToEvent(row: Record<string, unknown>) {
+  const startFormatted = formatTime12Hour(row.start_time as string | null);
+  const endFormatted = row.end_time ? formatTime12Hour(row.end_time as string | null) : '';
   const time = endFormatted ? `${startFormatted} - ${endFormatted}` : startFormatted;
 
   const statusMap: Record<string, string> = {
@@ -94,13 +117,13 @@ function dbRowToEvent(row: any) {
     date: (row.event_date ?? '') as string,
     time,
     venue: (row.venue ?? '') as string,
-    status: (statusMap[row.status] ?? row.status ?? 'Upcoming') as 'Upcoming' | 'Scheduled' | 'Completed' | 'Cancelled',
+    status: (statusMap[row.status as string] ?? row.status ?? 'Upcoming') as 'Upcoming' | 'Scheduled' | 'Completed' | 'Cancelled',
     description: (row.description ?? '') as string,
     maxAttendees: row.max_attendees as number | undefined,
   };
 }
 
-function eventToDbRow(event: any, isNew: boolean) {
+function eventToDbRow(event: EventInput, isNew: boolean) {
   const statusMap: Record<string, string> = {
     Upcoming: 'upcoming', Scheduled: 'scheduled', Completed: 'completed', Cancelled: 'cancelled',
   };
@@ -117,14 +140,14 @@ function eventToDbRow(event: any, isNew: boolean) {
     }
   }
 
-  const row: any = {
+  const row: Record<string, unknown> = {
     title: event.title,
     description: event.description ?? null,
     event_date: event.date,
     start_time: startTime,
     end_time: endTime,
     audience: event.audience ?? 'All Students',
-    status: statusMap[event.status] ?? 'upcoming',
+    status: event.status ? (statusMap[event.status] ?? 'upcoming') : 'upcoming',
     type: event.type ?? 'Webinar',
     venue: event.venue ?? null,
     max_attendees: event.maxAttendees ?? null,
@@ -157,7 +180,7 @@ export async function getNoticesAll() {
   return (data ?? []).map(dbRowToNotice);
 }
 
-export async function createNotice(notice: any) {
+export async function createNotice(notice: NoticeInput) {
   const { data, error } = await supabase
     .from('notices')
     .insert([noticeToDbRow(notice, true)])
@@ -167,7 +190,7 @@ export async function createNotice(notice: any) {
   return dbRowToNotice(data);
 }
 
-export async function updateNotice(id: string, notice: any) {
+export async function updateNotice(id: string, notice: NoticeInput) {
   const { data, error } = await supabase
     .from('notices')
     .update(noticeToDbRow(notice, false))
@@ -217,7 +240,7 @@ export async function getEventsAll() {
   return (data ?? []).map(dbRowToEvent);
 }
 
-export async function createEvent(event: any) {
+export async function createEvent(event: EventInput) {
   const { data, error } = await supabase
     .from('events')
     .insert([eventToDbRow(event, true)])
@@ -227,7 +250,7 @@ export async function createEvent(event: any) {
   return dbRowToEvent(data);
 }
 
-export async function updateEvent(id: string, event: any) {
+export async function updateEvent(id: string, event: EventInput) {
   const { data, error } = await supabase
     .from('events')
     .update(eventToDbRow(event, false))

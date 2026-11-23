@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import type { AdminStudent, SortField } from "./types";
 import { StudentFilters } from "./components/StudentFilters";
 import { StudentTable } from "./components/StudentTable";
-import { StudentDetailModal } from "./components/StudentDetailModal";
+import { StudentDetailModal, type StudentDetailApplication } from "./components/StudentDetailModal";
 import { AddStudentModal, EditStudentModal } from "./components/StudentFormModal";
 import { StudentImportModal } from "./components/StudentImportModal";
 
@@ -23,7 +23,7 @@ function StudentsPageContent() {
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(25);
 
-  const [studentApplications, setStudentApplications] = useState<any[]>([]);
+  const [studentApplications, setStudentApplications] = useState<StudentDetailApplication[]>([]);
   const [loadingApplications, setLoadingApplications] = useState(false);
 
   const searchParams = useSearchParams();
@@ -59,7 +59,7 @@ function StudentsPageContent() {
     async function loadCompanies() {
       try {
         const data = await db.getCompanies();
-        setAllCompanies(["All Companies", ...data.map((c: any) => c.name)]);
+        setAllCompanies(["All Companies", ...data.map((c: { name: string }) => c.name)]);
       } catch (err) {
         console.error("Failed to load companies:", err);
       }
@@ -128,8 +128,33 @@ function StudentsPageContent() {
   }, [deptFilter, statusFilter, advancedFilters]);
 
   useEffect(() => {
-    loadStudents();
-  }, [loadStudents]);
+    let ignore = false;
+    async function init() {
+      try {
+        const { data } = await db.getStudents({
+          page: 1,
+          pageSize: 10000,
+          dept: deptFilter,
+          status: statusFilter,
+          ...advancedFilters
+        });
+        if (!ignore) {
+          setStudents(data);
+          setVisibleCount(25);
+        }
+      } catch (error) {
+        console.error("Failed to load students:", error);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+    init();
+    return () => {
+      ignore = true;
+    };
+  }, [deptFilter, statusFilter, advancedFilters]);
 
   // Sorting
   const [sortField, setSortField] = useState<SortField | null>(null);
@@ -154,8 +179,8 @@ function StudentsPageContent() {
     if (!sortField) return list;
 
     return [...list].sort((a, b) => {
-      let aVal: any = '';
-      let bVal: any = '';
+      let aVal: string | number = '';
+      let bVal: string | number = '';
 
       if (sortField === 'name') {
         aVal = (a.name || '').toLowerCase();
@@ -268,18 +293,33 @@ function StudentsPageContent() {
     }
   };
 
-  const handleAddStudent = async (e: React.FormEvent) => {
+  const handleAddStudent = async (e: React.FormEvent, turnstileToken?: string) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      if (!turnstileToken) {
+        throw new Error("Security verification token required.");
+      }
+
+      // Verify token
+      const verifyRes = await fetch("/api/turnstile/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: turnstileToken, action: "student_create" })
+      });
+      const verifyJson = await verifyRes.json();
+      if (!verifyRes.ok || !verifyJson.ok) {
+        throw new Error(verifyJson.error || "Security verification failed");
+      }
+
       await db.createStudent(newStudent);
       setIsAddModalOpen(false);
       setNewStudent({ name: "", email: "", personalEmail: "", regNo: "", dept: "CSE", year: batchOptions[3]?.value || "" });
       toast.success("Student created successfully!");
       loadStudents();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to add student:", error);
-      toast.error("Failed to add student. Please check details.");
+      toast.error(error?.message || "Failed to add student. Please check details.");
     } finally {
       setIsSubmitting(false);
     }

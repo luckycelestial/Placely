@@ -12,12 +12,23 @@ import {
 } from "./types";
 import { AtsCandidateCard } from "./ats-candidate-card";
 
+export interface AtsDrive {
+  id?: string;
+  role_title?: string;
+  eligibility_rules?: unknown;
+  companies?: {
+    name?: string;
+    logo_url?: string;
+  };
+  applications?: { count?: number }[];
+}
+
 interface AtsColumnProps {
   stage: Stage;
   stages: Stage[];
   defaultStages: Stage[];
   filteredApps: Application[];
-  drives: any[];
+  drives: AtsDrive[];
   activeDrive: string;
   loading: boolean;
   selectedApps: Set<string>;
@@ -61,7 +72,7 @@ export function AtsColumn({
 }: AtsColumnProps) {
   const isGlobalView = activeDrive === "All Drives";
 
-  const resolveStages = (driveObj: any) => {
+  const resolveStages = (driveObj: AtsDrive | null | undefined) => {
     const parsed = parseDriveStages(driveObj);
     return parsed.length > 0 ? parsed : defaultStages;
   };

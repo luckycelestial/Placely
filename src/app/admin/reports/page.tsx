@@ -1,7 +1,7 @@
 "use client";
 
 import { Sk } from "@/components/ui/skeleton";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import {
   LuChartPie,
   LuLayers,
@@ -21,9 +21,9 @@ import {
   DeptData,
   CompanyData,
   YearData,
-  CrossData,
   AnalyticsTab,
   Selection,
+  CrossAnalyticsStudent,
   getClientCrossAnalytics,
 } from "./types";
 import { TabBtn, PlacedStudentsDirectoryTable, PredictiveTeaser } from "./components/ReportsUiPrimitives";
@@ -35,26 +35,25 @@ import { YearTab } from "./components/YearTab";
 import { GroupTab } from "./components/GroupTab";
 
 export default function ReportsPage() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
   const [activeTab, setActiveTab] = useState<AnalyticsTab>("overview");
   const [stats, setStats] = useState<ReportStats | null>(null);
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
   const [deptData, setDeptData] = useState<DeptData[]>([]);
   const [companyData, setCompanyData] = useState<CompanyData[]>([]);
   const [yearData, setYearData] = useState<YearData[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<CrossAnalyticsStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [, setIsExporting] = useState(false);
   const [customGroups, setCustomGroups] = useState<CustomGroup[]>([]);
 
   // Drill-down state
   const [selected, setSelected] = useState<Selection>(null);
-  const [drillData, setDrillData] = useState<CrossData | null>(null);
-  const [drillLoading, setDrillLoading] = useState(false);
+  const drillData = useMemo(() => (selected ? getClientCrossAnalytics(selected, students) : null), [selected, students]);
+  const drillLoading = false;
 
   // Load page data
   useEffect(() => {
-    setMounted(true);
     async function load() {
       try {
         const [s, t, d, c, y, allStuds, groupsData] = await Promise.all([
@@ -144,7 +143,9 @@ export default function ReportsPage() {
           try {
             const parsed = JSON.parse(rawPref);
             val = parsed["placement_groups"] || parsed["placement_group"] || "";
-          } catch (e) {}
+          } catch {
+            /* ignore JSON parse failure */
+          }
         } else {
           val = rawPref;
         }
@@ -180,19 +181,6 @@ export default function ReportsPage() {
     });
   }, [students, customGroups]);
 
-  // Load drill-down when selection changes
-  useEffect(() => {
-    if (!selected) {
-      setDrillData(null);
-      return;
-    }
-    setDrillLoading(true);
-    setDrillData(null);
-    const data = getClientCrossAnalytics(selected, students);
-    setDrillData(data);
-    setDrillLoading(false);
-  }, [selected, students]);
-
   const handleSelect = useCallback(
     (type: "dept" | "company" | "year" | "tech_domain" | "placement_group", value: string) => {
       setSelected((prev) => (prev?.value === value ? null : { type, value }));
@@ -209,7 +197,7 @@ export default function ReportsPage() {
     const toastId = toast.loading("Exporting Excel...");
     await new Promise((resolve) => setTimeout(resolve, 50));
     try {
-      let exportRows: any[] = [];
+      let exportRows: Record<string, unknown>[] = [];
       const filename = `Analytics_${activeTab}_Report`;
       const sheetName = activeTab.substring(0, 31).toUpperCase();
 
@@ -531,14 +519,16 @@ export default function ReportsPage() {
               const groupAvg = selectedGroupData?.avgCTC || 0;
               const groupMax = selectedGroupData?.maxCTC || 0;
 
-              const isMatch = (s: any) => {
+              const isMatch = (s: CrossAnalyticsStudent) => {
                 let val = "";
                 const rawPref = s.placementGroup || "";
                 if (rawPref.trim().startsWith("{")) {
                   try {
                     const parsed = JSON.parse(rawPref);
                     val = parsed["placement_groups"] || parsed["placement_group"] || "";
-                  } catch (e) {}
+                  } catch {
+                    /* ignore JSON parse failure */
+                  }
                 } else {
                   val = rawPref;
                 }

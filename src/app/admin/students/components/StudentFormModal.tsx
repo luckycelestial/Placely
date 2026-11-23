@@ -1,24 +1,28 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { TurnstileWidget } from "@/components/turnstile-widget";
+import { toast } from "sonner";
 import { DEPARTMENTS, type AdminStudent } from "../types";
 import { getBatchRangeFromYear } from "@/lib/batch-utils";
+
+export interface AddStudentFormData {
+  name: string;
+  email: string;
+  personalEmail: string;
+  regNo: string;
+  dept: string;
+  year: string;
+}
 
 interface AddStudentModalProps {
   isOpen: boolean;
   isSubmitting: boolean;
-  student: {
-    name: string;
-    email: string;
-    personalEmail: string;
-    regNo: string;
-    dept: string;
-    year: string;
-  };
+  student: AddStudentFormData;
   batchOptions: { value: string; label: string }[];
-  onChange: (updated: any) => void;
-  onSubmit: (e: React.FormEvent) => void;
+  onChange: (updated: AddStudentFormData) => void;
+  onSubmit: (e: React.FormEvent, turnstileToken?: string) => void;
   onClose: () => void;
 }
 
@@ -31,14 +35,28 @@ export function AddStudentModal({
   onSubmit,
   onClose,
 }: AddStudentModalProps) {
+  const [turnstileToken, setTurnstileToken] = useState("");
+
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setTurnstileToken("");
+      return;
+    }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!turnstileToken) {
+      toast.error("Please complete the Cloudflare security verification.");
+      return;
+    }
+    onSubmit(e, turnstileToken);
+  };
 
   if (!isOpen) return null;
 
@@ -58,7 +76,7 @@ export function AddStudentModal({
           <p className="text-xs text-muted font-medium mt-1">Create a new student record in the placement database.</p>
         </div>
 
-        <form onSubmit={onSubmit} className="p-8 space-y-4">
+        <form onSubmit={handleSubmit} className="p-8 space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-muted uppercase tracking-wider">Full Name</label>
             <input 
@@ -122,6 +140,15 @@ export function AddStudentModal({
               options={batchOptions}
               value={student.year}
               onChange={value => onChange({ ...student, year: value })}
+            />
+          </div>
+
+          <div className="py-2 flex justify-center">
+            <TurnstileWidget
+              action="student_create"
+              onSuccess={(tok) => setTurnstileToken(tok)}
+              onError={() => setTurnstileToken("")}
+              onExpire={() => setTurnstileToken("")}
             />
           </div>
 

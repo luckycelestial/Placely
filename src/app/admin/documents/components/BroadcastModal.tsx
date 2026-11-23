@@ -110,7 +110,7 @@ export function BroadcastModal({
               <SearchableSelect 
                 options={priorityOptions}
                 value={priority} 
-                onChange={(val) => setPriority(val as any)}
+                onChange={(val) => setPriority(val as "Urgent" | "Reminder" | "Informational")}
               />
             </div>
             <div className="space-y-1.5">

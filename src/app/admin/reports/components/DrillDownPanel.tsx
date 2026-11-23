@@ -3,7 +3,7 @@
 import React from "react";
 import { LuX, LuLoader, LuIndianRupee } from "react-icons/lu";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Selection, CrossData, DEPT_PALETTE, C, TT } from "../types";
+import { Selection, CrossData, DEPT_PALETTE, C, TT, CrossItem } from "../types";
 
 export function DrillDownPanel({
   selected,
@@ -67,11 +67,11 @@ export function DrillDownPanel({
       ? data?.depts ?? []
       : (data?.years ?? []).map((y) => ({ ...y, name: y.year }));
 
-  const maxLeft = Math.max(1, ...leftData.map((d: any) => d.hires));
-  const maxRight = Math.max(1, ...rightData.map((d: any) => d.hires));
+  const maxLeft = Math.max(1, ...leftData.map((d: CrossItem) => d.hires));
+  const maxRight = Math.max(1, ...rightData.map((d: CrossItem) => d.hires));
 
   // Reusable inline bar row
-  function BarRow({ d, i, palette, max }: { d: any; i: number; palette: string[]; max: number }) {
+  function BarRow({ d, i, palette, max }: { d: CrossItem; i: number; palette: string[]; max: number }) {
     const color = palette[i % palette.length];
     const fillPct = Math.max(2, (d.hires / max) * 100);
     return (
@@ -161,7 +161,7 @@ export function DrillDownPanel({
               </div>
             ) : (
               <div className="space-y-2.5">
-                {leftData.slice(0, 8).map((d: any, i: number) => (
+                {leftData.slice(0, 8).map((d: CrossItem, i: number) => (
                   <BarRow key={d.name} d={d} i={i} palette={DEPT_PALETTE} max={maxLeft} />
                 ))}
               </div>
@@ -178,7 +178,7 @@ export function DrillDownPanel({
             ) : showBarList ? (
               /* Bar list: right panel */
               <div className="space-y-2.5">
-                {rightData.slice(0, 8).map((d: any, i: number) => (
+                {rightData.slice(0, 8).map((d: CrossItem, i: number) => (
                   <BarRow key={d.name} d={d} i={i} palette={DEPT_PALETTE} max={maxRight} />
                 ))}
               </div>
@@ -206,7 +206,7 @@ export function DrillDownPanel({
                         tickLine={false}
                         tick={{ fontSize: 10, fontWeight: 800, fill: "#8e8e93" }}
                       />
-                      <Tooltip {...TT} formatter={(v: any) => [`${v} hires`, "Offers"]} />
+                      <Tooltip {...TT} formatter={(v: string | number | undefined) => [`${v} hires`, "Offers"]} />
                       <Area
                         type="monotone"
                         dataKey="hires"
@@ -220,7 +220,7 @@ export function DrillDownPanel({
                 </div>
                 {/* Year summary pills */}
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  {rightData.map((d: any) => (
+                  {rightData.map((d: CrossItem) => (
                     <div
                       key={d.name}
                       className="flex items-center justify-between px-3 py-2 rounded-xl bg-background border border-border-subtle"

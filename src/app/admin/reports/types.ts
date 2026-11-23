@@ -116,7 +116,21 @@ export const TT = {
   labelStyle: { fontSize: "12px", fontWeight: 900, marginBottom: "6px", color: "#1f1f1f" },
 };
 
-export function getClientCrossAnalytics(selected: Selection, students: any[]): CrossData {
+export interface CrossAnalyticsStudent {
+  id?: string;
+  name?: string;
+  email?: string;
+  regNo?: string;
+  status?: string;
+  dept?: string;
+  company?: string;
+  year?: string;
+  specializations?: string[];
+  placementGroup?: string;
+  package_ctc?: number | string;
+}
+
+export function getClientCrossAnalytics(selected: Selection, students: CrossAnalyticsStudent[]): CrossData {
   if (!selected) return { companies: [], depts: [], years: [] };
 
   const filtered = students.filter((s) => {
@@ -141,7 +155,7 @@ export function getClientCrossAnalytics(selected: Selection, students: any[]): C
         try {
           const parsed = JSON.parse(rawPref);
           val = parsed["placement_groups"] || parsed["placement_group"] || "";
-        } catch (e) {}
+        } catch { /* ignore JSON parsing error */ }
       } else {
         val = rawPref;
       }

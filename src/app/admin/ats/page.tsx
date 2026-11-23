@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { LuDownload, LuMoveRight, LuPlus, LuSlidersHorizontal, LuX, LuRotateCcw, LuSearch, LuFilter, LuEye } from "react-icons/lu";
+import { LuMoveRight, LuPlus, LuSlidersHorizontal, LuX, LuRotateCcw, LuSearch, LuFilter, LuEye } from "react-icons/lu";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { db } from "@/services/database";
 import * as XLSX from "xlsx";
@@ -18,15 +18,45 @@ import {
   getMetaStageId,
   resolveStagesForDrive,
 } from "./types";
-import { AtsColumn } from "./ats-column";
+import { AtsColumn, type AtsDrive } from "./ats-column";
 import { AddStageModal, RemoveStageModal, MoveSelectedModal } from "./ats-modals";
+
+interface AtsAppRecord {
+  id: string;
+  current_stage?: string;
+  outcome?: string | number;
+  updated_at?: string;
+  students?: {
+    name?: string;
+    register_number?: string;
+    roll_number?: string;
+    department?: string;
+    users?: { name?: string } | { name?: string }[];
+  } | {
+    name?: string;
+    register_number?: string;
+    roll_number?: string;
+    department?: string;
+    users?: { name?: string } | { name?: string }[];
+  }[];
+  job_drives?: {
+    batch?: string;
+    role_title?: string;
+    companies?: { name?: string } | { name?: string }[];
+  } | {
+    batch?: string;
+    role_title?: string;
+    companies?: { name?: string } | { name?: string }[];
+  }[];
+}
 
 // ---------- Main content ----------
 function ATSTrackerContent() {
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [applications, setApplications] = useState<Application[]>([]);
-  const [drives, setDrives] = useState<any[]>([]);
+  const [drives, setDrives] = useState<AtsDrive[]>([]);
   const [batches, setBatches] = useState<string[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,8 +85,7 @@ function ATSTrackerContent() {
   const [openMappingDropdown, setOpenMappingDropdown] = useState<string | null>(null);
 
   // ---------- Data loading ----------
-  const loadInitialData = async () => {
-    setLoading(true);
+  const loadInitialData = useCallback(async () => {
     try {
       const [appsData, drivesData, batchesData, deptsData] = await Promise.all([
         db.getApplications({
@@ -74,7 +103,7 @@ function ATSTrackerContent() {
       ]);
 
       setApplications(
-        appsData.map((app: any) => {
+        appsData.map((app: AtsAppRecord) => {
           const student = Array.isArray(app.students) ? app.students[0] : app.students;
           const user = Array.isArray(student?.users) ? student.users[0] : student?.users;
           const drive = Array.isArray(app.job_drives) ? app.job_drives[0] : app.job_drives;
@@ -101,7 +130,7 @@ function ATSTrackerContent() {
         })
       );
 
-      setDrives(drivesData);
+      setDrives(drivesData as AtsDrive[]);
       setBatches(batchesData);
       setDepartments(deptsData);
 
@@ -110,14 +139,14 @@ function ATSTrackerContent() {
 
       // Resolve stages for the selected drive
       if (activeDrive !== "All Drives") {
-        const drive = drivesData.find((d: any) => d.id === activeDrive);
+        const drive = (drivesData as AtsDrive[]).find((d) => d.id === activeDrive);
         let savedStages: Stage[] | null = null;
         try {
           const rules =
             typeof drive?.eligibility_rules === "string"
               ? JSON.parse(drive.eligibility_rules)
               : drive?.eligibility_rules;
-          savedStages = rules?.stages ?? null;
+          savedStages = (rules as { stages?: Stage[] } | null | undefined)?.stages ?? null;
         } catch (e) {
           console.error("Failed to parse stages:", e);
         }
@@ -126,7 +155,7 @@ function ATSTrackerContent() {
 
         // Verify we have all stages represented
         const merged = [...resolved];
-        appsData.forEach((app: any) => {
+        appsData.forEach((app: AtsAppRecord) => {
           const st = app.current_stage;
           if (st && st !== "applied") {
             if (!merged.find((m) => m.id === st))
@@ -142,9 +171,7 @@ function ATSTrackerContent() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  }, [activeDrive, activeBatch, activeDept, startDate, endDate, debouncedSearch]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -154,7 +181,101 @@ function ATSTrackerContent() {
   }, [search]);
 
   useEffect(() => {
-    loadInitialData();
+    let ignore = false;
+    async function load() {
+      try {
+        const [appsData, drivesData, batchesData, deptsData] = await Promise.all([
+          db.getApplications({
+            driveId: activeDrive === "All Drives" ? undefined : activeDrive,
+            batch: activeBatch === "All Batches" ? undefined : activeBatch,
+            department: activeDept === "All Departments" ? undefined : activeDept,
+            startDate: startDate || undefined,
+            endDate: endDate || undefined,
+            search: debouncedSearch.trim() || undefined,
+            limit: 1000,
+          }),
+          db.getDrives(),
+          db.getDistinctBatches(),
+          db.getDistinctDepartments(),
+        ]);
+        if (ignore) return;
+
+        setApplications(
+          appsData.map((app: AtsAppRecord) => {
+            const student = Array.isArray(app.students) ? app.students[0] : app.students;
+            const user = Array.isArray(student?.users) ? student.users[0] : student?.users;
+            const drive = Array.isArray(app.job_drives) ? app.job_drives[0] : app.job_drives;
+            const company = Array.isArray(drive?.companies) ? drive.companies[0] : drive?.companies;
+            return {
+              id: app.id,
+              name: user?.name || "Unknown",
+              regNo: student?.register_number || "N/A",
+              rollNo: student?.roll_number || student?.register_number || "N/A",
+              dept: student?.department || "N/A",
+              batch: drive?.batch || "N/A",
+              company: company?.name || "Unknown",
+              role: drive?.role_title || "N/A",
+              stage: app.current_stage || "applied",
+              ctc: app.outcome ? String(app.outcome).replace(/[^0-9.]/g, "") : "",
+              updated: db.formatRelativeTime(app.updated_at),
+              avatar: (user?.name || "U")
+                .split(" ")
+                .map((n: string) => n[0])
+                .join("")
+                .toUpperCase()
+                .substring(0, 2),
+            };
+          })
+        );
+
+        setDrives(drivesData as AtsDrive[]);
+        setBatches(batchesData);
+        setDepartments(deptsData);
+
+        const defaultStagesData = await getSettingByKey<Stage[]>('default_ats_stages', DEFAULT_STAGES);
+        setDefaultStages(defaultStagesData);
+
+        // Resolve stages for the selected drive
+        if (activeDrive !== "All Drives") {
+          const drive = (drivesData as AtsDrive[]).find((d) => d.id === activeDrive);
+          let savedStages: Stage[] | null = null;
+          try {
+            const rules =
+              typeof drive?.eligibility_rules === "string"
+                ? JSON.parse(drive.eligibility_rules)
+                : drive?.eligibility_rules;
+            savedStages = (rules as { stages?: Stage[] } | null | undefined)?.stages ?? null;
+          } catch (e) {
+            console.error("Failed to parse stages:", e);
+          }
+
+          const resolved = (savedStages && savedStages.length > 0) ? savedStages : defaultStagesData;
+
+          // Verify we have all stages represented
+          const merged = [...resolved];
+          appsData.forEach((app: AtsAppRecord) => {
+            const st = app.current_stage;
+            if (st && st !== "applied") {
+              if (!merged.find((m) => m.id === st))
+                merged.push({ id: st as string, name: st as string, color: "bg-gray-500" });
+            }
+          });
+          setStages(merged);
+        } else {
+          setStages(GLOBAL_META_STAGES);
+        }
+      } catch (error) {
+        console.error("Failed to load ATS data:", error);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+    load();
+    return () => {
+      ignore = true;
+    };
   }, [activeDrive, activeBatch, activeDept, startDate, endDate, debouncedSearch]);
 
   useEffect(() => {
@@ -192,8 +313,8 @@ function ATSTrackerContent() {
     );
     try {
       await db.updateApplicationStage(id, resolvedStageId);
-    } catch (error: any) {
-      const msg = error?.message || error?.error_description || JSON.stringify(error) || 'Unknown error';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : typeof error === 'object' && error !== null && 'message' in error ? String((error as { message: unknown }).message) : 'Unknown error';
       console.error("Failed to update stage:", msg, error);
       toast.error(`Failed to move card: ${msg}`);
       loadInitialData();
@@ -206,7 +327,11 @@ function ATSTrackerContent() {
   const handleToggleSelect = (id: string) => {
     setSelectedApps((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -311,7 +436,7 @@ function ATSTrackerContent() {
       await db.updateApplicationCtc(id, value);
       toast.success("CTC updated");
       setApplications((prev) => prev.map((app) => (app.id === id ? { ...app, ctc: value } : app)));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("CTC Update Error:", error);
       toast.error("Failed to update CTC");
     }
@@ -418,13 +543,13 @@ function ATSTrackerContent() {
                 { value: "All Drives", label: "All Drives" },
                 ...[...drives]
                   .sort((a, b) => {
-                    const countA = (a.applications as any)?.[0]?.count ?? 0;
-                    const countB = (b.applications as any)?.[0]?.count ?? 0;
+                    const countA = a.applications?.[0]?.count ?? 0;
+                    const countB = b.applications?.[0]?.count ?? 0;
                     return countB - countA;
                   })
                   .map((d) => {
-                    const count = (d.applications as any)?.[0]?.count ?? 0;
-                    return { value: d.id, label: `(${count}) ${d.companies?.name} - ${d.role_title}` };
+                    const count = d.applications?.[0]?.count ?? 0;
+                    return { value: d.id || "", label: `(${count}) ${d.companies?.name} - ${d.role_title}` };
                   }),
               ]}
               value={activeDrive}

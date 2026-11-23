@@ -5,8 +5,6 @@ import { STUDENT_NAV_ITEMS } from "./nav-config";
 import { 
   LuSearch, 
   LuBell, 
-  LuUser, 
-  LuShield, 
   LuX, 
   LuArrowRight, 
   LuTriangleAlert, 
@@ -14,32 +12,53 @@ import {
   LuInfo 
 } from "react-icons/lu";
 import Link from "next/link";
-import { TypographyToggle } from "./typography-toggle";
-import { DesignToggle } from "./design-toggle";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { db } from "@/services/database";
-import { DEV_STUDENT_ID } from "@/lib/dev-config";
+import { DEV_STUDENT_ID, isValidUuid } from "@/lib/dev-config";
 import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
+import { DesignToggle } from "./design-toggle";
+import { TypographyToggle } from "./typography-toggle";
+
+interface HeaderNotification {
+  id: string;
+  title: string;
+  description: string;
+  type: "Action Required" | "Info";
+  priority: "high" | "medium" | "low";
+  timestamp: string;
+  isRead: boolean;
+  category: "general";
+}
+
+interface HeaderStudentProfile {
+  name?: string;
+  users?: {
+    name?: string;
+  };
+}
 
 export function Header() {
   const pathname = usePathname();
-  const [student, setStudent] = useState<any>(null);
+  const [student, setStudent] = useState<HeaderStudentProfile | null>(null);
   const currentItem = STUDENT_NAV_ITEMS.find((item) => item.href === pathname);
   const title = currentItem?.title || "CareerBridge";
 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [selectedNotification, setSelectedNotification] = useState<any>(null);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<HeaderNotification | null>(null);
+  const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
+  const [, setLoading] = useState(true);
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
 
   useEffect(() => {
-    setMounted(true);
     async function loadProfile() {
+      if (!DEV_STUDENT_ID || !isValidUuid(DEV_STUDENT_ID)) {
+        setStudent(null);
+        return;
+      }
       try {
         const data = await db.getStudentProfile(DEV_STUDENT_ID);
-        setStudent(data);
+        setStudent(data as HeaderStudentProfile);
       } catch (error) {
         console.error("Error loading header profile:", error);
       }
@@ -52,7 +71,7 @@ export function Header() {
       try {
         const notices = await db.getNotices();
 
-        const mappedNotices = (notices || []).map((n: any) => ({
+        const mappedNotices = (notices || []).map((n: { id: string; title: string; body?: string; summary?: string; priority?: string; publish_at?: string }) => ({
           id: n.id,
           title: n.title,
           description: n.body || n.summary || n.title,
@@ -111,10 +130,8 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* COMMENTED OUT: Design & Typography Toggles
           <DesignToggle />
           <TypographyToggle />
-          */}
 
           <div className="relative">
             <button 

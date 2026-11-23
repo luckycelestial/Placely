@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { setLoggedStudentId } from "@/lib/dev-config";
-import { LuZap, LuShield, LuGraduationCap, LuArrowRight, LuUserCheck } from "react-icons/lu";
+import { LuZap, LuShield, LuGraduationCap, LuArrowRight } from "react-icons/lu";
 
 interface DevRoleOption {
   title: string;
@@ -51,6 +53,17 @@ const DEV_OPTIONS: DevRoleOption[] = [
 
 export default function DevLoginPage() {
   const router = useRouter();
+  const isDev = process.env.NEXT_PUBLIC_APP_ENV === "local" || process.env.NODE_ENV !== "production";
+
+  useEffect(() => {
+    if (!isDev) {
+      router.replace("/");
+    }
+  }, [isDev, router]);
+
+  if (!isDev) {
+    return null;
+  }
 
   const handleSelect = (option: DevRoleOption) => {
     if (option.role === "admin") {
@@ -128,12 +141,12 @@ export default function DevLoginPage() {
         </div>
 
         <div className="text-center pt-2">
-          <a
+          <Link
             href="/"
             className="text-xs font-semibold text-white/40 hover:text-white/80 transition-colors inline-flex items-center gap-1.5"
           >
             ← Standard Google Login Page
-          </a>
+          </Link>
         </div>
       </div>
     </div>

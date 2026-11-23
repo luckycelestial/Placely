@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     }
 
     return Response.json({ valid: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error validating drive link:', err);
     return Response.json({ valid: false, error: 'Could not connect to the link. Make sure it is public and valid.' });
   }

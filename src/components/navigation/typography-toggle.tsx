@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { LuType, LuCheck } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 
@@ -16,13 +16,7 @@ export function TypographyToggle() {
   const [currentTheme, setCurrentTheme] = useState("default");
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("careerbridge-theme") || "default";
-    setCurrentTheme(saved);
-    applyTheme(saved);
-  }, []);
-
-  const applyTheme = (themeId: string) => {
+  const applyTheme = useCallback((themeId: string) => {
     const theme = THEMES.find(t => t.id === themeId);
     if (!theme) return;
 
@@ -33,7 +27,13 @@ export function TypographyToggle() {
     if (theme.class) html.classList.add(theme.class);
     
     localStorage.setItem("careerbridge-theme", themeId);
-  };
+  }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("careerbridge-theme") || "default";
+    setCurrentTheme(saved);
+    applyTheme(saved);
+  }, [applyTheme]);
 
   const handleSelect = (themeId: string) => {
     setCurrentTheme(themeId);

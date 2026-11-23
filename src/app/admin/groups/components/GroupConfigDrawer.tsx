@@ -165,7 +165,7 @@ export function GroupConfigDrawer({
             </div>
 
             <div className="space-y-2 overflow-y-auto max-h-[350px] pr-1 custom-scrollbar">
-              {activeGroup.options.map((option) => {
+              {(activeGroup.options || []).map((option) => {
                 const count = optionCounts[option] || 0;
                 const isDeleteConfirm = confirmDeleteOption === option;
 
@@ -215,7 +215,7 @@ export function GroupConfigDrawer({
                   </div>
                 );
               })}
-              {activeGroup.options.length === 0 && (
+              {(activeGroup.options || []).length === 0 && (
                 <div className="text-center text-xs text-muted font-bold italic py-8 bg-background border border-dashed border-border-subtle rounded-2xl">
                   No options defined yet.
                 </div>

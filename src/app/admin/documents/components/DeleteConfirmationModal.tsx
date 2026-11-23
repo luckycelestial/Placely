@@ -20,7 +20,7 @@ export function DeleteConfirmationModal({ title, onClose, onConfirm }: DeleteCon
         </button>
         <h3 className="font-display text-2xl font-black tracking-tight mb-4">Delete Document Request?</h3>
         <p className="text-xs font-bold text-muted mb-6 leading-relaxed">
-          Are you sure you want to delete the request for <span className="text-foreground">"{title}"</span>? This will permanently remove the broadcast upload notice and all student submissions for this document.
+          Are you sure you want to delete the request for <span className="text-foreground">&quot;{title}&quot;</span>? This will permanently remove the broadcast upload notice and all student submissions for this document.
         </p>
         
         <div className="flex gap-4">

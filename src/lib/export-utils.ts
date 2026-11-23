@@ -1,14 +1,12 @@
 import * as XLSX from "xlsx";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/services/database";
 
 async function logExportAction(format: 'excel' | 'pdf', filename: string, rowCount: number) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('audit_logs').insert({
+    await db.logAudit({
       action: 'EXPORT_DATA',
       resource: 'reports',
       resource_id: filename,
-      actor_user_id: user?.id || null,
       details: {
         format,
         filename,
@@ -21,7 +19,7 @@ async function logExportAction(format: 'excel' | 'pdf', filename: string, rowCou
   }
 }
 
-export function exportToExcel(data: any[], filename: string, sheetName: string = "Sheet1") {
+export function exportToExcel(data: Record<string, unknown>[], filename: string, sheetName: string = "Sheet1") {
   const worksheet = XLSX.utils.json_to_sheet(data);
   
   if (data.length > 0) {
@@ -90,14 +88,14 @@ export function exportToExcel(data: any[], filename: string, sheetName: string =
 function getColLetter(colIndex: number): string {
   let letter = "";
   while (colIndex > 0) {
-    let temp = (colIndex - 1) % 26;
+    const temp = (colIndex - 1) % 26;
     letter = String.fromCharCode(65 + temp) + letter;
     colIndex = Math.floor((colIndex - temp) / 26);
   }
   return letter;
 }
 
-export async function exportToPDF(title: string, headers: string[], rows: any[][], filename: string) {
+export async function exportToPDF(title: string, headers: string[], rows: (string | number)[][], filename: string) {
   const { jsPDF } = await import("jspdf");
   const autoTable = (await import("jspdf-autotable")).default;
 
