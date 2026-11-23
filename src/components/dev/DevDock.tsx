@@ -87,7 +87,7 @@ export function DevDock() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isDev]);
+  }, []);
 
   // Never render in production
   if (!isDev || (!isVisible && process.env.NEXT_PUBLIC_SHOW_DEV_DOCK !== "true")) {
