@@ -17,6 +17,7 @@ interface StudentStatus {
   department: string;
   submissionId?: string;
   url?: string;
+  storagePath?: string;
   status: "Completed" | "Pending" | "Rejected" | "Not Provided";
   updatedAt?: string;
 }

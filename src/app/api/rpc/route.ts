@@ -25,9 +25,39 @@ interface ActionPolicy {
  */
 const ACTION_POLICIES: Record<string, ActionPolicy> = {
   // ── Public / Anonymous Safe Queries ──
-  getStudents: { role: "public" },
   getSystemSettings: { role: "public" },
-  getSettingByKey: { role: "public" },
+  getSettingByKey: {
+    role: "public",
+    ownership: (user, args) => {
+      const requestedKey = typeof args[0] === "string" ? args[0] : "";
+      // Public / Anonymous allowlist (safe settings needed before login)
+      const PUBLIC_ALLOWED_SETTING_KEYS = new Set([
+        "academic_year_completion",
+        "system_status",
+        "branding",
+      ]);
+      // Authenticated student allowlist
+      const STUDENT_ALLOWED_SETTING_KEYS = new Set([
+        "academic_year_completion",
+        "system_status",
+        "branding",
+        "custom_groups",
+        "deleted_default_documents",
+      ]);
+
+      if (user.role === "admin") {
+        return true;
+      }
+      if (user.role === "student") {
+        return STUDENT_ALLOWED_SETTING_KEYS.has(requestedKey);
+      }
+      // Anonymous / Guest
+      return PUBLIC_ALLOWED_SETTING_KEYS.has(requestedKey);
+    },
+  },
+
+  // ── Admin-Only Directory & System Actions ──
+  getStudents: { role: "admin" },
 
   // ── Authenticated / Student-Safe Actions ──
   getDrives: { role: "authenticated" },
@@ -324,8 +354,9 @@ export async function POST(req: Request) {
     }
 
     // 4. Ownership Boundary Check
-    if (policy.ownership && authUser) {
-      const isOwner = await policy.ownership(authUser, args);
+    if (policy.ownership) {
+      const effectiveUser: AuthenticatedUser = authUser || { id: "anonymous", role: "guest" };
+      const isOwner = await policy.ownership(effectiveUser, args);
       if (!isOwner) {
         return NextResponse.json(
           { success: false, error: "Forbidden: You do not have permission to access or modify this record." },

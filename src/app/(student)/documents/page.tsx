@@ -23,6 +23,7 @@ import { DEV_STUDENT_ID, isValidUuid } from "@/lib/dev-config";
 import { toast } from "sonner";
 import { getSystemSettings, getSettingByKey } from "@/services/settings";
 import { getYearFromBatch, getBatchRangeFromYear, getRomanYear } from "@/lib/batch-utils";
+import { uploadFileToR2, getSignedDownloadUrl, deleteFileFromR2 } from "@/lib/api-client";
 
 function getGoogleDrivePreviewUrl(url: string): string | null {
   if (!url) return null;
@@ -350,23 +351,11 @@ export default function DocumentsCenterPage() {
 
       setUploading(true);
       try {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-        formData.append("category", type === "Resume" ? "resume" : "document");
-        formData.append("identifier", DEV_STUDENT_ID);
-        formData.append("docTitle", title.trim());
-
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Failed to upload file to Cloudflare R2");
-        }
-
-        const uploadData = await res.json();
+        const uploadData = await uploadFileToR2(
+          selectedFile,
+          type === "Resume" ? "resume" : "document",
+          title.trim()
+        );
         finalUrl = uploadData.url;
         finalStoragePath = uploadData.key;
         finalFormat = "file";
@@ -451,26 +440,15 @@ export default function DocumentsCenterPage() {
 
         setUploading(true);
         try {
-          const formData = new FormData();
-          formData.append("file", selectedFile);
-          formData.append("category", type === "Resume" ? "resume" : "document");
-          formData.append("identifier", DEV_STUDENT_ID);
-          formData.append("docTitle", title.trim());
+          const uploadData = await uploadFileToR2(
+            selectedFile,
+            type === "Resume" ? "resume" : "document",
+            title.trim()
+          );
 
-          const res = await fetch("/api/upload", {
-            method: "POST",
-            body: formData,
-          });
-
-          if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.error || "Failed to upload file to Cloudflare R2");
-          }
-
-          const uploadData = await res.json();
           // Clean up old file if different
           if (selectedDoc.storagePath && selectedDoc.storagePath !== uploadData.key) {
-            fetch(`/api/upload?key=${encodeURIComponent(selectedDoc.storagePath)}`, { method: "DELETE" }).catch(() => {});
+            deleteFileFromR2(selectedDoc.storagePath).catch(() => {});
           }
 
           finalUrl = uploadData.url;
@@ -571,9 +549,7 @@ export default function DocumentsCenterPage() {
 
     try {
       if (selectedDoc.storagePath) {
-        fetch(`/api/upload?key=${encodeURIComponent(selectedDoc.storagePath)}`, {
-          method: 'DELETE',
-        }).catch((e) => console.warn("Failed to delete from R2:", e));
+        deleteFileFromR2(selectedDoc.storagePath).catch((e) => console.warn("Failed to delete from R2:", e));
       }
 
       const { error } = await supabase
@@ -590,6 +566,22 @@ export default function DocumentsCenterPage() {
       console.error("Failed to delete document:", err);
       toast.error("Failed to delete document.");
     }
+  };
+
+  const handlePreviewDoc = async (doc: Document) => {
+    if (doc.reference === "Not Provided") return;
+    if (doc.storagePath) {
+      try {
+        const presigned = await getSignedDownloadUrl(doc.storagePath);
+        setPreviewDoc({ ...doc, reference: presigned });
+        return;
+      } catch (err: any) {
+        console.error("Failed to generate preview URL:", err);
+        toast.error("Failed to load secure document preview.");
+        return;
+      }
+    }
+    setPreviewDoc(doc);
   };
 
   const filteredDocs = documentsList.filter(doc => {
@@ -699,7 +691,7 @@ export default function DocumentsCenterPage() {
           {filteredDocs.map((doc) => (
             <div 
               key={doc.id} 
-              onClick={() => doc.reference !== "Not Provided" && setPreviewDoc(doc)}
+              onClick={() => doc.reference !== "Not Provided" && handlePreviewDoc(doc)}
               className="app-card group hover:border-primary/50 transition-all cursor-pointer"
             >
               <div className="p-8 flex items-start gap-6">

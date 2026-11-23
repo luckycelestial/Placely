@@ -348,6 +348,8 @@ export async function updateProfilePicture(userId: string, avatarUrl: string) {
   return { id: userId, avatar_url: avatarUrl };
 }
 
+import { authenticatedFetch } from '@/lib/api-client';
+
 export async function uploadAvatar(userId: string, file: File | Blob): Promise<string> {
   try {
     const formData = new FormData();
@@ -355,7 +357,7 @@ export async function uploadAvatar(userId: string, file: File | Blob): Promise<s
     formData.append('category', 'avatar');
     formData.append('identifier', userId);
 
-    const res = await fetch('/api/upload', {
+    const res = await authenticatedFetch('/api/upload', {
       method: 'POST',
       body: formData,
     });

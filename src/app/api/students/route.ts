@@ -1,12 +1,21 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuthenticatedUser } from '@/lib/auth-server';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser || authUser.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Forbidden: Admin authorization required to query student directory.' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get('limit') || '30', 10);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '30', 10), 100);
 
     const students = await prisma.student.findMany({
       take: limit,

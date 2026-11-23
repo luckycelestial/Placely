@@ -25,6 +25,7 @@ import { EditModal } from "./components/EditModal";
 import { DeleteConfirmationModal } from "./components/DeleteConfirmationModal";
 import { DetailsModal } from "./components/DetailsModal";
 import { PreviewModal } from "./components/PreviewModal";
+import { getSignedDownloadUrl } from "@/lib/api-client";
 
 interface StudentStatus {
   studentId: string;
@@ -33,6 +34,7 @@ interface StudentStatus {
   department: string;
   submissionId?: string;
   url?: string;
+  storagePath?: string;
   status: "Completed" | "Pending" | "Rejected" | "Not Provided";
   updatedAt?: string;
 }
@@ -268,7 +270,7 @@ export default function AdminDocumentsPage() {
       // Fetch all uploaded student documents
       const { data: docsData, error: docsErr } = await supabase
         .from("student_documents")
-        .select("id, student_id, title, document_type, url, verification_status, updated_at")
+        .select("id, student_id, title, document_type, url, storage_path, verification_status, updated_at")
         .order("updated_at", { ascending: false });
 
       if (docsErr) throw docsErr;
@@ -376,6 +378,7 @@ export default function AdminDocumentsPage() {
               department: std.department || "N/A",
               submissionId: upload?.id || std.id,
               url: finalUrl,
+              storagePath: upload?.storage_path || undefined,
               status: mappedStatus,
               updatedAt: upload?.updated_at ? new Date(upload.updated_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : "Verified"
             };
@@ -704,11 +707,19 @@ export default function AdminDocumentsPage() {
             setSelectedDetailsDoc(null);
           }}
           onUpdateStatus={handleUpdateStatus}
-          onPreviewStudentDoc={(std) => {
+          onPreviewStudentDoc={async (std) => {
+            let viewUrl = std.url!;
+            if (std.storagePath) {
+              try {
+                viewUrl = await getSignedDownloadUrl(std.storagePath);
+              } catch (e) {
+                console.error("Failed to generate signed download url:", e);
+              }
+            }
             setPreviewDoc({
               title: activeDetailsDoc.title,
               type: activeDetailsDoc.type,
-              url: std.url!,
+              url: viewUrl,
               studentName: std.name,
               studentRegisterNumber: std.registerNumber,
               submissionId: std.submissionId!,

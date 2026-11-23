@@ -12,7 +12,6 @@ import {
 } from "react-icons/lu";
 import { TurnstileWidget, type TurnstileWidgetRef } from "@/components/turnstile-widget";
 import { cn } from "@/lib/utils";
-import { db, clearStudentsCache } from "@/services/database";
 import { setLoggedStudentId } from "@/lib/dev-config";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -46,8 +45,8 @@ export default function TenantEntryPage() {
     if (showDemo) {
       async function loadProfiles() {
         try {
-          // Fetch via server API route to avoid direct browser DB queries
-          const res = await fetch('/api/students?limit=30');
+          // Fetch via isolated demo API route in development
+          const res = await fetch('/api/students/demo');
           if (res.ok) {
             const json = await res.json();
             if (Array.isArray(json.data) && json.data.length > 0) {
@@ -55,10 +54,6 @@ export default function TenantEntryPage() {
               return;
             }
           }
-          // Fallback
-          clearStudentsCache();
-          const { data } = await db.getStudents({ pageSize: 30 });
-          setStudents((data || []) as unknown as QuickLoginStudent[]);
         } catch (err: unknown) {
           console.error("Failed to load student profiles:", err);
         } finally {
@@ -66,6 +61,8 @@ export default function TenantEntryPage() {
         }
       }
       loadProfiles();
+    } else {
+      setLoadingStudents(false);
     }
   }, [showDemo]);
 

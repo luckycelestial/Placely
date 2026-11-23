@@ -8,6 +8,13 @@ export interface AuthenticatedUser {
   studentId?: string;
 }
 
+const ALLOWED_DEV_ADMIN_EMAILS = new Set([
+  "admin@placely.test",
+  "admin@placely.com",
+  "superadmin@placely.com",
+  "placement-admin@college.edu",
+]);
+
 /**
  * Extracts and verifies the caller's session and role from an incoming request.
  */
@@ -28,7 +35,8 @@ export async function getAuthenticatedUser(req: Request): Promise<AuthenticatedU
             .maybeSingle();
 
           let studentId: string | undefined;
-          if (dbUser?.role === "student") {
+          const userRole = dbUser?.role;
+          if (userRole === "student") {
             const { data: student } = await serverDb
               .from("students")
               .select("id")
@@ -37,10 +45,13 @@ export async function getAuthenticatedUser(req: Request): Promise<AuthenticatedU
             studentId = student?.id;
           }
 
+          const resolvedRole: "admin" | "student" | "guest" =
+            userRole === "admin" ? "admin" : userRole === "student" ? "student" : "guest";
+
           return {
             id: user.id,
             email: user.email || dbUser?.email,
-            role: (dbUser?.role as "admin" | "student") || "student",
+            role: resolvedRole,
             studentId,
           };
         }
@@ -50,25 +61,34 @@ export async function getAuthenticatedUser(req: Request): Promise<AuthenticatedU
     }
   }
 
-  // 2. Local Development Persona fallback (ONLY enabled in non-production or local env)
-  const isLocalDev = process.env.NEXT_PUBLIC_APP_ENV === "local" || process.env.NODE_ENV !== "production";
-  if (isLocalDev) {
-    const adminEmail = req.headers.get("x-placely-admin-email");
-    if (adminEmail && adminEmail.toLowerCase().includes("admin")) {
-      return {
-        id: "local-dev-admin-id",
-        email: adminEmail,
-        role: "admin",
-      };
-    }
+  // 2. Local Development Persona fallback (STRICTLY disabled in production)
+  const isProduction = process.env.NODE_ENV === "production";
+  if (!isProduction) {
+    const isExplicitDevEnv =
+      process.env.APP_ENV === "local" ||
+      process.env.APP_ENV === "test" ||
+      process.env.NEXT_PUBLIC_APP_ENV === "local" ||
+      process.env.NODE_ENV === "test" ||
+      process.env.NODE_ENV === "development";
 
-    const devStudentId = req.headers.get("x-placely-student-id");
-    if (devStudentId) {
-      return {
-        id: "local-dev-student-id",
-        role: "student",
-        studentId: devStudentId,
-      };
+    if (isExplicitDevEnv) {
+      const adminEmail = req.headers.get("x-placely-admin-email");
+      if (adminEmail && ALLOWED_DEV_ADMIN_EMAILS.has(adminEmail.toLowerCase())) {
+        return {
+          id: "local-dev-admin-id",
+          email: adminEmail,
+          role: "admin",
+        };
+      }
+
+      const devStudentId = req.headers.get("x-placely-student-id");
+      if (devStudentId) {
+        return {
+          id: "local-dev-student-id",
+          role: "student",
+          studentId: devStudentId,
+        };
+      }
     }
   }
 
