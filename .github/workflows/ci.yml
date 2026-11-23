@@ -11,28 +11,14 @@ jobs:
     name: Type Check, Lint & Automated Tests
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgrespassword
-          POSTGRES_DB: postgres
-        ports:
-          - 54322:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     env:
-      DATABASE_URL: "postgresql://postgres:postgrespassword@127.0.0.1:54322/postgres"
+      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
       SUPABASE_URL: "http://127.0.0.1:54321"
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321"
-      SUPABASE_SERVICE_ROLE_KEY: "dummy-service-role-key-for-ci"
-      SUPABASE_ANON_KEY: "dummy-anon-key-for-ci"
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "dummy-anon-key-for-ci"
+      SUPABASE_SERVICE_ROLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: "GOCSPX-dummy-secret-for-ci"
       JWT_SECRET: "dummy-jwt-secret-for-ci-testing-purposes-32-chars"
       APP_ENV: "test"
 
@@ -46,6 +32,14 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase Local Stack
+        run: supabase start
+
       - name: Install dependencies
         run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
@@ -57,23 +51,6 @@ jobs:
 
       - name: ESLint Check
         run: npm run lint
-
-      - name: Bootstrap CI Database Roles
-        run: |
-          docker exec $(docker ps -q --filter ancestor=postgres:15-alpine) psql -U postgres -d postgres -c "
-            DO \$\$
-            BEGIN
-              IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
-                CREATE ROLE anon NOLOGIN;
-              END IF;
-              IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
-                CREATE ROLE authenticated NOLOGIN;
-              END IF;
-              IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'service_role') THEN
-                CREATE ROLE service_role NOLOGIN;
-              END IF;
-            END \$\$;
-          " || true
 
       - name: Apply Prisma Migrations
         run: npx prisma migrate deploy
