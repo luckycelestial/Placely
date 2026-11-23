@@ -7,7 +7,7 @@ import * as analytics from "./services/analytics";
 import * as communications from "./services/communications";
 import * as core from "./services/core";
 import * as settings from "./services/settings";
-import * as queue from "./services/queue";
+import { enqueueJob } from "./services/queue";
 
 export const serverServices: Record<string, any> = {
   ...students,
@@ -17,5 +17,5 @@ export const serverServices: Record<string, any> = {
   ...communications,
   ...core,
   ...settings,
-  ...queue,
+  enqueueJob,
 };

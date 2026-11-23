@@ -13,138 +13,6 @@ export function formatRelativeTime(dateString: string) {
   return `${Math.floor(diffInSeconds / 86400)} days ago`;
 }
 
-const ALLOWED_QUERY_TABLES = new Set([
-  "students",
-  "job_drives",
-  "companies",
-  "notices",
-  "events",
-  "applications",
-  "offers",
-  "student_profiles",
-  "student_projects",
-  "student_documents",
-  "notice_rsvps",
-  "audit_logs",
-  "users",
-]);
-
-const ALLOWED_UPDATE_CELL_TABLES = new Set([
-  "student_projects",
-  "student_documents",
-  "students",
-]);
-
-const FORBIDDEN_STUDENT_CELL_COLUMNS = new Set([
-  "cgpa",
-  "active_arrears",
-  "history_of_backlogs",
-  "placement_status",
-  "verification_status",
-  "user_id",
-  "id",
-]);
-
-const ALLOWED_UPSERT_TABLES = new Set([
-  "student_projects",
-  "student_documents",
-  "notice_rsvps",
-]);
-
-export async function upsertTableData(tableName: string, data: Record<string, unknown>[]) {
-  if (!ALLOWED_UPSERT_TABLES.has(tableName)) {
-    throw new Error(`Direct upsert to table '${tableName}' is forbidden.`);
-  }
-
-  const { data: result, error } = await supabase
-    .from(tableName)
-    .upsert(data);
-  if (error) throw error;
-  return result;
-}
-
-export async function getTableData(tableName: string, options?: { limit?: number; offset?: number; search?: string; year?: string }) {
-  if (!ALLOWED_QUERY_TABLES.has(tableName)) {
-    throw new Error(`Direct query to table '${tableName}' is forbidden.`);
-  }
-
-  let query = supabase
-    .from(tableName)
-    .select('*');
-
-  if (tableName === "students") {
-    if (options?.year) {
-      const yearNum = parseInt(options.year, 10);
-      if (!isNaN(yearNum)) query = query.eq('year', yearNum);
-    }
-    if (options?.search) {
-      query = query.or(`name.ilike.%${options.search}%,register_number.ilike.%${options.search}%,roll_number.ilike.%${options.search}%`);
-    }
-  } else if (options?.search && tableName !== "settings") {
-    if (tableName === "companies" || tableName === "job_drives" || tableName === "users") {
-      query = query.ilike('name', `%${options.search}%`);
-    }
-  }
-
-  query = query.order('created_at', { ascending: false });
-
-  if (options?.limit !== undefined) {
-    const from = options.offset || 0;
-    const to = from + options.limit - 1;
-    query = query.range(from, to);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
-}
-
-export async function getTableCount(tableName: string, options?: { search?: string; year?: string }) {
-  let query = supabase
-    .from(tableName)
-    .select('*', { count: 'exact', head: true });
-
-  if (tableName === "students") {
-    if (options?.year) {
-      const yearNum = parseInt(options.year, 10);
-      if (!isNaN(yearNum)) query = query.eq('year', yearNum);
-    }
-    if (options?.search) {
-      query = query.or(`name.ilike.%${options.search}%,register_number.ilike.%${options.search}%,roll_number.ilike.%${options.search}%`);
-    }
-  } else if (options?.search && tableName !== "settings") {
-    if (tableName === "companies" || tableName === "job_drives" || tableName === "users") {
-      query = query.ilike('name', `%${options.search}%`);
-    }
-  }
-
-  const { count, error } = await query;
-  if (error) throw error;
-  return count || 0;
-}
-
-export async function updateTableCell(tableName: string, id: string, updatedFields: Record<string, unknown>) {
-  if (!ALLOWED_UPDATE_CELL_TABLES.has(tableName)) {
-    throw new Error(`Direct cell update on table '${tableName}' is forbidden.`);
-  }
-
-  // Prevent modifying critical security & academic columns via generic cell update
-  if (tableName === "students") {
-    for (const key of Object.keys(updatedFields)) {
-      if (FORBIDDEN_STUDENT_CELL_COLUMNS.has(key)) {
-        throw new Error(`Column '${key}' cannot be modified via updateTableCell.`);
-      }
-    }
-  }
-
-  const { error } = await supabase
-    .from(tableName)
-    .update(updatedFields)
-    .eq('id', id);
-  if (error) throw error;
-  return { id, success: true };
-}
-
 interface PendingApprovalRow {
   id: string;
   offer_status: string;
@@ -223,6 +91,16 @@ export async function createStudentProject(payload: Record<string, unknown>) {
   const { data, error } = await supabase
     .from('student_projects')
     .insert([payload])
+    .select();
+  if (error) throw error;
+  return data?.[0] || payload;
+}
+
+export async function updateStudentProject(id: string, payload: Record<string, unknown>) {
+  const { data, error } = await supabase
+    .from('student_projects')
+    .update({ ...payload, updated_at: new Date().toISOString() })
+    .eq('id', id)
     .select();
   if (error) throw error;
   return data?.[0] || payload;
@@ -329,45 +207,5 @@ export async function updateStudentDocumentVerification(id: string, status: stri
     .select();
   if (error) throw error;
   return data?.[0];
-}
-
-export async function executeServerQuery(queryObj: {
-  table: string;
-  select?: string;
-  filters?: Array<{ column: string; op: 'eq' | 'neq' | 'in' | 'ilike'; value: unknown }>;
-  order?: { column: string; ascending?: boolean };
-  limit?: number;
-}) {
-  if (!ALLOWED_QUERY_TABLES.has(queryObj.table)) {
-    throw new Error(`Direct query to table '${queryObj.table}' is restricted.`);
-  }
-
-  let selectStr = queryObj.select || '*';
-
-  // Sanitize user queries: Never expose password or internal metadata
-  if (queryObj.table === "users") {
-    if (selectStr === '*' || /password|secret|token|hash/i.test(selectStr)) {
-      selectStr = 'id, name, email, role, avatar_url, phone, status, created_at';
-    }
-  }
-
-  let query = supabase.from(queryObj.table).select(selectStr);
-  if (queryObj.filters) {
-    for (const f of queryObj.filters) {
-      if (f.op === 'eq') query = query.eq(f.column, f.value as string);
-      if (f.op === 'neq') query = query.neq(f.column, f.value as string);
-      if (f.op === 'in') query = query.in(f.column, f.value as string[]);
-      if (f.op === 'ilike') query = query.ilike(f.column, f.value as string);
-    }
-  }
-  if (queryObj.order) {
-    query = query.order(queryObj.order.column, { ascending: queryObj.order.ascending ?? true });
-  }
-  if (queryObj.limit) {
-    query = query.limit(Math.min(queryObj.limit, 100));
-  }
-  const { data, error } = await query;
-  if (error) throw error;
-  return data;
 }
 

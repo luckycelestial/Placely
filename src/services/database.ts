@@ -43,19 +43,15 @@ export const getStudentApplications = (...args: unknown[]) => apiCall("getStuden
 export const getStudentOffers = (...args: unknown[]) => apiCall("getStudentOffers", ...args);
 export const applyToDrive = (...args: unknown[]) => apiCall("applyToDrive", ...args);
 export const acceptOffer = (...args: unknown[]) => apiCall("acceptOffer", ...args);
-export const getTableData = (...args: unknown[]) => apiCall("getTableData", ...args);
-export const getTableCount = (...args: unknown[]) => apiCall("getTableCount", ...args);
-export const updateTableCell = (...args: unknown[]) => apiCall("updateTableCell", ...args);
-export const upsertTableData = (...args: unknown[]) => apiCall("upsertTableData", ...args);
 export const getStudentProjects = (...args: unknown[]) => apiCall("getStudentProjects", ...args);
 export const createStudentProject = (...args: unknown[]) => apiCall("createStudentProject", ...args);
+export const updateStudentProject = (...args: unknown[]) => apiCall("updateStudentProject", ...args);
 export const deleteStudentProject = (...args: unknown[]) => apiCall("deleteStudentProject", ...args);
 export const getAdminTasks = (...args: unknown[]) => apiCall("getAdminTasks", ...args);
 export const getNoticeRsvps = (...args: unknown[]) => apiCall("getNoticeRsvps", ...args);
 export const getLeaderboardData = (...args: unknown[]) => apiCall("getLeaderboardData", ...args);
 export const logAudit = (...args: unknown[]) => apiCall("logAudit", ...args);
 export const enqueueJob = (...args: unknown[]) => apiCall("enqueueJob", ...args);
-export const runJobProcessingCycle = (...args: unknown[]) => apiCall("runJobProcessingCycle", ...args);
 
 // Dynamic backend proxy covering ALL database operations
 export const db: any = new Proxy(
@@ -86,17 +82,15 @@ export const db: any = new Proxy(
     getStudentOffers,
     applyToDrive,
     acceptOffer,
-    getTableData,
-    getTableCount,
-    updateTableCell,
-    upsertTableData,
     getStudentProjects,
     createStudentProject,
+    updateStudentProject,
     deleteStudentProject,
     getAdminTasks,
     getNoticeRsvps,
     getLeaderboardData,
     logAudit,
+    enqueueJob,
   },
   {
     get(target: Record<string, any>, prop: string) {

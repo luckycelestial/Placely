@@ -538,7 +538,7 @@ export default function ProgressPage() {
       };
 
       if (editingProject) {
-        await db.updateTableCell("student_projects", editingProject.id, payload);
+        await db.updateStudentProject(editingProject.id, payload);
         toast.success("Project updated successfully.");
       } else {
         await db.createStudentProject(payload);

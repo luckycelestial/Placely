@@ -177,7 +177,7 @@ export default function DriveDialog({ isOpen, onClose, onSuccess, drive }: Drive
 
   const loadCompanies = async () => {
     try {
-      const data = await db.getTableData('companies');
+      const data = await db.getCompanies();
       setCompanies((data || []) as CompanyDialogData[]);
     } catch (err) {
       console.error("Failed to load companies", err);

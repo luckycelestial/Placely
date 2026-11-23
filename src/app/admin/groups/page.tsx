@@ -224,7 +224,7 @@ export default function AdminGroupsPage() {
 
       if (group.id === "departments") {
         const newDept = action === 'remove' ? "" : option;
-        await db.updateTableCell("students", studentId, { department: newDept });
+        await db.syncStudentRow(studentId, { department: newDept });
         setStudents(prev => prev.map(s => s.id === studentId ? { ...s, dept: newDept } : s));
       } else if (group.id === "batches") {
         let newYear = 0;
@@ -232,7 +232,7 @@ export default function AdminGroupsPage() {
           const parts = option.split('-');
           newYear = parseInt(parts[parts.length - 1]) || 0;
         }
-        await db.updateTableCell("students", studentId, { year: newYear });
+        await db.syncStudentRow(studentId, { year: newYear });
         setStudents(prev => prev.map(s => s.id === studentId ? { ...s, year: action === 'remove' ? "" : option } : s));
       } else if (group.type === "student_selectable") {
         const currentSpecs: string[] = targetStudent.specializations || [];
@@ -316,11 +316,11 @@ export default function AdminGroupsPage() {
         if (!targetStudent) return;
 
         if (activeGroup.id === "departments") {
-          await db.updateTableCell("students", studentId, { department: clear ? "" : option });
+          await db.syncStudentRow(studentId, { department: clear ? "" : option });
         } else if (activeGroup.id === "batches") {
           const parts = option.split('-');
           const endYear = parseInt(parts[parts.length - 1]) || 0;
-          await db.updateTableCell("students", studentId, { year: clear ? 0 : endYear });
+          await db.syncStudentRow(studentId, { year: clear ? 0 : endYear });
         } else if (activeGroup.type === "student_selectable") {
           const currentSpecs: string[] = targetStudent.specializations || [];
           let updatedSpecs: string[];

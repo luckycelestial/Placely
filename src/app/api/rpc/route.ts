@@ -1,124 +1,94 @@
 import { NextResponse } from "next/server";
 import { serverServices } from "@/server";
 import { verifyTurnstileToken } from "@/lib/turnstile-server";
-import { getAuthenticatedUser } from "@/lib/auth-server";
+import { getAuthenticatedUser, type AuthenticatedUser } from "@/lib/auth-server";
 
-// Actions requiring Turnstile bot protection
-const PROTECTED_ACTIONS: Record<string, string> = {
+// Bot protection requirements for sensitive entry points
+const BOT_PROTECTED_ACTIONS: Record<string, string> = {
   applyToDrive: "job_apply",
   createStudent: "student_create",
 };
 
-// Internal-only queue & system actions that must NEVER be called directly over RPC
-const INTERNAL_ONLY_ACTIONS = new Set([
-  "claimPendingJobs",
-  "executeJob",
-  "runJobProcessingCycle",
-]);
+type RoleRequirement = "admin" | "student" | "authenticated" | "public";
 
-// Administrative actions that strictly require admin role
-const ADMIN_ONLY_ACTIONS = new Set([
-  "createStudent",
-  "deleteStudent",
-  "syncStudentRow",
-  "updateStudentVerification",
-  "flagStudent",
-  "createDrive",
-  "updateDrive",
-  "deleteDrive",
-  "updateDriveStages",
-  "updateAllDriveStages",
-  "createCompany",
-  "updateCompany",
-  "deleteCompany",
-  "createTemplate",
-  "updateTemplate",
-  "deleteTemplate",
-  "bulkUpdateApplicationStage",
-  "updateApplicationStage",
-  "resetApplicationsStage",
-  "deleteOffer",
-  "updateOffer",
-  "updateOfferStatus",
-  "updateOfferVerification",
-  "bulkCreateOffers",
-  "updateApplicationCtc",
-  "createNotice",
-  "updateNotice",
-  "deleteNotice",
-  "toggleNoticePin",
-  "createEvent",
-  "updateEvent",
-  "deleteEvent",
-  "updateSystemSettings",
-  "updateSettingByKey",
-  "bulkCreateStudents",
-  "bulkUploadResults",
-]);
+interface ActionPolicy {
+  role: RoleRequirement;
+  ownership?: (user: AuthenticatedUser, args: any[]) => boolean | Promise<boolean>;
+  sanitizeArgs?: (user: AuthenticatedUser, args: any[]) => any[];
+}
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const { action, args = [], turnstileToken } = body;
+/**
+ * Strict Action Registry & Access Control Matrix (Allowlist)
+ * Every callable RPC action MUST be explicitly registered here with its minimum role
+ * and ownership boundaries. Unregistered actions and generic database helpers are blocked by default.
+ */
+const ACTION_POLICIES: Record<string, ActionPolicy> = {
+  // ── Public / Anonymous Safe Queries ──
+  getStudents: { role: "public" },
+  getSystemSettings: { role: "public" },
+  getSettingByKey: { role: "public" },
 
-    if (!action || typeof action !== "string") {
-      return NextResponse.json(
-        { success: false, error: "Action name is required." },
-        { status: 400 }
-      );
-    }
+  // ── Authenticated / Student-Safe Actions ──
+  getDrives: { role: "authenticated" },
+  getCompanies: { role: "authenticated" },
+  getDistinctBatches: { role: "authenticated" },
+  getDistinctDepartments: { role: "authenticated" },
+  getTemplates: { role: "authenticated" },
+  getNotices: { role: "authenticated" },
+  getNoticesAll: { role: "authenticated" },
+  getEvents: { role: "authenticated" },
+  getEventsAll: { role: "authenticated" },
+  getNoticeRsvps: { role: "authenticated" },
+  getLeaderboardData: { role: "authenticated" },
+  getRecentActivity: { role: "authenticated" },
+  logAudit: { role: "authenticated" },
+  enqueueJob: { role: "authenticated" },
 
-    // 1. Block internal-only actions
-    if (INTERNAL_ONLY_ACTIONS.has(action)) {
-      return NextResponse.json(
-        { success: false, error: `Action '${action}' is restricted to internal background tasks.` },
-        { status: 403 }
-      );
-    }
-
-    // 2. Validate Turnstile token if required
-    if (PROTECTED_ACTIONS[action]) {
-      const token = req.headers.get("cf-turnstile-response") || turnstileToken;
-      const remoteIp = req.headers.get("x-forwarded-for") ?? undefined;
-      const verification = await verifyTurnstileToken({
-        token,
-        expectedAction: PROTECTED_ACTIONS[action],
-        remoteIp,
-      });
-
-      if (!verification.success) {
-        return NextResponse.json(
-          { success: false, error: verification.error || "Turnstile verification failed" },
-          { status: 403 }
-        );
+  // ── Student-Scoped Operations with Strict Ownership ──
+  applyToDrive: {
+    role: "authenticated",
+    ownership: (user, args) => {
+      // Force student ID to match authenticated user
+      if (user.role === "student" && user.studentId) {
+        args[0] = user.studentId;
       }
-    }
-
-    // 3. Enforce Role-Based Access Control for Administrative Actions
-    if (ADMIN_ONLY_ACTIONS.has(action)) {
-      const authUser = await getAuthenticatedUser(req);
-      if (!authUser || authUser.role !== "admin") {
-        return NextResponse.json(
-          { success: false, error: "Unauthorized: Admin privileges required." },
-          { status: 403 }
-        );
-      }
-    }
-
-    // 4. Protect student profile updates against privilege escalation and academic record tampering
-    if (action === "updateStudentProfile") {
-      const authUser = await getAuthenticatedUser(req);
-      if (authUser && authUser.role !== "admin") {
-        // Enforce student can only update their own profile
-        const targetStudentId = args[0];
-        if (authUser.studentId && targetStudentId !== authUser.studentId) {
-          return NextResponse.json(
-            { success: false, error: "Forbidden: You cannot modify another student's profile." },
-            { status: 403 }
-          );
-        }
-
-        // Sanitize payload: strip academic & administrative columns from non-admin updates
+      return user.role === "admin" || (user.role === "student" && Boolean(user.studentId));
+    },
+  },
+  getStudentAppliedDriveIds: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  getStudentApplications: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  getStudentOffers: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  getStudentApplicationStats: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  acceptOffer: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  setOfferJoiningDate: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  getStudentProfile: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  updateStudentProfile: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+    sanitizeArgs: (user, args) => {
+      // Non-admin callers cannot modify academic, batch, or verification columns
+      if (user.role !== "admin") {
         const payload = (args[1] || {}) as Record<string, unknown>;
         const sanitized: Record<string, unknown> = { ...payload };
         const FORBIDDEN_STUDENT_FIELDS = [
@@ -139,26 +109,213 @@ export async function POST(req: Request) {
         FORBIDDEN_STUDENT_FIELDS.forEach((f) => delete sanitized[f]);
         args[1] = sanitized;
       }
-    }
-
-    // 5. Enforce that students can only apply on their own behalf
-    if (action === "applyToDrive") {
-      const authUser = await getAuthenticatedUser(req);
-      if (authUser && authUser.role === "student" && authUser.studentId) {
-        // Force the first argument (studentId) to match the authenticated student ID
-        args[0] = authUser.studentId;
+      return args;
+    },
+  },
+  uploadAvatar: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.id,
+  },
+  getStudentDashboardStats: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  getStudentActivity: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  generateStudentProfilePDF: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  generateStudentReport: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  getStudentProjects: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  createStudentProject: {
+    role: "authenticated",
+    ownership: (user, args) => {
+      if (user.role === "student" && user.studentId) {
+        if (!args[0]) args[0] = {};
+        args[0].student_id = user.studentId;
       }
-    }
+      return true;
+    },
+  },
+  updateStudentProject: {
+    role: "authenticated",
+  },
+  deleteStudentProject: {
+    role: "authenticated",
+  },
+  getStudentDocuments: {
+    role: "authenticated",
+    ownership: (user, args) => user.role === "admin" || args[0] === user.studentId,
+  },
+  upsertStudentDocument: {
+    role: "authenticated",
+    ownership: (user, args) => {
+      if (user.role === "student" && user.studentId) {
+        if (!args[0]) args[0] = {};
+        args[0].student_id = user.studentId;
+      }
+      return user.role === "admin" || (user.role === "student" && args[0]?.student_id === user.studentId);
+    },
+  },
+  deleteStudentDocument: {
+    role: "authenticated",
+  },
 
-    const handler = serverServices[action];
-    if (typeof handler !== "function") {
+  // ── Administrative Operations (Strict Admin Role Required) ──
+  getAllStudents: { role: "admin" },
+  createStudent: { role: "admin" },
+  deleteStudent: { role: "admin" },
+  syncStudentRow: { role: "admin" },
+  updateStudentVerification: { role: "admin" },
+  flagStudent: { role: "admin" },
+  bulkCreateStudents: { role: "admin" },
+  bulkUploadResults: { role: "admin" },
+  getFilteredStudentCount: { role: "admin" },
+
+  createDrive: { role: "admin" },
+  updateDrive: { role: "admin" },
+  deleteDrive: { role: "admin" },
+  updateDriveStages: { role: "admin" },
+  updateAllDriveStages: { role: "admin" },
+  createCompany: { role: "admin" },
+  updateCompany: { role: "admin" },
+  deleteCompany: { role: "admin" },
+  createTemplate: { role: "admin" },
+  updateTemplate: { role: "admin" },
+  deleteTemplate: { role: "admin" },
+
+  getApplications: { role: "admin" },
+  updateApplicationStage: { role: "admin" },
+  bulkUpdateApplicationStage: { role: "admin" },
+  resetApplicationsStage: { role: "admin" },
+  updateApplicationCtc: { role: "admin" },
+  getOffers: { role: "admin" },
+  deleteOffer: { role: "admin" },
+  updateOffer: { role: "admin" },
+  updateOfferStatus: { role: "admin" },
+  updateOfferVerification: { role: "admin" },
+  bulkCreateOffers: { role: "admin" },
+
+  createNotice: { role: "admin" },
+  updateNotice: { role: "admin" },
+  deleteNotice: { role: "admin" },
+  toggleNoticePin: { role: "admin" },
+  createEvent: { role: "admin" },
+  updateEvent: { role: "admin" },
+  deleteEvent: { role: "admin" },
+
+  getDashboardStats: { role: "admin" },
+  getApplicationStats: { role: "admin" },
+  getReportStats: { role: "admin" },
+  getTrendData: { role: "admin" },
+  getDepartmentAnalytics: { role: "admin" },
+  getCompanyAnalytics: { role: "admin" },
+  getYearAnalytics: { role: "admin" },
+  getCrossAnalytics: { role: "admin" },
+  generateSystemReport: { role: "admin" },
+  getPendingApprovals: { role: "admin" },
+  getAdminTasks: { role: "admin" },
+
+  getAllStudentDocuments: { role: "admin" },
+  updateStudentDocumentVerification: { role: "admin" },
+
+  updateSystemSettings: { role: "admin" },
+  updateSettingByKey: { role: "admin" },
+};
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { action, args = [], turnstileToken } = body;
+
+    if (!action || typeof action !== "string") {
       return NextResponse.json(
-        { success: false, error: `Invalid backend action: '${action}'` },
-        { status: 404 }
+        { success: false, error: "Action name is required." },
+        { status: 400 }
       );
     }
 
-    const data = await handler(...args);
+    // 1. Strict Allowlist Gate: Reject unapproved actions or generic database helpers
+    const policy = ACTION_POLICIES[action];
+    if (!policy) {
+      console.warn(`[Security Gate] Blocked unregistered action: '${action}'`);
+      return NextResponse.json(
+        { success: false, error: `Action '${action}' is not permitted.` },
+        { status: 403 }
+      );
+    }
+
+    // 2. Authentication Enforcement: Require an authenticated session by default
+    const authUser = await getAuthenticatedUser(req);
+    if (policy.role !== "public" && !authUser) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: Authentication required." },
+        { status: 401 }
+      );
+    }
+
+    // 3. Minimum Role Enforcement
+    if (policy.role === "admin" && authUser?.role !== "admin") {
+      return NextResponse.json(
+        { success: false, error: "Forbidden: Admin privileges required." },
+        { status: 403 }
+      );
+    }
+
+    // 4. Ownership Boundary Check
+    if (policy.ownership && authUser) {
+      const isOwner = await policy.ownership(authUser, args);
+      if (!isOwner) {
+        return NextResponse.json(
+          { success: false, error: "Forbidden: You do not have permission to access or modify this record." },
+          { status: 403 }
+        );
+      }
+    }
+
+    // 5. Argument Sanitization
+    let finalArgs = args;
+    if (policy.sanitizeArgs && authUser) {
+      finalArgs = policy.sanitizeArgs(authUser, args);
+    }
+
+    // 6. Bot Protection Verification (Turnstile)
+    if (BOT_PROTECTED_ACTIONS[action]) {
+      const token = req.headers.get("cf-turnstile-response") || turnstileToken;
+      const remoteIp = req.headers.get("x-forwarded-for") ?? undefined;
+      const verification = await verifyTurnstileToken({
+        token,
+        expectedAction: BOT_PROTECTED_ACTIONS[action],
+        remoteIp,
+      });
+
+      if (!verification.success) {
+        return NextResponse.json(
+          { success: false, error: verification.error || "Turnstile verification failed" },
+          { status: 403 }
+        );
+      }
+    }
+
+    // 7. Handler Execution
+    const handler = serverServices[action];
+    if (typeof handler !== "function") {
+      return NextResponse.json(
+        { success: false, error: `Handler for action '${action}' is not implemented.` },
+        { status: 501 }
+      );
+    }
+
+    const data = await handler(...finalArgs);
     return NextResponse.json({ success: true, data });
   } catch (error: unknown) {
     let message = "Internal server error";
