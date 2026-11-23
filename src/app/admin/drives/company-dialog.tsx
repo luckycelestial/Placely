@@ -72,7 +72,7 @@ export default function CompanyDialog({ isOpen, onClose, onSuccess, company }: C
           hr_name: company.hr_name || "",
           hr_email: company.hr_email || "",
           hr_phone: company.hr_phone || "",
-          status: company.status?.toLowerCase() || "active"
+          status: company.status?.toLowerCase() === "inactive" ? "inactive" : "active"
         });
       } else {
         reset({

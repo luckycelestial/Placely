@@ -144,7 +144,7 @@ export function YearTab({ data, selected, onSelect }: YearTabProps) {
                   tickLine={false}
                   tick={{ fontSize: 10, fontWeight: 800, fill: "#8e8e93" }}
                 />
-                <Tooltip {...TT} formatter={(v: string | number | undefined) => [`${v}%`, "Placement Rate"]} />
+                <Tooltip {...TT} formatter={(v: any) => [`${v}%`, "Placement Rate"]} />
                 <Line
                   type="monotone"
                   dataKey="placementRate"

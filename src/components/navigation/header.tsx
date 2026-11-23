@@ -24,11 +24,11 @@ interface HeaderNotification {
   id: string;
   title: string;
   description: string;
-  type: "Action Required" | "Info";
+  type: "Action Required" | "Info" | "Offer" | "Approval";
   priority: "high" | "medium" | "low";
   timestamp: string;
   isRead: boolean;
-  category: "general";
+  category: "general" | "profile" | "offers" | "applications";
 }
 
 interface HeaderStudentProfile {
@@ -47,7 +47,7 @@ export function Header() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<HeaderNotification | null>(null);
   const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
-  const [, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
 
   useEffect(() => {

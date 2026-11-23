@@ -6,6 +6,7 @@ import { getAuthenticatedUser, type AuthenticatedUser } from "@/lib/auth-server"
 // Bot protection requirements for sensitive entry points
 const BOT_PROTECTED_ACTIONS: Record<string, string> = {
   applyToDrive: "job_apply",
+  applyToDriveWithForm: "job_apply",
   createStudent: "student_create",
 };
 
@@ -43,6 +44,8 @@ const ACTION_POLICIES: Record<string, ActionPolicy> = {
   getRecentActivity: { role: "authenticated" },
   logAudit: { role: "authenticated" },
   enqueueJob: { role: "authenticated" },
+  validatePlacementFormResponses: { role: "authenticated" },
+  evaluateStudentEligibility: { role: "authenticated" },
 
   // ── Student-Scoped Operations with Strict Ownership ──
   applyToDrive: {
@@ -51,6 +54,16 @@ const ACTION_POLICIES: Record<string, ActionPolicy> = {
       // Force student ID to match authenticated user
       if (user.role === "student" && user.studentId) {
         args[0] = user.studentId;
+      }
+      return user.role === "admin" || (user.role === "student" && Boolean(user.studentId));
+    },
+  },
+  applyToDriveWithForm: {
+    role: "authenticated",
+    ownership: (user, args) => {
+      if (user.role === "student" && user.studentId) {
+        if (!args[0]) args[0] = {};
+        args[0].studentId = user.studentId;
       }
       return user.role === "admin" || (user.role === "student" && Boolean(user.studentId));
     },
@@ -230,6 +243,17 @@ const ACTION_POLICIES: Record<string, ActionPolicy> = {
 
   updateSystemSettings: { role: "admin" },
   updateSettingByKey: { role: "admin" },
+
+  // Workflows & Approvals (Admin)
+  generateDriveEligibilityShortlist: { role: "admin" },
+  autoShortlistDriveApplicants: { role: "admin" },
+  scanAndQueueDeadlineReminders: { role: "admin" },
+  reviewStudentDocument: { role: "admin" },
+  reviewOfferApproval: { role: "admin" },
+  reviewDriveApproval: { role: "admin" },
+
+  // Infrastructure & Quota Metrics (Admin)
+  getInfrastructureMetrics: { role: "admin" },
 };
 
 export async function POST(req: Request) {

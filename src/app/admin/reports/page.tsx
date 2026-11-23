@@ -405,7 +405,7 @@ export default function ReportsPage() {
                 (s) => s.company === selected.value && s.status === "Placed"
               );
               const companyPackages = placedInCompany
-                .map((s) => parseFloat(s.package_ctc))
+                .map((s) => parseFloat(String(s.package_ctc || 0)))
                 .filter((p) => !isNaN(p));
               const companyAvg =
                 companyPackages.length > 0
@@ -441,7 +441,7 @@ export default function ReportsPage() {
                 (s) => s.year?.includes(selected.value) && s.status === "Placed"
               );
               const batchPackages = placedInBatch
-                .map((s) => parseFloat(s.package_ctc))
+                .map((s) => parseFloat(String(s.package_ctc || 0)))
                 .filter((p) => !isNaN(p));
               const batchAvg =
                 batchPackages.length > 0

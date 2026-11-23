@@ -206,7 +206,7 @@ export function DrillDownPanel({
                         tickLine={false}
                         tick={{ fontSize: 10, fontWeight: 800, fill: "#8e8e93" }}
                       />
-                      <Tooltip {...TT} formatter={(v: string | number | undefined) => [`${v} hires`, "Offers"]} />
+                      <Tooltip {...TT} formatter={(v: any) => [`${v} hires`, "Offers"]} />
                       <Area
                         type="monotone"
                         dataKey="hires"

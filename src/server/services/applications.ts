@@ -106,25 +106,17 @@ export async function getStudentApplications(studentId: string) {
 }
 
 export async function applyToDrive(studentId: string, driveId: string) {
-  let targetStudentId = studentId;
-
-  if (!targetStudentId && typeof window !== 'undefined') {
-    targetStudentId = localStorage.getItem('active_student_id') || '';
+  if (!studentId || typeof studentId !== 'string' || studentId.trim() === '') {
+    throw new Error("Student ID is required to apply. Please select a student profile.");
   }
-
-  if (!targetStudentId) {
-    const { data: firstStudent } = await supabase.from('students').select('id').limit(1).maybeSingle();
-    if (firstStudent?.id) {
-      targetStudentId = firstStudent.id;
-    } else {
-      throw new Error("Student ID is required to apply. Please select a student profile.");
-    }
+  if (!driveId || typeof driveId !== 'string' || driveId.trim() === '') {
+    throw new Error("Drive ID is required to apply.");
   }
 
   const { data, error } = await supabase
     .from('applications')
     .insert([{
-      student_id: targetStudentId,
+      student_id: studentId,
       drive_id: driveId,
       status: 'Applied',
       current_stage: 'applied',
@@ -389,6 +381,8 @@ export interface BulkOfferInput {
   driveTitle?: string;
   role?: string;
   ctc?: string | number;
+  package?: string | number;
+  outcome?: string;
   status?: string;
   verification?: string;
   joiningDate?: string;
@@ -444,12 +438,12 @@ export async function bulkCreateOffers(offersData: BulkOfferInput[]) {
 
   // 6. Construct batch offers payload
   const offersPayload = offersData.map(item => {
-    const studentId = studentMap.get(item.regNo);
+    const studentId = item.regNo ? studentMap.get(item.regNo) : undefined;
     if (!studentId) {
       console.error(`Student not found for regNo: ${item.regNo}`);
       return null;
     }
-    const companyId = companyMap.get(item.company);
+    const companyId = item.company ? companyMap.get(item.company) : undefined;
     if (!companyId) {
       console.error(`Failed to get/create company: ${item.company}`);
       return null;
@@ -467,7 +461,7 @@ export async function bulkCreateOffers(offersData: BulkOfferInput[]) {
       offer_status: item.outcome || 'accepted',
       verification_status: item.verification || 'verified'
     };
-  }).filter(Boolean);
+  }).filter((o): o is NonNullable<typeof o> => Boolean(o));
 
   if (offersPayload.length === 0) return [];
 

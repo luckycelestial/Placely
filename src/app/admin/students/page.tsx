@@ -222,7 +222,7 @@ function StudentsPageContent() {
         status: statusFilter,
         ...advancedFilters
       });
-      return data.filter(student => 
+      return (data as any[]).filter((student: any) => 
         student.name.toLowerCase().includes(search.toLowerCase()) || 
         student.regNo.toLowerCase().includes(search.toLowerCase())
       );
@@ -241,7 +241,7 @@ function StudentsPageContent() {
         toast.error("No data to export");
         return;
       }
-      const exportRows = data.map(s => ({
+      const exportRows = (data as any[]).map((s: any) => ({
         "Name": s.name,
         "Register Number": s.regNo,
         "Department": s.dept,
@@ -272,7 +272,7 @@ function StudentsPageContent() {
         return;
       }
       const headers = ["Name", "Reg No", "Dept", "Batch", "CGPA", "LeetCode", "Status", "Company", "CTC"];
-      const rows = data.map(s => [
+      const rows = (data as any[]).map((s: any) => [
         s.name,
         s.regNo,
         s.dept,

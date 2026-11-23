@@ -71,7 +71,7 @@ export default function TemplateDialog({ isOpen, onClose, onSuccess, template }:
         reset({
           name: template.name || "",
           roleTitle: template.role_title || "",
-          driveType: template.drive_type || "Full-time",
+          driveType: (template.drive_type as "Full-time" | "Internship" | "Contract" | "Intern + Full-time") || "Full-time",
           package: template.package_ctc || "",
           location: template.location || "",
           minCgpa: template.eligibility_rules?.min_cgpa || 6.0,

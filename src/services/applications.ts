@@ -371,6 +371,8 @@ export interface BulkOfferInput {
   driveTitle?: string;
   role?: string;
   ctc?: string | number;
+  package?: string | number;
+  outcome?: string;
   status?: string;
   verification?: string;
   joiningDate?: string;
@@ -426,12 +428,12 @@ export async function bulkCreateOffers(offersData: BulkOfferInput[]) {
 
   // 6. Construct batch offers payload
   const offersPayload = offersData.map(item => {
-    const studentId = studentMap.get(item.regNo);
+    const studentId = item.regNo ? studentMap.get(item.regNo) : undefined;
     if (!studentId) {
       console.error(`Student not found for regNo: ${item.regNo}`);
       return null;
     }
-    const companyId = companyMap.get(item.company);
+    const companyId = item.company ? companyMap.get(item.company) : undefined;
     if (!companyId) {
       console.error(`Failed to get/create company: ${item.company}`);
       return null;
@@ -449,7 +451,7 @@ export async function bulkCreateOffers(offersData: BulkOfferInput[]) {
       offer_status: item.outcome || 'accepted',
       verification_status: item.verification || 'verified'
     };
-  }).filter(Boolean);
+  }).filter((o): o is NonNullable<typeof o> => Boolean(o));
 
   if (offersPayload.length === 0) return [];
 

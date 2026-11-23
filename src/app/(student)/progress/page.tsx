@@ -479,15 +479,10 @@ export default function ProgressPage() {
       const hardVal = hardStats?.count || 0;
 
       const nowStr = new Date().toISOString();
-      const { error: dbError } = await supabase
-        .from("student_profiles")
-        .update({
-          leetcode_count: totalVal,
-          leetcode_last_fetched: nowStr,
-        })
-        .eq("student_id", DEV_STUDENT_ID);
-
-      if (dbError) throw dbError;
+      await db.updateStudentProfile(DEV_STUDENT_ID, {
+        leetcode_count: totalVal,
+        leetcode_last_fetched: nowStr,
+      });
 
       setLeetcodeStats({ total: totalVal, easy: easyVal, medium: mediumVal, hard: hardVal });
       setLastFetched(nowStr);

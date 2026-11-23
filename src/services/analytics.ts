@@ -206,7 +206,7 @@ export async function getCompanyAnalytics() {
     if (error) throw error;
 
     const map: Record<string, { hires: number; ctcSum: number; maxCtc: number; industry: string }> = {};
-    (offers || []).forEach((o: { created_at?: string | null; package_ctc?: string | number | null }) => {
+    (offers || []).forEach((o: any) => {
       const companyName = o.companies?.name || o.companies?.[0]?.name || 'Unknown';
       const ind = o.companies?.industry || o.companies?.[0]?.industry || 'Technology';
       if (!map[companyName]) map[companyName] = { hires: 0, ctcSum: 0, maxCtc: 0, industry: ind };

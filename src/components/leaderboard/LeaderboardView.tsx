@@ -48,11 +48,11 @@ export function LeaderboardView() {
         const apps = data.applications || [];
 
         // Build data structure
-        const formatted: StudentLeaderboardRow[] = students.map(s => {
-          const profile = profiles.find(p => p.student_id === s.id);
-          const sProj = projects.filter(p => p.student_id === s.id);
-          const sOff = offers.filter(o => o.student_id === s.id);
-          const sApps = apps.filter(a => a.student_id === s.id);
+        const formatted: StudentLeaderboardRow[] = (students as any[]).map((s: any) => {
+          const profile = (profiles as any[]).find((p: any) => p.student_id === s.id);
+          const sProj = (projects as any[]).filter((p: any) => p.student_id === s.id);
+          const sOff = (offers as any[]).filter((o: any) => o.student_id === s.id);
+          const sApps = (apps as any[]).filter((a: any) => a.student_id === s.id);
 
           return {
             id: s.id,

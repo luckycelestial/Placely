@@ -414,7 +414,7 @@ export default function DrivesPage() {
       } else if (activeTab === "Companies") {
         headers = ["Company Name", "Industry", "Website", "HR Email", "HR Phone"];
         rows = companies.map(c => [
-          c.name,
+          c.name || "N/A",
           c.industry || "Technology",
           c.website || "N/A",
           c.hr_email || "N/A",
@@ -423,11 +423,11 @@ export default function DrivesPage() {
       } else if (activeTab === "Templates") {
         headers = ["Template Name", "Role", "Type", "Package", "Location"];
         rows = templates.map(t => [
-          t.name,
-          t.role_title,
-          t.drive_type,
-          t.package_ctc,
-          t.location
+          t.name || "N/A",
+          t.role_title || "N/A",
+          t.drive_type || "Full Time",
+          t.package_ctc || "N/A",
+          t.location || "N/A"
         ]);
       }
 
@@ -661,7 +661,7 @@ export default function DrivesPage() {
                             ))}
                             {(drive.eligibility.branches?.length || 0) > 2 && (
                               <span className="px-2.5 py-1 rounded-lg bg-surface border border-border-subtle text-[9px] font-black text-muted">
-                                +{drive.eligibility.branches.length - 2}
+                                +{(drive.eligibility.branches?.length || 0) - 2}
                               </span>
                             )}
                           </>
@@ -717,7 +717,7 @@ export default function DrivesPage() {
               companies.map((company) => (
                 <div key={company.id} className="bg-surface p-6 rounded-[32px] border border-border-subtle shadow-soft hover:shadow-lg transition-all duration-300 group">
                   <div className="flex items-center justify-between mb-6">
-                    <CompanyLogo name={company.name} size={56} rounded="rounded-2xl" />
+                    <CompanyLogo name={company.name || "Company"} size={56} rounded="rounded-2xl" />
                     <div className="flex gap-2">
                       <button 
                         onClick={() => handleEditCompany(company)}
@@ -746,7 +746,7 @@ export default function DrivesPage() {
                     </div>
                     <div className="flex items-center gap-3 text-sm font-medium text-foreground/80">
                       <LuMail size={16} className="text-primary" />
-                      <span className="truncate">{company.hr_email || 'hiring@' + company.name.toLowerCase().replace(' ', '') + '.com'}</span>
+                      <span className="truncate">{company.hr_email || 'hiring@' + (company.name || 'company').toLowerCase().replace(' ', '') + '.com'}</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm font-medium text-foreground/80">
                       <LuPhone size={16} className="text-primary" />
@@ -783,7 +783,7 @@ export default function DrivesPage() {
                           <LuPencil size={14} />
                         </button>
                         <button 
-                          onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(template.id); }}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(template.id || ""); }}
                           className="h-8 w-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white"
                         >
                           <LuX size={14} />
@@ -824,7 +824,7 @@ export default function DrivesPage() {
         isOpen={isDriveModalOpen}
         onClose={() => setIsDriveModalOpen(false)}
         onSuccess={loadData}
-        drive={selectedDrive}
+        drive={selectedDrive as any}
       />
       <CompanyDialog 
         isOpen={isCompanyModalOpen}

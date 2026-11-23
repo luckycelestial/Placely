@@ -7,6 +7,8 @@ export type BackgroundJobType =
   | "SEND_APPLICATION_NOTIFICATION"
   | "IMPORT_STUDENT_BATCH"
   | "DRIVE_DEADLINE_SYNC"
+  | "SEND_DEADLINE_REMINDER"
+  | "EVALUATE_ELIGIBILITY_SHORTLIST"
   | "DISPATCH_WEBHOOK"
   | "SYNC_EXTERNAL_SHEETS";
 
@@ -29,6 +31,13 @@ export interface BackgroundJobPayloads {
   };
   DRIVE_DEADLINE_SYNC: {
     triggeredBy?: string;
+  };
+  SEND_DEADLINE_REMINDER: {
+    driveId: string;
+    hoursLeft?: number;
+  };
+  EVALUATE_ELIGIBILITY_SHORTLIST: {
+    driveId: string;
   };
   DISPATCH_WEBHOOK: {
     url: string;
@@ -310,6 +319,76 @@ export async function executeJob(job: {
         break;
       }
 
+      case "SEND_DEADLINE_REMINDER": {
+        const { driveId, hoursLeft } = job.payload;
+        if (!driveId) break;
+
+        const { data: drive } = await serverDb
+          .from("job_drives")
+          .select("id, role_title, application_end, companies(name)")
+          .eq("id", driveId)
+          .maybeSingle();
+
+        if (drive) {
+          const companyName = (drive as any).companies?.name || "Company";
+          // Find students who haven't applied yet
+          const { data: applied } = await serverDb
+            .from("applications")
+            .select("student_id")
+            .eq("drive_id", driveId);
+          const appliedStudentIds = new Set((applied || []).map((a: any) => a.student_id));
+
+          const { data: students } = await serverDb
+            .from("students")
+            .select("id, user_id")
+            .limit(500);
+
+          if (students) {
+            const unapplied = students.filter((s: any) => s.user_id && !appliedStudentIds.has(s.id));
+            const notifications = unapplied.slice(0, 100).map((s: any) => ({
+              id: crypto.randomUUID(),
+              user_id: s.user_id,
+              title: `Application Deadline Alert: ${companyName}`,
+              message: `Deadline approaching for ${drive.role_title}${hoursLeft ? ` in ~${hoursLeft} hours` : ""}. Submit your application before it closes!`,
+              type: "warning",
+              is_read: false,
+              link: `/drives`,
+              created_at: new Date().toISOString(),
+            }));
+
+            if (notifications.length > 0) {
+              await serverDb.from("notifications").insert(notifications);
+            }
+          }
+        }
+        break;
+      }
+
+      case "EVALUATE_ELIGIBILITY_SHORTLIST": {
+        const { driveId } = job.payload;
+        if (!driveId) break;
+
+        const { data: drive } = await serverDb
+          .from("job_drives")
+          .select("id, eligibility_rules")
+          .eq("id", driveId)
+          .maybeSingle();
+
+        if (drive && drive.eligibility_rules) {
+          const rules = drive.eligibility_rules as any;
+          let studentQuery = serverDb.from("students").select("id, cgpa, active_arrears, department");
+          if (rules.minCgpa) {
+            studentQuery = studentQuery.gte("cgpa", rules.minCgpa);
+          }
+          if (rules.maxArrears !== undefined) {
+            studentQuery = studentQuery.lte("active_arrears", rules.maxArrears);
+          }
+          const { data: eligible } = await studentQuery;
+          console.log(`[Queue Runner] Evaluated shortlist for drive ${driveId}: ${eligible?.length || 0} candidates`);
+        }
+        break;
+      }
+
       default:
         console.warn(`[Queue Runner] Unknown job type: ${job.job_type}`);
     }
@@ -331,13 +410,22 @@ export async function executeJob(job: {
     console.error(`[Queue Runner] Job ${job.id} failed:`, errorMsg);
 
     const isExhausted = job.attempts >= job.max_attempts;
+    // Exponential backoff: 30s * 2^(attempts - 1)
+    const backoffSeconds = Math.min(3600, 30 * Math.pow(2, Math.max(0, job.attempts - 1)));
+    const nextScheduledFor = new Date(Date.now() + backoffSeconds * 1000).toISOString();
+
+    const updatePayload: Record<string, unknown> = {
+      status: isExhausted ? "failed" : "pending",
+      error: errorMsg,
+      updated_at: new Date().toISOString(),
+    };
+    if (!isExhausted) {
+      updatePayload.scheduled_for = nextScheduledFor;
+    }
+
     await serverDb
       .from("background_jobs")
-      .update({
-        status: isExhausted ? "failed" : "pending",
-        error: errorMsg,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", job.id);
 
     return { success: false, jobId: job.id, error: errorMsg };

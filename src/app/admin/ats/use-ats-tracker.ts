@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { db } from "@/services/database";
 import { getSettingByKey } from "@/services/settings";
@@ -113,53 +113,54 @@ export function useAtsTracker() {
     loadInitialData();
   }, []);
 
-  useEffect(() => {
-    async function fetchApplications() {
-      try {
-        const data = await db.getApplications({
-          driveId: activeDrive === "All Drives" ? undefined : activeDrive,
-          batch: activeBatch === "All Batches" ? undefined : activeBatch,
-          department: activeDept === "All Departments" ? undefined : activeDept,
-          startDate: startDate ? new Date(startDate).toISOString() : undefined,
-          endDate: endDate ? new Date(endDate).toISOString() : undefined,
-        });
+  const fetchApplications = useCallback(async () => {
+    try {
+      const data = await db.getApplications({
+        driveId: activeDrive === "All Drives" ? undefined : activeDrive,
+        batch: activeBatch === "All Batches" ? undefined : activeBatch,
+        department: activeDept === "All Departments" ? undefined : activeDept,
+        startDate: startDate ? new Date(startDate).toISOString() : undefined,
+        endDate: endDate ? new Date(endDate).toISOString() : undefined,
+      });
 
-        const formatted: Application[] = (data || []).map((app: RawApplicationRow) => {
-          const student = Array.isArray(app.students) ? app.students[0] : app.students;
-          const drive = Array.isArray(app.job_drives) ? app.job_drives[0] : app.job_drives;
-          const company = Array.isArray(drive?.companies) ? drive?.companies[0] : drive?.companies;
+      const formatted: Application[] = (data || []).map((app: RawApplicationRow) => {
+        const student = Array.isArray(app.students) ? app.students[0] : app.students;
+        const drive = Array.isArray(app.job_drives) ? app.job_drives[0] : app.job_drives;
+        const company = Array.isArray(drive?.companies) ? drive?.companies[0] : drive?.companies;
 
-          const name = student?.users?.name || student?.name || "Unknown Student";
-          const avatar = name
-            .split(" ")
-            .map((n: string) => n[0])
-            .join("")
-            .toUpperCase()
-            .slice(0, 2);
+        const name = student?.users?.name || student?.name || "Unknown Student";
+        const avatar = name
+          .split(" ")
+          .map((n: string) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2);
 
-          return {
-            id: app.id,
-            name,
-            avatar,
-            rollNo: student?.roll_number || "",
-            regNo: student?.register_number || "REG-" + app.id.slice(0, 6),
-            dept: student?.department || "CSE",
-            batch: drive?.batch || "N/A",
-            company: company?.name || "Tech Corp",
-            role: drive?.role_title || "Software Engineer",
-            stage: app.current_stage || "applied",
-            updated: db.formatRelativeTime(app.updated_at || app.applied_at),
-            ctc: String(app.package_ctc || drive?.package_ctc || "12 - 18 LPA"),
-          };
-        });
+        return {
+          id: app.id,
+          name,
+          avatar,
+          rollNo: student?.roll_number || "",
+          regNo: student?.register_number || "REG-" + app.id.slice(0, 6),
+          dept: student?.department || "CSE",
+          batch: drive?.batch || "N/A",
+          company: company?.name || "Tech Corp",
+          role: drive?.role_title || "Software Engineer",
+          stage: app.current_stage || "applied",
+          updated: db.formatRelativeTime(app.updated_at || app.applied_at),
+          ctc: String(app.package_ctc || drive?.package_ctc || "12 - 18 LPA"),
+        };
+      });
 
-        setApplications(formatted);
-      } catch (err) {
-        console.error("Failed to fetch applications", err);
-      }
+      setApplications(formatted);
+    } catch (err) {
+      console.error("Failed to fetch applications", err);
     }
-    fetchApplications();
   }, [activeDrive, activeBatch, activeDept, startDate, endDate]);
+
+  useEffect(() => {
+    fetchApplications();
+  }, [fetchApplications]);
 
   return {
     search,

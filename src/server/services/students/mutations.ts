@@ -58,7 +58,7 @@ export async function createStudent(studentData: CreateStudentInput) {
   return student;
 }
 
-export async function syncStudentRow(studentId: string, updatedFields: Record<string, unknown>) {
+export async function syncStudentRow(studentId: string, updatedFields: Record<string, any>) {
   // 1. Fetch user_id of the student to update users table if name/email changed
   const { data: student, error: fetchError } = await supabase
     .from('students')
@@ -169,7 +169,7 @@ export async function syncStudentRow(studentId: string, updatedFields: Record<st
   const profileUpdates: Record<string, unknown> = {};
   if ('leetcode' in updatedFields) profileUpdates.leetcode_count = parseInt(String(updatedFields.leetcode), 10);
   if ('specializations' in updatedFields) {
-    let specs = updatedFields.specializations;
+    let specs: any = updatedFields.specializations;
     if (typeof specs === 'string') {
       try { specs = JSON.parse(specs); } catch { specs = specs.split(',').map((s: string) => s.trim()); }
     }
@@ -209,7 +209,7 @@ export async function flagStudent(studentId: string, reason: string) {
     return { id: studentId, verification_status: 'rejected' };
   }
 
-export async function updateStudentProfile(studentId: string, profileData: Record<string, unknown>) {
+export async function updateStudentProfile(studentId: string, profileData: Record<string, any>) {
   // 0. Update users table if name/email are in profileData
   const { data: studentRecord } = await supabase
     .from('students')
@@ -297,7 +297,7 @@ export async function updateStudentProfile(studentId: string, profileData: Recor
     profileUpdates.leetcode_count = parseInt(String(profileData.leetcode ?? profileData.leetcode_count), 10) || 0;
   }
   if (profileData.specializations !== undefined) {
-    let specs = profileData.specializations;
+    let specs: any = profileData.specializations;
     if (typeof specs === 'string') {
       try { specs = JSON.parse(specs); } catch { specs = specs.split(',').map((s: string) => s.trim()).filter(Boolean); }
     }
