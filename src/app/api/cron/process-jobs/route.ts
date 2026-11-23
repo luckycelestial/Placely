@@ -4,10 +4,19 @@ import { runJobProcessingCycle, enqueueJob } from "@/server/services/queue";
 export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get("authorization");
-    const secretKey = process.env.QUEUE_SECRET_KEY || "placely-queue-secret-2026";
+    const secretKey = process.env.QUEUE_SECRET_KEY;
+
+    if (!secretKey) {
+      if (process.env.NODE_ENV === "production") {
+        console.error("[Cron Auth] Critical: QUEUE_SECRET_KEY is not configured.");
+        return NextResponse.json({ ok: false, error: "Server authentication misconfigured." }, { status: 500 });
+      }
+    }
+
+    const effectiveKey = secretKey || "placely-queue-dev-secret";
 
     // Strict authentication check: Header must be present and match Bearer secret
-    if (!authHeader || authHeader !== `Bearer ${secretKey}`) {
+    if (!authHeader || authHeader !== `Bearer ${effectiveKey}`) {
       return NextResponse.json({ ok: false, error: "Unauthorized: Missing or invalid secret key" }, { status: 401 });
     }
 

@@ -99,8 +99,12 @@ export async function enqueueJob<T extends BackgroundJobType>(
  * Non-blocking trigger to wake up the Cloudflare Worker or local background processor.
  */
 function triggerAsyncWorkerWakeup() {
-  const workerUrl = process.env.CLOUDFLARE_WORKER_URL || "http://127.0.0.1:3000/api/cron/process-jobs";
-  const secretKey = process.env.QUEUE_SECRET_KEY || "placely-queue-secret-2026";
+  const workerUrl = process.env.CLOUDFLARE_WORKER_URL || (process.env.NODE_ENV !== "production" ? "http://127.0.0.1:3000/api/cron/process-jobs" : undefined);
+  const secretKey = process.env.QUEUE_SECRET_KEY;
+
+  if (!workerUrl || !secretKey) {
+    return;
+  }
 
   // Detached fire-and-forget fetch
   fetch(workerUrl, {
@@ -272,11 +276,11 @@ export async function executeJob(job: {
       case "DRIVE_DEADLINE_SYNC": {
         const now = new Date().toISOString();
 
-        // 1. Close job drives whose deadline has expired
+        // 1. Close job drives whose deadline has expired (application_end < now)
         const { data: expiredDrives, error: driveErr } = await serverDb
           .from("job_drives")
           .update({ status: "closed", updated_at: now })
-          .lt("deadline", now)
+          .lt("application_end", now)
           .eq("status", "active")
           .select("id, role_title");
 
@@ -297,7 +301,51 @@ export async function executeJob(job: {
 
       case "DISPATCH_WEBHOOK": {
         const { url, event, data } = job.payload;
-        if (!url) throw new Error("Webhook URL is missing.");
+        if (!url || typeof url !== "string") throw new Error("Webhook URL is missing or invalid.");
+
+        let parsed: URL;
+        try {
+          parsed = new URL(url);
+        } catch {
+          throw new Error(`Invalid webhook URL format: ${url}`);
+        }
+
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+          throw new Error(`Unsupported webhook protocol: ${parsed.protocol}`);
+        }
+
+        if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") {
+          throw new Error("Outbound webhooks must use HTTPS in production.");
+        }
+
+        const host = parsed.hostname.toLowerCase();
+        const BLOCKED_HOSTS = [
+          "localhost",
+          "127.0.0.1",
+          "0.0.0.0",
+          "::1",
+          "169.254.169.254",
+          "metadata.google.internal",
+        ];
+
+        const isRestricted =
+          BLOCKED_HOSTS.includes(host) ||
+          host.endsWith(".internal") ||
+          host.endsWith(".local") ||
+          host.endsWith(".localhost") ||
+          /^10\./.test(host) ||
+          /^192\.168\./.test(host) ||
+          /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
+          /^127\./.test(host);
+
+        // Allow localhost loopback only in local unit/integration tests with explicit test env flag
+        const isExplicitTestLoopback =
+          (process.env.NODE_ENV === "test" || process.env.APP_ENV === "test") &&
+          process.env.ALLOW_TEST_LOCALHOST_WEBHOOK === "true";
+
+        if (isRestricted && !isExplicitTestLoopback) {
+          throw new Error(`Outbound webhook destination '${host}' is restricted for security.`);
+        }
 
         const res = await fetch(url, {
           method: "POST",

@@ -32,7 +32,7 @@ export default {
 
     if (request.method === "POST" && (url.pathname === "/wake" || url.pathname === "/process" || url.pathname === "/api/cron/process-jobs")) {
       const authHeader = request.headers.get("Authorization");
-      if (authHeader && authHeader !== `Bearer ${env.QUEUE_SECRET_KEY}`) {
+      if (!authHeader || authHeader !== `Bearer ${env.QUEUE_SECRET_KEY}`) {
         return new Response("Unauthorized", { status: 401 });
       }
 

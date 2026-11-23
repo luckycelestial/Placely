@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { R2_LIMITS, StorageCategory, uploadBufferToR2, deleteFileFromR2 } from '@/lib/r2';
+import { R2_LIMITS, StorageCategory, uploadBufferToR2, deleteFileFromR2, getR2SignedDownloadUrl } from '@/lib/r2';
 import { getAuthenticatedUser } from '@/lib/auth-server';
 
 export const runtime = 'nodejs';
@@ -11,10 +11,9 @@ function sanitizeFilename(name: string): string {
 export async function POST(req: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(req);
-    const isLocalDev = process.env.NEXT_PUBLIC_APP_ENV === 'local' || process.env.NODE_ENV !== 'production';
 
-    // Must be authenticated unless in local dev
-    if (!authUser && !isLocalDev) {
+    // Strict authentication: Valid session or identity required for all uploads
+    if (!authUser) {
       return NextResponse.json({ error: 'Unauthorized: Authentication required to upload files.' }, { status: 401 });
     }
 
@@ -161,6 +160,48 @@ export async function DELETE(req: NextRequest) {
     console.error('R2 Delete error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to delete file from Cloudflare R2' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const key = searchParams.get('key');
+
+    if (!key) {
+      return NextResponse.json({ error: 'Missing file key' }, { status: 400 });
+    }
+
+    if (key.includes('..') || key.includes('\\') || key.startsWith('/') || key.includes('\0')) {
+      return NextResponse.json({ error: 'Invalid key path format' }, { status: 400 });
+    }
+
+    // Authorization: Students can only access their own documents/resumes/avatars
+    if (authUser.role === 'student') {
+      const studentId = authUser.studentId || authUser.id;
+      const isOwner =
+        key.startsWith(`resumes/${studentId}/`) ||
+        key.startsWith(`avatars/${authUser.id}/`) ||
+        key.startsWith(`documents/${studentId}/`);
+
+      if (!isOwner) {
+        return NextResponse.json({ error: 'Forbidden: You cannot access other students private documents' }, { status: 403 });
+      }
+    }
+
+    const signedUrl = await getR2SignedDownloadUrl(key, 900);
+    return NextResponse.json({ ok: true, key, url: signedUrl, expiresIn: 900 });
+  } catch (error: any) {
+    console.error('R2 Pre-signed URL error:', error);
+    return NextResponse.json(
+      { error: error?.message || 'Failed to generate presigned download URL' },
       { status: 500 }
     );
   }

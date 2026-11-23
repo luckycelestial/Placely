@@ -43,7 +43,6 @@ const ACTION_POLICIES: Record<string, ActionPolicy> = {
   getLeaderboardData: { role: "authenticated" },
   getRecentActivity: { role: "authenticated" },
   logAudit: { role: "authenticated" },
-  enqueueJob: { role: "authenticated" },
   validatePlacementFormResponses: { role: "authenticated" },
   evaluateStudentEligibility: { role: "authenticated" },
 
@@ -161,9 +160,23 @@ const ACTION_POLICIES: Record<string, ActionPolicy> = {
   },
   updateStudentProject: {
     role: "authenticated",
+    ownership: async (user, args) => {
+      if (user.role === "admin") return true;
+      const projectId = args[0];
+      if (!projectId || !user.studentId) return false;
+      const projects = await serverServices.getStudentProjects(user.studentId);
+      return Array.isArray(projects) && projects.some((p: any) => p.id === projectId);
+    },
   },
   deleteStudentProject: {
     role: "authenticated",
+    ownership: async (user, args) => {
+      if (user.role === "admin") return true;
+      const projectId = args[0];
+      if (!projectId || !user.studentId) return false;
+      const projects = await serverServices.getStudentProjects(user.studentId);
+      return Array.isArray(projects) && projects.some((p: any) => p.id === projectId);
+    },
   },
   getStudentDocuments: {
     role: "authenticated",
@@ -171,19 +184,34 @@ const ACTION_POLICIES: Record<string, ActionPolicy> = {
   },
   upsertStudentDocument: {
     role: "authenticated",
-    ownership: (user, args) => {
-      if (user.role === "student" && user.studentId) {
-        if (!args[0]) args[0] = {};
-        args[0].student_id = user.studentId;
+    ownership: async (user, args) => {
+      if (user.role === "admin") return true;
+      if (user.role !== "student" || !user.studentId) return false;
+      if (!args[0]) args[0] = {};
+      const docPayload = args[0];
+      if (docPayload.id) {
+        const existingDocs = await serverServices.getStudentDocuments(user.studentId);
+        if (Array.isArray(existingDocs) && !existingDocs.some((d: any) => d.id === docPayload.id)) {
+          return false;
+        }
       }
-      return user.role === "admin" || (user.role === "student" && args[0]?.student_id === user.studentId);
+      docPayload.student_id = user.studentId;
+      return true;
     },
   },
   deleteStudentDocument: {
     role: "authenticated",
+    ownership: async (user, args) => {
+      if (user.role === "admin") return true;
+      const docId = args[0];
+      if (!docId || !user.studentId) return false;
+      const docs = await serverServices.getStudentDocuments(user.studentId);
+      return Array.isArray(docs) && docs.some((d: any) => d.id === docId);
+    },
   },
 
   // ── Administrative Operations (Strict Admin Role Required) ──
+  enqueueJob: { role: "admin" },
   getAllStudents: { role: "admin" },
   createStudent: { role: "admin" },
   deleteStudent: { role: "admin" },

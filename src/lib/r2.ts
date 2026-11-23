@@ -1,4 +1,5 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Storage limits to prevent bucket exhaustion and abuse
 export const R2_LIMITS = {
@@ -103,6 +104,18 @@ export async function uploadBufferToR2({
     key,
     url: getR2PublicUrl(key),
   };
+}
+
+export async function getR2SignedDownloadUrl(key: string, expiresInSeconds: number = 3600): Promise<string> {
+  const client = getR2Client();
+  const bucket = getR2BucketName();
+
+  const command = new GetObjectCommand({
+    Bucket: bucket,
+    Key: key,
+  });
+
+  return getSignedUrl(client, command, { expiresIn: expiresInSeconds });
 }
 
 export async function deleteFileFromR2(key: string) {
